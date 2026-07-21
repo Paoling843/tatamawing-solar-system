@@ -1,0 +1,137 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ChatMessage;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class MessageController extends Controller
+{
+    public function send(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'receiver_id' => 'required|exists:users,id',
+            'message' => 'required|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $sender = $request->user();
+
+        $receiver = User::find($request->receiver_id);
+
+        if ($sender->role !== 'admin' && $receiver->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized message.',
+            ], 403);
+        }
+
+        $chatMessage = ChatMessage::create([
+            'sender_id' => $sender->id,
+            'receiver_id' => $request->receiver_id,
+            'message' => $request->message,
+        ]);
+
+        $chatMessage->load(['sender','receiver']);
+
+        return response()->json([
+            'message' => 'Message sent successfully.',
+            'chat_message' => $chatMessage,
+        ], 201);
+    }
+
+    public function getConversation(Request $request, $userId)
+    {
+        $currentUser = $request->user();
+
+        $messages = ChatMessage::where(function ($query) use ($currentUser, $userId) {
+                $query->where('sender_id', $currentUser->id)
+                    ->where('receiver_id', $userId);
+            })
+            ->orWhere(function ($query) use ($currentUser, $userId) {
+                $query->where('sender_id', $userId)
+                    ->where('receiver_id', $currentUser->id);
+            })
+            ->orderBy('created_at', 'asc')
+            ->with(['sender', 'receiver'])
+            ->get();
+
+        ChatMessage::where('sender_id', $userId)
+            ->where('receiver_id', $currentUser->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json($messages);
+    }
+
+    public function getConversations(Request $request)
+    {
+        $admin =$request->user();
+
+        $messages = ChatMessage::where('sender_id', $admin->id)
+            ->orWhere('receiver_id', $admin->id)
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $conversations = [];
+
+        foreach ($messages as $message) {
+            $otherUserId = $message->sender_id === $admin->id
+                ? $message->receiver_id
+                : $message->sender_id;
+
+            if (!isset($conversations[$otherUserId])) {
+                $otherUser = $message->sender_id === $admin->id
+                ? $message->receiver
+                : $message->sender;
+
+                $unreadCount = ChatMessage::where('sender_id', $otherUserId)
+                    ->where('receiver_id', $admin->id)
+                    ->whereNull('read_at')
+                    ->count();
+
+                $conversations[$otherUserId] = [
+                    'user' => $otherUser,
+                    'latest_message' => $message->message,
+                    'latest_time' => $message->created_at,
+                    'unread_count' => $unreadCount,
+                ];  
+            }
+        }
+
+        return response()->json(array_values($conversations));
+    }
+
+    public function markRead(Request $request, ChatMessage $chatMessage)
+    {
+        $currentUser = $request->user();
+
+        if ($chatMessage->receiver_id !== $currentUser->id) {
+            return response()->json([
+                'message' => 'Forbidden.'
+            ], 403);
+        }
+
+        $chatMessage->update(['read_at' => now()]);
+
+        return response()->json([
+            'message' => 'Message marked as read.',
+            'chat_message' => $chatMessage,
+        ]);
+    }
+
+    public function getAdminId()
+    {
+        $admin = User::where('role', 'admin')->first();
+
+        return response()->json([
+            'admin_id' =>$admin?->id,
+        ]);
+    }
+    
+}
