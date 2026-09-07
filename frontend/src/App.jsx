@@ -3,7 +3,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Import our custom hook to access the logged-in user and loading state
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/auth-context';
 
 // Import all the page components we'll be routing to
 // Make sure these names exactly match the export names in each file
@@ -17,32 +17,29 @@ import SupplierDashboardPage from './pages/SupplierDashboardPage';
 import SupplierPurchaseRequestPage from './pages/SupplierPurchaseRequestPage';
 import CustomerSchedulePage from './pages/CustomerSchedulePage';
 import AdminSchedulePage from './pages/AdminSchedulePage';
-import CustomerChatPage from './pages/CustomerChatPage';
 import SupplierChatPage from './pages/SupplierChatPage';
-import AdminChatPage from './pages/AdminChatPage';
 import AdminInboxPage from './pages/AdminInboxPage';
 import FaqPage from './pages/FaqPage';
 import AdminFaqPage from './pages/AdminFaqPage';
 import AdminReportPage from './pages/AdminReportPage';
 import CustomerDashboardPage from './pages/CustomerDashboardPage';
+import AdminPurchaseRequestsPage from './pages/AdminPurchaseRequests';
+import AdminProjectsPage from './pages/AdminProjectsPage';
+import AdminSystemPage from './pages/AdminSystemPage';
+import CustomerDownloadsPage from './pages/CustomerDownloadsPage';
+import CustomerMyQuotationsPage from './pages/CustomerMyQuotationsPage';
+import LandingPage from './pages/LandingPage';
 
-// ProtectedRoute is a wrapper component that guards pages from unauthorized access
 function ProtectedRoute({ children, allowedRoles }) {
-    // Get the current user and loading state from auth context
     const { user, loading } = useAuth();
 
-    // While checking if user is logged in, show a loading indicator
     if (loading) return <div>Loading...</div>;
 
-    // If no logged-in user, redirect to login page
-    if (!user) return <Navigate to="/login" />;
+    if (!user) return <Navigate to="/" />;
 
-    // If user's role isn't in the allowed list, show forbidden message
     if (allowedRoles && !allowedRoles.includes(user.role)) {
         return <div>Forbidden - you do not have access to this page.</div>;
     }
-
-    // All checks passed — render the actual page
     return children;
 }
 
@@ -50,6 +47,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 export default function App() {
     return (
         <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
@@ -102,22 +100,9 @@ export default function App() {
                     <AdminSchedulePage />
                 </ProtectedRoute>
             } />
-
-            <Route path="/customer/chat" element={
-                <ProtectedRoute allowedRoles={['customer']}>
-                    <CustomerChatPage />
-                </ProtectedRoute>
-            } />
-
             <Route path="/supplier/chat" element={
                 <ProtectedRoute allowedRoles={['supplier']}>
                     <SupplierChatPage />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/admin/chat/:userId" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminChatPage />
                 </ProtectedRoute>
             } />
 
@@ -152,6 +137,34 @@ export default function App() {
                     <AdminSchedulePage />
                 </ProtectedRoute>
             } />
+            <Route path="/admin/purchase-requests" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPurchaseRequestsPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/projects" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminProjectsPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/admin/system" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminSystemPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/customer/quotations" element={
+                <ProtectedRoute allowedRoles={['customer']}>
+                    <CustomerMyQuotationsPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/customer/downloads" element={
+                <ProtectedRoute allowedRoles={['customer']}>
+                    <CustomerDownloadsPage />
+                </ProtectedRoute>
+            } />
+
 
         </Routes>
 

@@ -1,42 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import CustomerLayout from '../components/CustomerLayout';
+import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { colors, typography, radii } from '../styles/theme';
+import { CalendarIcon, CheckCircleIcon, ClockIcon } from '../components/Icons';
 
 export default function CustomerSchedulePage() {
-    const {user, logout} = useAuth();
     const navigate = useNavigate();
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');   
+    const [error, setError] = useState('');
+    // Tracks which row's action menu / expanded details are open
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const [expandedId, setExpandedId] = useState(null);
 
-    useEffect(() => {
-        fetchSchedules();
-    }, []);
 
-    const fetchSchedules = async () => {
+    const fetchSchedules = useCallback(async () => {
         setLoading(true);
         setError('');
 
         try {
             const res = await api.get('/customer/schedules');
             setSchedules(res.data);
-        } catch (err) {
-            setError ('Failed to load your installation schedules.');
+        } catch {
+            setError('Failed to load your installation schedules.');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const handleLogout = async () => {
-            await logout();
-            navigate ('/login');
-    };
+    useEffect(() => {
+        // Start the fetch in a microtask so its state updates land after
+        // this effect returns rather than cascading a render inside it
+        Promise.resolve().then(fetchSchedules);
+    }, [fetchSchedules]);
 
     const formatDate = (dateString) => {
-        return new Date(dateString). toLocaleDateString('en-PH',{
+        return new Date(dateString).toLocaleDateString('en-PH', {
             year: 'numeric',
-            month:'long',
+            month: 'long',
             day: 'numeric',
         });
     };
@@ -49,7 +52,7 @@ export default function CustomerSchedulePage() {
         scheduled.setHours(0, 0, 0, 0);
 
         const diffTime = scheduled - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60* 24));
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 0) return 'Today';
         if (diffDays === 1) return 'Tomorrow';
@@ -57,73 +60,94 @@ export default function CustomerSchedulePage() {
         return `In ${diffDays} days`;
     };
 
-        return (
-        // Outer container with light green background
-        <div style={styles.container}>
+    // Builds a reference number the same way CustomerDownloadsPage does,
+    // using the linked quotation request's id + created_at.
+    // NOTE: assumes schedule.quotation.quotation_request has id & created_at —
+    // adjust the field paths here if your schema differs.
+    const formatReference = (id, createdAt) => {
+        if (!id || !createdAt) return '—';
+        const year = new Date(createdAt).getFullYear();
+        const paddedId = String(id).padStart(3, '0');
+        return `#Q-${year}-${paddedId}`;
+    };
 
-            {/* Top navigation bar */}
-            <div style={styles.navbar}>
-                {/* App name on the left */}
-                <h1 style={styles.navTitle}>TataMawing Solar</h1>
+    const getSystemType = (schedule) => {
+        const type = schedule.quotation?.quotation_request?.solar_system_type;
+        if (!type) return '—';
+        return type.toUpperCase();
+    };
 
-                {/* Right side — user name and logout */}
-                <div style={styles.navRight}>
-                    {/* Customer role indicator */}
-                    <span style={styles.navRole}>Customer</span>
+    const getDayAbbrev = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', { weekday: 'short' });
+    };
 
-                    {/* Logged-in customer's name */}
-                    <span style={styles.navUser}>Hello, {user?.name}</span>
+    // Derives the install status badge purely from scheduled_date vs today,
+    // since installation_schedules has no separate status column.
+    const getInstallStatus = (dateString) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-                    {/* Logout button */}
-                    <button onClick={handleLogout} style={styles.logoutBtn}>
-                        Logout
-                    </button>
-                </div>
-            </div>
+        const scheduled = new Date(dateString);
+        scheduled.setHours(0, 0, 0, 0);
 
-            {/* Main content area */}
-            <div style={styles.content}>
+        const diffDays = Math.round((scheduled - today) / (1000 * 60 * 60 * 24));
 
-                {/* Navigation links */}
-                <div style={styles.navLinks}>
-                    {/* Link back to quotation form */}
-                    <button
-                        onClick={() => navigate('/quotation/new')}
-                        style={styles.navLink}
-                    >
-                        📋 New Quotation
-                    </button>
+        if (diffDays < 0) {
+            const daysAgo = Math.abs(diffDays);
+            return {
+                completed: true,
+                label: `Installed ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago`,
+                subtitle: `Completed on ${formatDate(dateString)}`,
+            };
+        }
 
-                    {/* Current page indicator */}
-                    <button style={{ ...styles.navLink, ...styles.navLinkActive }}>
-                        📅 My Schedule
-                    </button>
-                </div>
+        if (diffDays === 0) {
+            return { completed: false, label: 'Installation today', subtitle: `Scheduled for ${formatDate(dateString)}` };
+        }
 
-                {/* Page header */}
-                <h2 style={styles.pageTitle}>My Installation Schedule</h2>
+        if (diffDays === 1) {
+            return { completed: false, label: 'Installation in 1 day', subtitle: `Scheduled for ${formatDate(dateString)}` };
+        }
+
+        return {
+            completed: false,
+            label: `Installation in ${diffDays} days`,
+            subtitle: `Scheduled for ${formatDate(dateString)}`,
+        };
+    };
+
+    const toggleMenu = (id) => {
+        setOpenMenuId(openMenuId === id ? null : id);
+    };
+
+    const toggleDetails = (id) => {
+        setExpandedId(expandedId === id ? null : id);
+        setOpenMenuId(null);
+    };
+
+    return (
+        <CustomerLayout active="Installation Schedule">
+            <div style={styles.card}>
+                <h1 style={styles.pageTitle}>Installation Schedule</h1>
                 <p style={styles.pageSubtitle}>
-                    View your upcoming solar installation dates and assigned technician.
+                    View your upcoming and completed solar installations.
                 </p>
 
                 {/* Show error message if fetch failed */}
                 {error && <div style={styles.error}>{error}</div>}
 
-                {/* Show loading state while fetching */}
                 {loading ? (
-                    <div style={styles.loadingText}>
-                        Loading your schedule...
-                    </div>
+                    <LoadingState label="Loading your schedule..." />
                 ) : schedules.length === 0 ? (
-                    // Show empty state if no schedules found
+                    // Empty state
                     <div style={styles.emptyState}>
-                        <div style={styles.emptyIcon}>📅</div>
                         <h3 style={styles.emptyTitle}>No Installation Scheduled Yet</h3>
                         <p style={styles.emptyDesc}>
                             Your installation will be scheduled by TataMawing after
                             your quotation is approved and materials are confirmed.
                         </p>
                         <button
+                            className="btn-primary"
                             onClick={() => navigate('/quotation/new')}
                             style={styles.emptyBtn}
                         >
@@ -131,192 +155,189 @@ export default function CustomerSchedulePage() {
                         </button>
                     </div>
                 ) : (
-                    // Show the list of schedules
-                    <div>
-                        {schedules.map((schedule) => (
-                            <div key={schedule.id} style={styles.scheduleCard}>
+                    <div className="table-scroll">
+                    <table style={styles.table}>
+                        <thead>
+                            <tr>
+                                <th style={styles.th}>REFERENCE</th>
+                                <th style={styles.th}>SYSTEM TYPE</th>
+                                <th style={styles.th}>INSTALLATION DATE</th>
+                                <th style={styles.th}>INSTALLATION STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {schedules.map((schedule) => {
+                                const requestId = schedule.quotation?.quotation_request?.id;
+                                const createdAt = schedule.quotation?.quotation_request?.created_at;
+                                const status = getInstallStatus(schedule.scheduled_date);
 
-                                {/* Schedule header with date badge */}
-                                <div style={styles.scheduleHeader}>
-                                    {/* Installation date */}
-                                    <div>
-                                        <h3 style={styles.scheduleTitle}>
-                                            Solar Installation
-                                        </h3>
-                                        <p style={styles.scheduleDate}>
-                                            📅 {formatDate(schedule.scheduled_date)}
-                                        </p>
-                                    </div>
+                                return (
+                                    <Fragment key={schedule.id}>
+                                        <tr style={styles.tr}>
+                                            <td style={styles.td}>
+                                                {formatReference(requestId, createdAt)}
+                                            </td>
+                                            <td style={styles.td}>
+                                                <span style={styles.systemBadge}>
+                                                    {getSystemType(schedule)}
+                                                </span>
+                                            </td>
+                                            <td style={styles.td}>
+                                                <div style={styles.dateCell}>
+                                                    <CalendarIcon size={15} color={colors.textMuted} />
+                                                    <div>
+                                                        <div style={styles.dateText}>
+                                                            {formatDate(schedule.scheduled_date)}
+                                                        </div>
+                                                        <div style={styles.dateSub}>
+                                                            ({getDayAbbrev(schedule.scheduled_date)})
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td style={styles.td}>
+                                                <div
+                                                    style={{
+                                                        ...styles.statusBox,
+                                                        ...(status.completed
+                                                            ? styles.statusBoxCompleted
+                                                            : styles.statusBoxUpcoming),
+                                                    }}
+                                                >
+                                                    <div style={styles.statusHeader}>
+                                                        {status.completed ? (
+                                                            <CheckCircleIcon size={15} color={colors.success} />
+                                                        ) : (
+                                                            <ClockIcon size={15} color={colors.orange} />
+                                                        )}
+                                                        <span
+                                                            style={{
+                                                                ...styles.statusLabel,
+                                                                color: status.completed ? colors.success : colors.orange,
+                                                            }}
+                                                        >
+                                                            {status.label}
+                                                        </span>
+                                                    </div>
+                                                    <div style={styles.statusSub}>{status.subtitle}</div>
+                                                </div>
+                                            </td>
+                                            <td style={{ ...styles.td, textAlign: 'right', position: 'relative' }}>
+                                                <button
+                                                    onClick={() => toggleMenu(schedule.id)}
+                                                    style={styles.menuBtn}
+                                                    aria-label="Actions"
+                                                >
+                                                    ⋮
+                                                </button>
+                                                {openMenuId === schedule.id && (
+                                                    <div style={styles.menuDropdown}>
+                                                        <button
+                                                            style={styles.menuItem}
+                                                            onClick={() => toggleDetails(schedule.id)}
+                                                        >
+                                                            {expandedId === schedule.id
+                                                                ? 'Hide Details'
+                                                                : 'View Details'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
 
-                                    {/* Days until badge */}
-                                    <div style={styles.daysBadge}>
-                                        {getDaysUntil(schedule.scheduled_date)}
-                                    </div>
-                                </div>
+                                        {expandedId === schedule.id && (
+                                            <tr key={`${schedule.id}-details`}>
+                                                <td colSpan={5} style={styles.detailsCell}>
+                                                    <div className="responsive-grid-4" style={styles.detailsGrid}>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>
+                                                                Days Until Installation
+                                                            </span>
+                                                            <span style={styles.detailValue}>
+                                                                {getDaysUntil(schedule.scheduled_date)}
+                                                            </span>
+                                                        </div>
 
-                                {/* Schedule details grid */}
-                                <div style={styles.detailsGrid}>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>
+                                                                Assigned Technician
+                                                            </span>
+                                                            <span style={styles.detailValue}>
+                                                                {schedule.assigned_technician || '—'}
+                                                            </span>
+                                                        </div>
 
-                                    {/* Assigned technician */}
-                                    <div style={styles.detailItem}>
-                                        <span style={styles.detailLabel}>
-                                            👷 Assigned Technician
-                                        </span>
-                                        <span style={styles.detailValue}>
-                                            {schedule.assigned_technician}
-                                        </span>
-                                    </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>
+                                                                Installation Location
+                                                            </span>
+                                                            <span style={styles.detailValue}>
+                                                                {schedule.quotation?.quotation_request
+                                                                    ?.customer?.install_location || '—'}
+                                                            </span>
+                                                        </div>
 
-                                    {/* Solar system type */}
-                                    <div style={styles.detailItem}>
-                                        <span style={styles.detailLabel}>
-                                            ☀️ System Type
-                                        </span>
-                                        <span style={styles.detailValue}>
-                                            {schedule.quotation?.quotation_request
-                                                ?.solar_system_type?.charAt(0).toUpperCase() +
-                                             schedule.quotation?.quotation_request
-                                                ?.solar_system_type?.slice(1)}
-                                        </span>
-                                    </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>
+                                                                Total Amount
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    ...styles.detailValue,
+                                                                    color: colors.primary,
+                                                                    fontWeight: '700',
+                                                                }}
+                                                            >
+                                                                {schedule.quotation?.total_amount
+                                                                    ? `₱${parseFloat(
+                                                                          schedule.quotation.total_amount
+                                                                      ).toLocaleString('en-PH', {
+                                                                          minimumFractionDigits: 2,
+                                                                          maximumFractionDigits: 2,
+                                                                      })}`
+                                                                    : '—'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
 
-                                    {/* Installation location */}
-                                    <div style={styles.detailItem}>
-                                        <span style={styles.detailLabel}>
-                                            📍 Installation Location
-                                        </span>
-                                        <span style={styles.detailValue}>
-                                            {schedule.quotation?.quotation_request
-                                                ?.customer?.install_location}
-                                        </span>
-                                    </div>
-
-                                    {/* Total amount */}
-                                    <div style={styles.detailItem}>
-                                        <span style={styles.detailLabel}>
-                                            💰 Total Amount
-                                        </span>
-                                        <span style={{
-                                            ...styles.detailValue,
-                                            color: '#16a34a',
-                                            fontWeight: '700',
-                                        }}>
-                                            ₱{parseFloat(schedule.quotation?.total_amount
-                                            ).toLocaleString('en-PH', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Reminder message */}
-                                <div style={styles.reminder}>
-                                    <strong>📌 Reminder:</strong> Please make sure someone
-                                    is home on the scheduled date. The technician will
-                                    contact you before arriving.
-                                </div>
-                            </div>
-                        ))}
+                                                    <div style={styles.reminder}>
+                                                        <strong>Reminder:</strong> Please make sure
+                                                        someone is home on the scheduled date. The
+                                                        technician will contact you before arriving.
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                     </div>
                 )}
             </div>
-        </div>
+        </CustomerLayout>
     );
 }
 
 // Styles
 const styles = {
-    // Full page light green background
-    container: {
-        minHeight: '100vh',
-        backgroundColor: '#f0fdf4',
-        width: '100%',
-    },
-    // Green navbar
-    navbar: {
-        backgroundColor: '#16a34a',
-        padding: '1rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    // White app name
-    navTitle: {
-        color: 'white',
-        fontSize: '1.25rem',
-        margin: 0,
-    },
-    // Right side of navbar
-    navRight: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-    },
-    // Customer role badge
-    navRole: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        color: 'white',
-        padding: '0.25rem 0.75rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-    },
-    // White username text
-    navUser: {
-        color: 'white',
-        fontSize: '0.875rem',
-    },
-    // Transparent logout button
-    logoutBtn: {
-        backgroundColor: 'transparent',
-        color: 'white',
-        border: '1px solid white',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-    },
-    // Full width content area
-    content: {
-        width: '100%',
-        padding: '2rem',
-        boxSizing: 'border-box',
-    },
-    // Navigation links row
-    navLinks: {
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-    },
-    // Navigation link button
-    navLink: {
+    card: {
         backgroundColor: 'white',
-        color: '#374151',
-        border: '1px solid #d1d5db',
-        padding: '0.5rem 1rem',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
+        borderRadius: '12px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        border: '1px solid #f3f4f6',
+        padding: '1.5rem 2rem 2rem',
     },
-    // Active navigation link
-    navLinkActive: {
-        backgroundColor: '#16a34a',
-        color: 'white',
-        border: '1px solid #16a34a',
-    },
-    // Page heading
     pageTitle: {
-        fontSize: '1.5rem',
-        color: '#111827',
+        ...typography.h1,
         marginBottom: '0.25rem',
     },
-    // Page description
     pageSubtitle: {
-        color: '#6b7280',
+        ...typography.body,
+        color: colors.textMuted,
         marginBottom: '1.5rem',
     },
-    // Red error box
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',
@@ -324,32 +345,20 @@ const styles = {
         borderRadius: '8px',
         marginBottom: '1rem',
     },
-    // Loading text
     loadingText: {
         textAlign: 'center',
         color: '#6b7280',
         padding: '3rem',
     },
-    // Empty state container
     emptyState: {
         textAlign: 'center',
-        padding: '3rem',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        padding: '3rem 1rem',
     },
-    // Large icon in empty state
-    emptyIcon: {
-        fontSize: '3rem',
-        marginBottom: '1rem',
-    },
-    // Empty state title
     emptyTitle: {
-        fontSize: '1.25rem',
+        fontSize: '1.125rem',
         color: '#111827',
         marginBottom: '0.5rem',
     },
-    // Empty state description
     emptyDesc: {
         color: '#6b7280',
         fontSize: '0.875rem',
@@ -357,9 +366,8 @@ const styles = {
         maxWidth: '400px',
         margin: '0 auto 1.5rem auto',
     },
-    // Button in empty state
     emptyBtn: {
-        backgroundColor: '#16a34a',
+        backgroundColor: colors.primary,
         color: 'white',
         border: 'none',
         padding: '0.75rem 1.5rem',
@@ -368,78 +376,147 @@ const styles = {
         fontSize: '1rem',
         fontWeight: '600',
     },
-    // Schedule card
-    scheduleCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        marginBottom: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        borderLeft: '4px solid #16a34a',
+    table: {
+        width: '100%',
+        borderCollapse: 'collapse',
     },
-    // Schedule card header
-    scheduleHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '1.5rem',
+    th: {
+        textAlign: 'left',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        color: '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: '0.03em',
+        padding: '0.75rem 0.5rem',
+        borderBottom: '1px solid #f3f4f6',
     },
-    // Schedule title
-    scheduleTitle: {
-        fontSize: '1.25rem',
+    tr: {
+        borderBottom: '1px solid #f3f4f6',
+    },
+    td: {
+        padding: '1rem 0.5rem',
+        fontSize: '0.9375rem',
         color: '#111827',
-        margin: '0 0 0.25rem 0',
     },
-    // Schedule date text
-    scheduleDate: {
-        color: '#16a34a',
-        fontSize: '1rem',
-        fontWeight: '600',
-        margin: 0,
+    systemBadge: {
+        display: 'inline-block',
+        fontSize: '0.7rem',
+        fontWeight: '700',
+        color: colors.primary,
+        backgroundColor: colors.primaryTint,
+        padding: '0.3rem 0.75rem',
+        borderRadius: radii.pill,
+        letterSpacing: '0.02em',
     },
-    // Days until badge
-    daysBadge: {
-        backgroundColor: '#f0fdf4',
-        color: '#16a34a',
-        border: '1px solid #bbf7d0',
-        padding: '0.5rem 1rem',
+    dateCell: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    dateText: {
+        fontSize: '0.9375rem',
+        color: '#111827',
+    },
+    dateSub: {
+        fontSize: '0.75rem',
+        color: colors.textMuted,
+    },
+    statusBox: {
+        display: 'inline-block',
+        minWidth: '220px',
         borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
+        border: '1px solid',
+        padding: '0.5rem 0.75rem',
     },
-    // Details grid
+    statusBoxCompleted: {
+        backgroundColor: colors.successTint,
+        borderColor: '#bbf7d0',
+    },
+    statusBoxUpcoming: {
+        backgroundColor: colors.orangeTint,
+        borderColor: '#fed7aa',
+    },
+    statusHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.375rem',
+    },
+    statusLabel: {
+        fontSize: '0.875rem',
+        fontWeight: '700',
+    },
+    statusSub: {
+        fontSize: '0.75rem',
+        color: colors.textMuted,
+        marginTop: '0.15rem',
+        marginLeft: '1.375rem',
+    },
+    menuBtn: {
+        width: '32px',
+        height: '32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'white',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '1.25rem',
+        color: '#6b7280',
+        lineHeight: 1,
+    },
+    menuDropdown: {
+        position: 'absolute',
+        right: '0.5rem',
+        top: '100%',
+        backgroundColor: 'white',
+        border: '1px solid #f3f4f6',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        zIndex: 10,
+        minWidth: '140px',
+    },
+    menuItem: {
+        display: 'block',
+        width: '100%',
+        textAlign: 'left',
+        background: 'none',
+        border: 'none',
+        padding: '0.625rem 0.875rem',
+        fontSize: '0.875rem',
+        color: '#111827',
+        cursor: 'pointer',
+    },
+    detailsCell: {
+        backgroundColor: '#f9fafb',
+        padding: '1.25rem',
+        borderBottom: '1px solid #f3f4f6',
+    },
     detailsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '1rem',
         marginBottom: '1rem',
     },
-    // Each detail item
     detailItem: {
         display: 'flex',
         flexDirection: 'column',
         gap: '0.25rem',
     },
-    // Detail label
     detailLabel: {
-        fontSize: '0.75rem',
+        fontSize: '0.7rem',
         color: '#6b7280',
         textTransform: 'uppercase',
         fontWeight: '600',
     },
-    // Detail value
     detailValue: {
-        fontSize: '1rem',
+        fontSize: '0.9375rem',
         color: '#111827',
         fontWeight: '500',
     },
-    // Reminder box at the bottom of each schedule card
     reminder: {
         backgroundColor: '#fefce8',
         border: '1px solid #fde68a',
         borderRadius: '8px',
         padding: '0.75rem 1rem',
-        fontSize: '0.875rem',
+        fontSize: '0.8125rem',
         color: '#92400e',
     },
 };

@@ -6,12 +6,12 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 11px; color: #111827; }
-        .header { background-color: #16a34a; color: white; padding: 16px 20px; margin-bottom: 16px; }
+        .header { background-color: #1a4a3a; color: white; padding: 16px 20px; margin-bottom: 16px; }
         .header h1 { font-size: 18px; margin-bottom: 2px; }
         .header p { font-size: 10px; opacity: 0.85; }
         .content { padding: 0 20px 20px 20px; }
         .project-block { margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
-        .project-header { background-color: #f0fdf4; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; }
+        .project-header { background-color: #f0f7f4; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; }
         .project-title { font-weight: bold; font-size: 12px; color: #111827; }
         .project-meta { font-size: 10px; color: #6b7280; margin-top: 2px; }
         table { width: 100%; border-collapse: collapse; }

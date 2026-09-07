@@ -1,11 +1,12 @@
-// Import tools from React we need to create and use context (global state)
-import { createContext, useContext, useState, useEffect } from 'react';
+// Import the React hooks this provider needs
+import { useState, useEffect } from 'react';
 
 // Import our custom axios instance for making API calls
 import api from '../api/axios';
 
-// Create a context object — this is the container for our global auth state
-const AuthContext = createContext(null);
+// The context object lives in its own module (auth-context.js) so this file
+// only exports components, which keeps Vite's fast refresh working
+import { AuthContext } from './auth-context';
 
 // AuthProvider wraps the whole app so every component can access auth state
 export function AuthProvider({ children }) {
@@ -15,27 +16,27 @@ export function AuthProvider({ children }) {
     // token stores the API token, initialized from localStorage for persistence
     const [token, setToken] = useState(localStorage.getItem('token'));
 
-    // loading tracks whether we're still checking if the user is logged in
-    const [loading, setLoading] = useState(true);
+    // loading tracks whether we're still checking if the user is logged in.
+    // It only starts true when there is a stored token left to verify, so the
+    // effect below never has to clear it synchronously during the first render.
+    const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('token')));
 
     // useEffect runs on mount and whenever token changes
     useEffect(() => {
-        // If a token exists, verify it by calling /api/me
-        if (token) {
-            api.get('/me')
-                // /api/me returns the user object directly
-                .then((res) => setUser(res.data))
-                // If token is invalid, clean up
-                .catch(() => {
-                    localStorage.removeItem('token');
-                    setToken(null);
-                })
-                // Stop loading whether success or failure
-                .finally(() => setLoading(false));
-        } else {
-            // No token — stop loading immediately
-            setLoading(false);
-        }
+        // No token — there is nothing to verify and loading is already false
+        if (!token) return;
+
+        // Verify the token by calling /api/me
+        api.get('/me')
+            // /api/me returns the user object directly
+            .then((res) => setUser(res.data))
+            // If token is invalid, clean up
+            .catch(() => {
+                localStorage.removeItem('token');
+                setToken(null);
+            })
+            // Stop loading whether success or failure
+            .finally(() => setLoading(false));
     }, [token]);
 
     // login function — sends credentials to API and saves the result
@@ -83,9 +84,4 @@ export function AuthProvider({ children }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-// Custom hook — shortcut for accessing auth context from any component
-export function useAuth() {
-    return useContext(AuthContext);
 }

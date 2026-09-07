@@ -38,7 +38,8 @@ class AdminQuotationController extends Controller
             'customer.user',
             'applianceItems',
             'solarComputation',
-            'quotation',
+            'quotation.purchaseRequest',
+            'quotation.installationSchedule',
         ]);
 
         return response()->json($quotationRequest);

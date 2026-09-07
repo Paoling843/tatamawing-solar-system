@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../context/auth-context';
+import SupplierLayout from '../components/SupplierLayout';
+import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { MessageIcon, CheckIcon, SendIcon } from '../components/Icons';
+import { colors, typography } from '../styles/theme';
 
 export default function SupplierChatPage() {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
+    const { user } = useAuth();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -19,41 +21,43 @@ export default function SupplierChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior : 'smooth' });
     }, [messages]);
 
-    useEffect(() => {
-        fetchAdminId();
+    const fetchAdminId = useCallback(async () => {
+        try {
+            const res = await api.get('/admin-id');
+            setAdminId(res.data.admin_id);
+        }catch {
+            setError('Failed to connect to messaging service.');
+        }
     }, []);
+
+    const fetchMessages = useCallback(async () => {
+        try {
+            const res = await api.get(`/messages/${adminId}`);
+            setMessages(res.data);
+        } catch {
+            setError('Failed to load messages.');
+        } finally {
+            setLoading(false);
+        }
+    }, [adminId]);
+
+    useEffect(() => {
+        // Start the lookup in a microtask so its state updates land after this
+        // effect returns rather than cascading a render inside it
+        Promise.resolve().then(fetchAdminId);
+    }, [fetchAdminId]);
 
     useEffect(() => {
         if(!adminId) return;
 
-        fetchMessages();
+        Promise.resolve().then(fetchMessages);
 
         const interval = setInterval(() => {
             fetchMessages();
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [adminId]);
-
-    const fetchAdminId = async () => {
-        try {
-            const res = await api.get('/admin-id');
-            setAdminId(res.data.admin_id);
-        }catch (err) {
-            setError('Failed to connect to messaging service.');
-        }
-    };
-
-    const fetchMessages = async () => {
-        try {
-            const res = await api.get(`/messages/${adminId}`);
-            setMessages(res.data);
-        } catch (err) {
-            setError('Failed to load messages.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [adminId, fetchMessages]);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -68,16 +72,11 @@ export default function SupplierChatPage() {
 
             setMessages((prev) => [...prev, res.data.chat_message]);
             setNewMessage('');
-        } catch (err) {
+        } catch {
             setError('Failed to send message.');
         } finally {
             setSending(false);
         }
-    };
-
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
     };
 
     const formatTime = (timeStamp) => {
@@ -109,30 +108,9 @@ export default function SupplierChatPage() {
         }));
     };
 
-        return (
-        <div style={styles.container}>
-
-            {/* Navbar */}
-            <div style={styles.navbar}>
-                <h1 style={styles.navTitle}>TataMawing Solar</h1>
-                <div style={styles.navRight}>
-                    {/* Link back to supplier dashboard */}
-                    <button
-                        onClick={() => navigate('/supplier/dashboard')}
-                        style={styles.navBtn}
-                    >
-                        📦 Purchase Requests
-                    </button>
-                    <span style={styles.navRole}>Supplier</span>
-                    <span style={styles.navUser}>Hello, {user?.name}</span>
-                    <button onClick={handleLogout} style={styles.logoutBtn}>
-                        Logout
-                    </button>
-                </div>
-            </div>
-
-            {/* Chat container */}
-            <div style={styles.chatContainer}>
+    return (
+        <SupplierLayout active="Messages">
+            <div style={styles.card}>
 
                 {/* Chat header */}
                 <div style={styles.chatHeader}>
@@ -148,10 +126,12 @@ export default function SupplierChatPage() {
                 {/* Messages area */}
                 <div style={styles.messagesArea}>
                     {loading ? (
-                        <div style={styles.loadingText}>Loading messages...</div>
+                        <LoadingState label="Loading messages..." />
                     ) : messages.length === 0 ? (
                         <div style={styles.emptyChat}>
-                            <div style={styles.emptyChatIcon}>💬</div>
+                            <div style={styles.emptyChatIcon}>
+                                <MessageIcon size={48} color="#9ca3af" />
+                            </div>
                             <p style={styles.emptyChatText}>
                                 No messages yet. Send a message to start the conversation!
                             </p>
@@ -179,7 +159,7 @@ export default function SupplierChatPage() {
                                             )}
                                             <div style={{
                                                 ...styles.messageBubble,
-                                                backgroundColor: isMine ? '#16a34a' : 'white',
+                                                backgroundColor: isMine ? colors.primary : 'white',
                                                 color: isMine ? 'white' : '#111827',
                                                 borderRadius: isMine
                                                     ? '18px 18px 4px 18px'
@@ -195,7 +175,12 @@ export default function SupplierChatPage() {
                                                         : '#9ca3af',
                                                 }}>
                                                     {formatTime(message.created_at)}
-                                                    {isMine && message.read_at && ' ✓✓'}
+                                                    {isMine && message.read_at && (
+                                                        <span style={{ display: 'inline-flex', marginLeft: '4px', verticalAlign: 'middle' }}>
+                                                            <CheckIcon size={12} color="currentColor" />
+                                                            <span style={{ marginLeft: '-7px' }}><CheckIcon size={12} color="currentColor" /></span>
+                                                        </span>
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>
@@ -214,12 +199,14 @@ export default function SupplierChatPage() {
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
+                        className="input-field"
                         style={styles.messageInput}
                         placeholder="Type a message..."
                         disabled={sending}
                     />
                     <button
                         type="submit"
+                        className="btn-primary"
                         style={{
                             ...styles.sendBtn,
                             opacity: (!newMessage.trim() || sending) ? 0.5 : 1,
@@ -227,97 +214,40 @@ export default function SupplierChatPage() {
                         }}
                         disabled={!newMessage.trim() || sending}
                     >
-                        {sending ? '...' : '➤'}
+                        {sending ? '...' : <SendIcon size={16} color="white" />}
                     </button>
                 </form>
             </div>
-        </div>
+        </SupplierLayout>
     );
 }
 
-// Styles — same as CustomerChatPage for visual consistency
+// Styles
 const styles = {
-    container: {
-        height: '100vh',
-        backgroundColor: '#f0fdf4',
+    card: {
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        border: '1px solid #f3f4f6',
         display: 'flex',
         flexDirection: 'column',
-        width: '100%',
-    },
-    navbar: {
-        backgroundColor: '#16a34a',
-        padding: '0.75rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexShrink: 0,
-    },
-    navTitle: {
-        color: 'white',
-        fontSize: '1.25rem',
-        margin: 0,
-    },
-    navRight: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-    },
-    navBtn: {
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        color: 'white',
-        border: '1px solid rgba(255,255,255,0.3)',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.8rem',
-    },
-    navRole: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        color: 'white',
-        padding: '0.25rem 0.75rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-    },
-    navUser: {
-        color: 'white',
-        fontSize: '0.875rem',
-    },
-    logoutBtn: {
-        backgroundColor: 'transparent',
-        color: 'white',
-        border: '1px solid white',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-    },
-    chatContainer: {
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        maxWidth: '800px',
-        width: '100%',
-        margin: '0 auto',
-        padding: '1rem',
-        boxSizing: 'border-box',
+        height: 'calc(100vh - 7.5rem)',
         overflow: 'hidden',
     },
     chatHeader: {
         backgroundColor: 'white',
-        borderRadius: '12px 12px 0 0',
         padding: '1rem 1.5rem',
         display: 'flex',
         alignItems: 'center',
         gap: '1rem',
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: '1px solid #f3f4f6',
         flexShrink: 0,
     },
     avatar: {
         width: '40px',
         height: '40px',
         borderRadius: '50%',
-        backgroundColor: '#16a34a',
+        backgroundColor: colors.primary,
         color: 'white',
         display: 'flex',
         alignItems: 'center',
@@ -327,10 +257,8 @@ const styles = {
         flexShrink: 0,
     },
     chatTitle: {
-        fontSize: '1rem',
-        color: '#111827',
+        ...typography.h3,
         margin: 0,
-        fontWeight: '600',
     },
     chatSubtitle: {
         fontSize: '0.75rem',
@@ -356,8 +284,9 @@ const styles = {
         padding: '3rem 1rem',
     },
     emptyChatIcon: {
-        fontSize: '3rem',
         marginBottom: '1rem',
+        display: 'flex',
+        justifyContent: 'center',
     },
     emptyChatText: {
         color: '#6b7280',
@@ -386,7 +315,7 @@ const styles = {
         width: '28px',
         height: '28px',
         borderRadius: '50%',
-        backgroundColor: '#16a34a',
+        backgroundColor: colors.primary,
         color: 'white',
         display: 'flex',
         alignItems: 'center',
@@ -420,12 +349,11 @@ const styles = {
     },
     inputArea: {
         backgroundColor: 'white',
-        borderRadius: '0 0 12px 12px',
         padding: '1rem',
         display: 'flex',
         gap: '0.75rem',
         alignItems: 'center',
-        borderTop: '1px solid #e5e7eb',
+        borderTop: '1px solid #f3f4f6',
         flexShrink: 0,
     },
     messageInput: {
@@ -438,7 +366,7 @@ const styles = {
         backgroundColor: '#f9fafb',
     },
     sendBtn: {
-        backgroundColor: '#16a34a',
+        backgroundColor: colors.primary,
         color: 'white',
         border: 'none',
         width: '44px',

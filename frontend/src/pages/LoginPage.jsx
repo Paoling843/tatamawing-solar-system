@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth-context";
+import { MailIcon, LockIcon, EyeIcon, EyeOffIcon } from "../components/Icons";
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -8,6 +9,7 @@ export default function LoginPage() {
     const [form, setForm] = useState ({ email: '', password: ''});
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -32,152 +34,285 @@ export default function LoginPage() {
         }
     };
 
-    return (
-        <div style={styles.container}>
-            <div style={styles.card}>
-                <h1 style={styles.title}>TataMawing Solar</h1>
+return (
+    <div style={styles.page}>
+        <div style={styles.navbar}>
+            <span style={styles.logo}>TataMawing</span>
+        </div>
 
-                <h2 style={styles.subtitle}>Sign in to you account.</h2>
+        <div style={styles.main}>
+            <div style={styles.formContainer}>
 
-                {error && <div style={styles.error}>{error}</div>}
+                <h1 style={styles.heading}>Welcome back</h1>
+                <p style={styles.subheading}>
+                    Please enter your details to access the dashboard.
+                </p>
 
-                {/* Form — calls handleSubmit when submitted */}
+                {error && (
+                    <div style={styles.error}>{error}</div>
+                )}
+
                 <form onSubmit={handleSubmit}>
-                    {/* Email input field */}
+
                     <div style={styles.field}>
                         <label style={styles.label}>Email</label>
-                        <input
-                            // type="email" enables browser email validation
-                            type="email"
-                            // name must match the key in the form state object
-                            name="email"
-                            // Controlled input — value always reflects form state
-                            value={form.email}
-                            // Update form state on every keystroke
-                            onChange={handleChange}
-                            style={styles.input}
-                            // Browser won't submit if this is empty
-                            required
-                        />
+                        <div style={styles.inputWrapper}>
+                            <span style={styles.inputIcon}><MailIcon size={16} color="#9ca3af" /></span>
+                            <input
+                                type="email"
+                                name="email"
+                                value={form.email}
+                                onChange={handleChange}
+                                style={styles.input}
+                                placeholder="yourname@gmail.com"
+                                required
+                            />
+                        </div>
                     </div>
 
-                    {/* Password input field */}
                     <div style={styles.field}>
-                        <label style={styles.label}>Password</label>
-                        <input
-                            // type="password" masks the input characters
-                            type="password"
+                        <div style={styles.passwordLabelRow}>
+                            <label style={styles.label}>Password</label>
+                            <span style={styles.forgotLink}>
+                                Forgot Password?
+                            </span>
+                        </div>
+                        <div style={styles.inputWrapper}>
+                            <span style={styles.inputIcon}><LockIcon size={16} color="#9ca3af" /></span>
+                            <input
+                            type={showPassword ? 'text' : 'password'}
                             name="password"
                             value={form.password}
                             onChange={handleChange}
                             style={styles.input}
-                            required
-                        />
+                            placeholder="********"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={styles.eyeBtn}
+                            >
+                                {showPassword ? <EyeOffIcon size={16} color="#9ca3af" /> : <EyeIcon size={16} color="#9ca3af" />}
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Submit button — disabled while loading to prevent double submission */}
+                    <div style={styles.checkboxRow}>
+                        <input
+                            type="checkbox"
+                            id="remember"
+                            style={styles.checkbox}
+                        />
+                        <label
+                            htmlFor="remember"
+                            style={styles.checkboxLabel}
+                        >
+                            Keep me logged in for 30 days
+                        </label>
+                    </div>
+
                     <button
                         type="submit"
-                        style={styles.button}
+                        style={{
+                            ...styles.submitBtn,
+                            opacity: loading ? 0.8 : 1,
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                        }}
                         {...(loading ? { disabled: true } : {})}
                     >
-                        {/* Show different text depending on loading state */}
-                        {loading ? 'Signing in...' : 'Sign In'}
+                        {loading ? 'Signing In...' : 'Access Dashboard →'}
                     </button>
                 </form>
 
-                {/* Link to the registration page for users without an account */}
-                <p style={styles.link}>
-                    Don't have an account?{' '}
-                    <Link to="/register">Register here</Link>
+                <p style={styles.registerLink}>
+                    Don't have an account yet?{' '}
+                    <Link to="/register" style={styles.link}>
+                        Request access
+                    </Link>
                 </p>
+
+                <div style={styles.footerLinks}>
+                    <span style={styles.footerLink}>Privacy Policy</span>
+                    <span style={styles.footerLink}>Terms of Use</span>
+                    <span style={styles.footerLink}>Help Center</span>
+                </div>
             </div>
         </div>
+    </div>
     );
 }
-
 const styles = {
-    
-    // Full-height green-tinted background, centers content
-    container: {
+    // Full page light grey background
+    page: {
+        width: '100%',
         minHeight: '100vh',
+        backgroundColor: '#f8f9fb',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    // Top navbar with just the logo
+    navbar: {
+        padding: '1.25rem 2rem',
+        backgroundColor: 'white',
+        borderBottom: '1px solid #eee',
+    },
+    // Dark green TataMawing logo text
+    logo: {
+        fontSize: '1.1rem',
+        fontWeight: '700',
+        color: '#1a4a3a',
+        fontFamily: 'Arial, sans-serif',
+    },
+    // Centers the form vertically and horizontally
+    main: {
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f0fdf4',
+        padding: '3rem 1rem',
     },
-    // White card with shadow and rounded corners
-    card: {
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+    // Form container — no card, just a max width box
+    formContainer: {
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '380px',
     },
-    // Green title matching TataMawing's solar theme
-    title: {
-        color: '#16a34a',
-        textAlign: 'center',
-        marginBottom: '0.25rem',
-        fontSize: '1.5rem',
+    // Large bold heading
+    heading: {
+        fontSize: '2.25rem',
+        fontWeight: '800',
+        color: '#111827',
+        marginBottom: '0.5rem',
+        fontFamily: 'Arial, sans-serif',
     },
-    // Smaller grey subtitle below the title
-    subtitle: {
+    // Grey subtitle below heading
+    subheading: {
+        fontSize: '0.9rem',
         color: '#6b7280',
-        textAlign: 'center',
-        marginBottom: '1.5rem',
-        fontSize: '1rem',
-        fontWeight: 'normal',
+        marginBottom: '2rem',
     },
-    // Red-tinted error box for displaying login errors
+    // Red error box
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',
-        padding: '0.75rem',
+        padding: '0.75rem 1rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
-    // Wrapper for each label + input pair
+    // Each field wrapper
     field: {
-        marginBottom: '1rem',
+        marginBottom: '1.25rem',
     },
-    // Label styling above each input
+    // Field label
     label: {
         display: 'block',
-        marginBottom: '0.25rem',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+        color: '#374151',
+        marginBottom: '0.5rem',
+    },
+    // Password label row — label on left, forgot on right
+    passwordLabelRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.5rem',
+    },
+    // Forgot password link text
+    forgotLink: {
+        fontSize: '0.8rem',
+        color: '#0ea5e9',
+        cursor: 'pointer',
+    },
+    // Input wrapper — contains icon + input + optional eye button
+    inputWrapper: {
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        borderRadius: '10px',
+        padding: '0 0.75rem',
+        height: '48px',
+    },
+    // Icon inside the input
+    inputIcon: {
+        fontSize: '0.9rem',
+        color: '#9ca3af',
+        marginRight: '0.5rem',
+        flexShrink: 0,
+    },
+    // The actual input element — no background since wrapper handles it
+    input: {
+        flex: 1,
+        border: 'none',
+        outline: 'none',
+        backgroundColor: 'transparent',
+        fontSize: '0.9rem',
+        color: '#111827',
+    },
+    // Eye button to show/hide password
+    eyeBtn: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '0.9rem',
+        color: '#9ca3af',
+        padding: '0',
+        flexShrink: 0,
+    },
+    // Checkbox row
+    checkboxRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        marginBottom: '1.5rem',
+    },
+    // Checkbox input
+    checkbox: {
+        width: '16px',
+        height: '16px',
+        cursor: 'pointer',
+    },
+    // Checkbox label text
+    checkboxLabel: {
         fontSize: '0.875rem',
         color: '#374151',
-        fontWeight: '500',
+        cursor: 'pointer',
     },
-    // Full-width input with border and rounded corners
-    input: {
+    // Dark green submit button
+    submitBtn: {
         width: '100%',
-        padding: '0.625rem',
-        border: '1px solid #d1d5db',
-        borderRadius: '8px',
-        fontSize: '1rem',
-        boxSizing: 'border-box',
-    },
-    // Full-width green submit button
-    button: {
-        width: '100%',
-        padding: '0.75rem',
-        backgroundColor: '#16a34a',
+        height: '50px',
+        backgroundColor: '#1a4a3a',
         color: 'white',
         border: 'none',
-        borderRadius: '8px',
+        borderRadius: '10px',
         fontSize: '1rem',
         fontWeight: '600',
-        cursor: 'pointer',
-        marginTop: '0.5rem',
+        marginBottom: '1.5rem',
     },
-    // Centered small text for the register link
-    link: {
+    // Register link text
+    registerLink: {
         textAlign: 'center',
-        marginTop: '1rem',
         fontSize: '0.875rem',
         color: '#6b7280',
+        marginBottom: '1.5rem',
+    },
+    // Clickable link style
+    link: {
+        color: '#0ea5e9',
+        textDecoration: 'none',
+    },
+    // Footer links container
+    footerLinks: {
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '1.5rem',
+    },
+    // Each footer link
+    footerLink: {
+        fontSize: '0.8rem',
+        color: '#9ca3af',
+        cursor: 'pointer',
     },
 };

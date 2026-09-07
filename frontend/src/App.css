@@ -1,184 +1,251 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+/* ---------- Buttons ---------- */
+/* Add className="btn-primary" (or -secondary / -danger) alongside
+   the existing style={styles.someBtn} on any button. */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+    transition: background-color 150ms ease, border-color 150ms ease,
+                box-shadow 150ms ease, transform 150ms ease, opacity 150ms ease;
+    cursor: pointer;
 }
 
-.hero {
-  position: relative;
+.btn-primary:hover:not(:disabled)  { background-color: #163d30; transform: translateY(-1px); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
 
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
+.btn-secondary:hover:not(:disabled) { background-color: #f3f4f6; border-color: #9ca3af; }
 
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
+.btn-danger:hover:not(:disabled) { background-color: #fee2e2; }
 
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26, 74, 58, 0.25);
 }
 
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
+/* ---------- Inputs ---------- */
+/* Add className="input-field" alongside style={styles.input} on
+   any <input>/<textarea>/<select>. Replaces the currently-missing focus ring. */
+.input-field {
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.input-field:focus {
+    outline: none;
+    border-color: #1a4a3a;
+    box-shadow: 0 0 0 3px rgba(26, 74, 58, 0.15);
+}
 
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
+/* ---------- Responsive stat/feature/form grids ---------- */
+/* Replaces inline gridTemplateColumns: 'repeat(4, 1fr)' etc. Use
+   className="responsive-grid-4" (or -3 / -2) and drop grid-template-columns
+   + display + gap from that element's inline style object. */
+.responsive-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.responsive-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.responsive-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+
+@media (max-width: 1024px) {
+    .responsive-grid-4,
+    .responsive-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+    .responsive-grid-4,
+    .responsive-grid-3,
+    .responsive-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ---------- Sidebar layout (Admin/Customer/Supplier) ---------- */
+/* Phase 1 will apply className="app-sidebar" to the sidebar <div> and
+   className="app-main" to the content wrapper — and stop setting `width` /
+   `marginLeft` inline for those two elements, since this class now owns it.
+   Nav item label <span>s get className="sidebar-label". A new hamburger
+   <button className="sidebar-hamburger"> and overlay <div className="sidebar-overlay">
+   get added to each layout, toggled by a small `sidebarOpen` state. */
+.app-sidebar {
+    width: 210px;
+    transition: transform 200ms ease;
+}
+.app-main {
+    margin-left: 210px;
+    transition: margin-left 200ms ease;
+}
+.sidebar-hamburger {
+    display: none;
+}
+.sidebar-overlay {
+    display: none;
+}
+
+/* Tablet: icon-only rail */
+@media (max-width: 1024px) {
+    .app-sidebar { width: 64px; }
+    .app-main { margin-left: 64px; }
+    .sidebar-label { display: none; }
+}
+
+/* Mobile: off-canvas drawer behind a hamburger toggle */
+@media (max-width: 640px) {
+    .app-sidebar {
+        width: 210px;
+        position: fixed;
+        z-index: 200;
+        transform: translateX(-100%);
     }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+    .app-sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+    .sidebar-label {
+        display: inline-flex;
+    }
+    .app-main {
+        margin-left: 0;
+    }
+    .sidebar-hamburger {
+        display: flex;
+    }
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 150;
+    }
+    .sidebar-overlay.sidebar-open {
+        display: block;
+    }
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+/* ---------- Div-based "tables" on mobile ---------- */
+/* Wrap a table-like container's outer <div> with className="table-scroll"
+   so it scrolls horizontally instead of squeezing/overflowing on small screens. */
+@media (max-width: 640px) {
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll > * {
+        min-width: 640px;
+    }
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
+/* ---------- Fixed-width two-column layouts (Inbox chat, System page) ---------- */
+/* These pages set gridTemplateColumns/width inline (e.g. '1fr 280px') for
+   desktop layout math, so the mobile override needs !important to win over
+   the inline style at this breakpoint. */
+@media (max-width: 640px) {
+    .chat-panel-wrap {
+        flex-direction: column;
+        height: auto !important;
     }
-    .button-icon {
-      height: 18px;
-      width: 18px;
+    .chat-left-panel {
+        width: 100% !important;
+        max-height: 260px;
+        border-right: none !important;
+        border-bottom: 1px solid #e5e7eb;
     }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
+    .chat-right-panel {
+        min-height: 420px;
     }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
+    .content-grid-sidebar {
+        grid-template-columns: 1fr !important;
     }
-  }
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+/* ---------- Quotation form hero banner ---------- */
+/* .hero-banner sets background/borderRadius/etc. inline; on narrow screens
+   it stacks and drops the decorative .hero-art illustration. Also used by
+   the Request Quotation form's paired Brgy./Street and Building/Submit rows,
+   which stack via .location-row. */
+@media (max-width: 640px) {
+    .hero-banner {
+        flex-direction: column;
+        align-items: stretch !important;
+        background: #eaf6f0 !important;
+    }
+    .hero-art {
+        display: none !important;
+    }
+    .location-row {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
 }
 
-.ticks {
-  position: relative;
-  width: 100%;
+/* ---------- Comfortable tap targets on mobile ---------- */
+@media (max-width: 640px) {
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .input-field {
+        min-height: 44px;
+    }
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
+/* ---------- Dropdown / overlay motion ---------- */
+/* Dropdowns stay mounted and are shown with .menu-open so they can animate
+   both in and out. visibility keeps a closed menu out of the tab order. */
+.menu-pop {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-6px) scale(0.97);
+    transform-origin: top right;
+    transition:
+        opacity 150ms ease,
+        transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 180ms;
+}
+.menu-pop.menu-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+.overlay-fade {
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+.overlay-fade.overlay-open {
+    opacity: 1;
+}
+
+.modal-pop {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+    transition:
+        opacity 180ms ease,
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-pop.modal-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* Inline row detail panels unmount on close, so entry only. */
+.details-reveal {
+    animation: detailsReveal 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes detailsReveal {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .menu-pop,
+    .overlay-fade,
+    .modal-pop {
+        transition-duration: 1ms;
+    }
+    .details-reveal {
+        animation-duration: 1ms;
+    }
 }

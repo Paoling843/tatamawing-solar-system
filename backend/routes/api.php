@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin-id', [MessageController::class, 'getAdminId']);
     Route::post('/messages', [MessageController::class, 'send']);
     Route::get('/messages/{user_id}', [MessageController::class, 'getConversation']);
+    Route::get('/messages/{user_id}/unread', [MessageController::class, 'checkUnread']);
     Route::patch('/messages/{chatMessage}/read', [MessageController::class, 'markRead']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -40,6 +41,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('/schedules', [InstallationScheduleController::class, 'adminIndex']);
     Route::post('/schedules', [InstallationScheduleController::class, 'store']);
     Route::put('/schedules/{installationSchedule}', [InstallationScheduleController::class, 'update']);
+    Route::patch('/schedules/{installationSchedule}/status', [InstallationScheduleController::class, 'updateStatus']);
     Route::post('/faqs', [FaqController::class, 'store']);
     Route::put('/faqs/{faq}', [FaqController::class, 'update']);
     Route::delete('/faqs/{faq}', [FaqController::class, 'destroy']);

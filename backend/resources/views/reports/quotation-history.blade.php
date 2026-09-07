@@ -6,12 +6,12 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 11px; color: #111827; }
-        .header { background-color: #16a34a; color: white; padding: 16px 20px; margin-bottom: 16px; }
+        .header { background-color: #1a4a3a; color: white; padding: 16px 20px; margin-bottom: 16px; }
         .header h1 { font-size: 18px; margin-bottom: 2px; }
         .header p { font-size: 10px; opacity: 0.85; }
         .content { padding: 0 20px 20px 20px; }
         table { width: 100%; border-collapse: collapse; }
-        th { background-color: #16a34a; color: white; text-align: left; padding: 7px 8px; font-size: 10px; }
+        th { background-color: #1a4a3a; color: white; text-align: left; padding: 7px 8px; font-size: 10px; }
         td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
         tr:nth-child(even) td { background-color: #f9fafb; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: bold; }
@@ -21,7 +21,7 @@
         .badge-draft { background-color: #f3f4f6; color: #6b7280; }
         .summary { margin-bottom: 16px; display: table; width: 100%; }
         .summary-box { display: table-cell; text-align: center; padding: 10px; background-color: #f9fafb; border: 1px solid #e5e7eb; }
-        .summary-number { font-size: 20px; font-weight: bold; color: #16a34a; }
+        .summary-number { font-size: 20px; font-weight: bold; color: #1a4a3a; }
         .summary-label { font-size: 9px; color: #6b7280; text-transform: uppercase; }
         .footer { margin-top: 20px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
     </style>

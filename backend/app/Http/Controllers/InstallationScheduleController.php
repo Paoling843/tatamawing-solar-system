@@ -15,6 +15,7 @@ class InstallationScheduleController extends Controller
         $validator = Validator::make($request->all(), [
             'quotation_id' => 'required|exists:quotations,id',
             'scheduled_date' => 'required|date|after:today',
+            'scheduled_time' => 'required|date_format:H:i',
             'assigned_technician' => 'required|string|max:255',
         ]);
 
@@ -53,6 +54,7 @@ class InstallationScheduleController extends Controller
         $schedule = InstallationSchedule::Create([
             'quotation_id' => $request->quotation_id,
             'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
             'assigned_technician' => $request->assigned_technician,
         ]);
         
@@ -61,6 +63,7 @@ class InstallationScheduleController extends Controller
             'message' => 'Installation schedule created successfully.',
             'schedule' => $schedule->load([
                 'quotation.quotationRequest.customer.user',
+                'quotation.quotationRequest.solarComputation',
             ]),
         ], 201);
     }
@@ -69,6 +72,7 @@ class InstallationScheduleController extends Controller
     {
         $schedules = InstallationSchedule::with([
             'quotation.quotationRequest.customer.user',
+            'quotation.quotationRequest.solarComputation',
         ])
         ->orderBy('scheduled_date', 'asc')
         ->get();
@@ -80,6 +84,7 @@ class InstallationScheduleController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'scheduled_date' => 'required|date|after:today',
+            'scheduled_time' => 'required|date_format:H:i',
             'assigned_technician' => 'required|string|max:255',
         ]);
 
@@ -91,6 +96,7 @@ class InstallationScheduleController extends Controller
 
         $installationSchedule->update([
             'scheduled_date' => $request->scheduled_date,
+            'scheduled_time' => $request->scheduled_time,
             'assigned_technician' => $request->assigned_technician,
         ]);
 
@@ -98,6 +104,32 @@ class InstallationScheduleController extends Controller
             'message' => 'Installation schedule created successfully.',
             'schedule' => $installationSchedule->load([
                 'quotation.quotationRequest.customer.user',
+                'quotation.quotationRequest.solarComputation',
+            ]),
+        ]);
+    }
+
+    public function updateStatus(Request $request, InstallationSchedule $installationSchedule)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:scheduled,in_progress,completed,delayed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $installationSchedule->update([
+            'status' => $request->status,
+        ]);
+
+        return response()->json([
+            'message' => 'Installation schedule updated successfully.',
+            'schedule' => $installationSchedule->load([
+                'quotation.quotationRequest.customer.user',
+                'quotation.quotationRequest.solarComputation',
             ]),
         ]);
     }
@@ -111,6 +143,7 @@ class InstallationScheduleController extends Controller
         })
         ->with([
             'quotation.quotationRequest.customer.user',
+            'quotation.quotationRequest.solarComputation',
         ])
         ->orderBy('scheduled_date', 'asc')
         ->get();

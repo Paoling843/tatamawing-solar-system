@@ -1,18 +1,22 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
+import AdminLayout from '../components/AdminLayout';
+import EmptyState from '../components/EmptyState';
+import LoadingState from '../components/LoadingState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { PlusIcon, EditIcon, TrashIcon, HelpIcon } from '../components/Icons';
 import api from '../api/axios';
+import { colors, typography } from '../styles/theme';
 
 export default function AdminFaqPage() {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
     const [faqs, setFaqs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [editingFaq, setEditingFaq] = useState(null);
-    
+    const [confirmingFaq, setConfirmingFaq] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+
     const [form, setForm] = useState({
         question: '',
         answer: '',
@@ -21,23 +25,26 @@ export default function AdminFaqPage() {
 
     const [formLoading, setFormLoading] = useState(false);
 
-    useEffect(() => {
-        fetchFaqs();
-    }, []);
 
-    const fetchFaqs = async () => {
+    const fetchFaqs = useCallback(async () => {
         setLoading(true);
         setError('');
 
         try {
             const res = await api.get('/faqs');
             setFaqs(res.data);
-        } catch (err) {
+        } catch {
             setError('Failed to load FAQs.');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        // Start the fetch in a microtask so its state updates land after
+        // this effect returns rather than cascading a render inside it
+        Promise.resolve().then(fetchFaqs);
+    }, [fetchFaqs]);
 
     const handleOpenCreate = () => {
         setForm({question: '', answer:'', keywords: ''});
@@ -84,309 +91,241 @@ export default function AdminFaqPage() {
         }
     };
 
-    const handleDelete = async (faq) => {
-        if (!window.confirm(`Are you sure you want to delete this FAQ?\n\n"${faq.question}"`)) {
-            return;
-        }
+    const handleDeleteClick = (faq) => {
+        setConfirmingFaq(faq);
+    };
 
+    const confirmDelete = async () => {
+        if (!confirmingFaq) return;
+
+        setDeleting(true);
         setError('');
         setSuccess('');
 
         try {
-            await api.delete(`/admin/faqs/${faq.id}`);
+            await api.delete(`/admin/faqs/${confirmingFaq.id}`);
             setSuccess('FAQ deleted successfully.');
             fetchFaqs();
-        } catch (err) {
+        } catch {
             setError('Failed to delete FAQ.');
+        } finally {
+            setDeleting(false);
+            setConfirmingFaq(null);
         }
     };
 
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
-
-
     return (
-        // Outer container
-        <div style={styles.container}>
+        <AdminLayout active="Help Center">
 
-            {/* Navbar */}
-            <div style={styles.navbar}>
-                <h1 style={styles.navTitle}>TataMawing Solar</h1>
-                <div style={styles.navRight}>
-                    {/* Link to admin dashboard */}
-                    <button
-                        onClick={() => navigate('/admin/dashboard')}
-                        style={styles.navBtn}
-                    >
-                        📋 Quotations
-                    </button>
-                    {/* Link to admin inbox */}
-                    <button
-                        onClick={() => navigate('/admin/inbox')}
-                        style={styles.navBtn}
-                    >
-                        💬 Messages
-                    </button>
-                    <span style={styles.navRole}>Admin</span>
-                    <span style={styles.navUser}>Hello, {user?.name}</span>
-                    <button onClick={handleLogout} style={styles.logoutBtn}>
-                        Logout
-                    </button>
+            {/* Page header with create button */}
+            <div style={styles.pageHeader}>
+                <div>
+                    <h1 style={styles.pageTitle}>FAQ Management</h1>
+                    <p style={styles.pageSubtitle}>
+                        Manage frequently asked questions visible to customers.
+                    </p>
                 </div>
+
+                {/* Create new FAQ button */}
+                <button
+                    onClick={handleOpenCreate}
+                    className="btn-primary"
+                    style={styles.createBtn}
+                >
+                    <PlusIcon size={14} color="white" />
+                    <span>Add New FAQ</span>
+                </button>
             </div>
 
-            {/* Main content */}
-            <div style={styles.content}>
+            {/* Success message */}
+            {success && <div style={styles.success}>{success}</div>}
 
-                {/* Page header with create button */}
-                <div style={styles.pageHeader}>
-                    <div>
-                        <h2 style={styles.pageTitle}>FAQ Management</h2>
-                        <p style={styles.pageSubtitle}>
-                            Manage frequently asked questions visible to customers.
-                        </p>
-                    </div>
+            {/* Error message */}
+            {error && <div style={styles.error}>{error}</div>}
 
-                    {/* Create new FAQ button */}
-                    <button
-                        onClick={handleOpenCreate}
-                        style={styles.createBtn}
-                    >
-                        + Add New FAQ
-                    </button>
+            {/* Create/Edit form — shown when showForm is true */}
+            {showForm && (
+                <div style={styles.formCard}>
+                    <h3 style={styles.formTitle}>
+                        {/* Show different title based on create or edit */}
+                        {editingFaq ? 'Edit FAQ' : 'Add New FAQ'}
+                    </h3>
+
+                    <form onSubmit={handleSubmit}>
+                        {/* Question input */}
+                        <div style={styles.field}>
+                            <label style={styles.label}>Question</label>
+                            <input
+                                type="text"
+                                value={form.question}
+                                onChange={(e) => setForm({
+                                    ...form, question: e.target.value
+                                })}
+                                className="input-field"
+                                style={styles.input}
+                                placeholder="e.g. How long does installation take?"
+                                required
+                            />
+                        </div>
+
+                        {/* Answer textarea */}
+                        <div style={styles.field}>
+                            <label style={styles.label}>Answer</label>
+                            <textarea
+                                value={form.answer}
+                                onChange={(e) => setForm({
+                                    ...form, answer: e.target.value
+                                })}
+                                className="input-field"
+                                style={{
+                                    ...styles.input,
+                                    // Make textarea taller than regular inputs
+                                    height: '120px',
+                                    resize: 'vertical',
+                                }}
+                                placeholder="Type the answer here..."
+                                required
+                            />
+                        </div>
+
+                        {/* Keywords input */}
+                        <div style={styles.field}>
+                            <label style={styles.label}>
+                                Keywords
+                                <span style={styles.optional}> (optional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={form.keywords}
+                                onChange={(e) => setForm({
+                                    ...form, keywords: e.target.value
+                                })}
+                                className="input-field"
+                                style={styles.input}
+                                placeholder="e.g. installation time duration days"
+                            />
+                            <p style={styles.hint}>
+                                Separate keywords with spaces. Used to improve search.
+                            </p>
+                        </div>
+
+                        {/* Form buttons */}
+                        <div style={styles.formActions}>
+                            {/* Cancel button */}
+                            <button
+                                type="button"
+                                onClick={() => setShowForm(false)}
+                                className="btn-secondary"
+                                style={styles.cancelBtn}
+                            >
+                                Cancel
+                            </button>
+
+                            {/* Save button */}
+                            <button
+                                type="submit"
+                                className="btn-primary"
+                                style={{
+                                    ...styles.saveBtn,
+                                    opacity: formLoading ? 0.7 : 1,
+                                    cursor: formLoading ? 'not-allowed' : 'pointer',
+                                }}
+                                {...(formLoading ? { disabled: true } : {})}
+                            >
+                                {formLoading
+                                    ? 'Saving...'
+                                    : editingFaq ? 'Save Changes' : 'Create FAQ'
+                                }
+                            </button>
+                        </div>
+                    </form>
                 </div>
+            )}
 
-                {/* Success message */}
-                {success && <div style={styles.success}>{success}</div>}
+            {/* FAQ list */}
+            {loading ? (
+                <LoadingState label="Loading FAQs..." />
+            ) : faqs.length === 0 ? (
+                <EmptyState
+                    icon={<HelpIcon size={32} color={colors.textFaint} />}
+                    title="No FAQs yet"
+                    description="Create your first FAQ so customers can find answers without contacting support."
+                    actionLabel="Add New FAQ"
+                    onAction={handleOpenCreate}
+                />
+            ) : (
+                // One card per FAQ
+                <div style={styles.faqList}>
+                    {faqs.map((faq) => (
+                        <div key={faq.id} style={styles.faqCard}>
 
-                {/* Error message */}
-                {error && <div style={styles.error}>{error}</div>}
+                            {/* FAQ content */}
+                            <div style={styles.faqContent}>
+                                {/* Question */}
+                                <h3 style={styles.faqQuestion}>
+                                    {faq.question}
+                                </h3>
 
-                {/* Create/Edit form — shown when showForm is true */}
-                {showForm && (
-                    <div style={styles.formCard}>
-                        <h3 style={styles.formTitle}>
-                            {/* Show different title based on create or edit */}
-                            {editingFaq ? 'Edit FAQ' : 'Add New FAQ'}
-                        </h3>
+                                {/* Answer */}
+                                <p style={styles.faqAnswer}>{faq.answer}</p>
 
-                        <form onSubmit={handleSubmit}>
-                            {/* Question input */}
-                            <div style={styles.field}>
-                                <label style={styles.label}>Question</label>
-                                <input
-                                    type="text"
-                                    value={form.question}
-                                    onChange={(e) => setForm({
-                                        ...form, question: e.target.value
-                                    })}
-                                    style={styles.input}
-                                    placeholder="e.g. How long does installation take?"
-                                    required
-                                />
-                            </div>
-
-                            {/* Answer textarea */}
-                            <div style={styles.field}>
-                                <label style={styles.label}>Answer</label>
-                                <textarea
-                                    value={form.answer}
-                                    onChange={(e) => setForm({
-                                        ...form, answer: e.target.value
-                                    })}
-                                    style={{
-                                        ...styles.input,
-                                        // Make textarea taller than regular inputs
-                                        height: '120px',
-                                        resize: 'vertical',
-                                    }}
-                                    placeholder="Type the answer here..."
-                                    required
-                                />
-                            </div>
-
-                            {/* Keywords input */}
-                            <div style={styles.field}>
-                                <label style={styles.label}>
-                                    Keywords
-                                    <span style={styles.optional}> (optional)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={form.keywords}
-                                    onChange={(e) => setForm({
-                                        ...form, keywords: e.target.value
-                                    })}
-                                    style={styles.input}
-                                    placeholder="e.g. installation time duration days"
-                                />
-                                <p style={styles.hint}>
-                                    Separate keywords with spaces. Used to improve search.
-                                </p>
-                            </div>
-
-                            {/* Form buttons */}
-                            <div style={styles.formActions}>
-                                {/* Cancel button */}
-                                <button
-                                    type="button"
-                                    onClick={() => setShowForm(false)}
-                                    style={styles.cancelBtn}
-                                >
-                                    Cancel
-                                </button>
-
-                                {/* Save button */}
-                                <button
-                                    type="submit"
-                                    style={{
-                                        ...styles.saveBtn,
-                                        opacity: formLoading ? 0.7 : 1,
-                                        cursor: formLoading ? 'not-allowed' : 'pointer',
-                                    }}
-                                    {...(formLoading ? { disabled: true } : {})}
-                                >
-                                    {formLoading
-                                        ? 'Saving...'
-                                        : editingFaq ? 'Save Changes' : 'Create FAQ'
-                                    }
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {/* FAQ list */}
-                {loading ? (
-                    <div style={styles.loadingText}>Loading FAQs...</div>
-                ) : faqs.length === 0 ? (
-                    <div style={styles.emptyState}>
-                        <div style={styles.emptyIcon}>📝</div>
-                        <p style={styles.emptyText}>
-                            No FAQs yet. Click "Add New FAQ" to create one.
-                        </p>
-                    </div>
-                ) : (
-                    // One card per FAQ
-                    <div style={styles.faqList}>
-                        {faqs.map((faq) => (
-                            <div key={faq.id} style={styles.faqCard}>
-
-                                {/* FAQ content */}
-                                <div style={styles.faqContent}>
-                                    {/* Question */}
-                                    <h3 style={styles.faqQuestion}>
-                                        {faq.question}
-                                    </h3>
-
-                                    {/* Answer */}
-                                    <p style={styles.faqAnswer}>{faq.answer}</p>
-
-                                    {/* Keywords if present */}
-                                    {faq.keywords && (
-                                        <div style={styles.keywordsRow}>
-                                            <span style={styles.keywordsLabel}>
-                                                Keywords:
+                                {/* Keywords if present */}
+                                {faq.keywords && (
+                                    <div style={styles.keywordsRow}>
+                                        <span style={styles.keywordsLabel}>
+                                            Keywords:
+                                        </span>
+                                        {faq.keywords.split(' ').map((kw, i) => (
+                                            <span key={i} style={styles.keywordTag}>
+                                                {kw}
                                             </span>
-                                            {faq.keywords.split(' ').map((kw, i) => (
-                                                <span key={i} style={styles.keywordTag}>
-                                                    {kw}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Action buttons */}
-                                <div style={styles.faqActions}>
-                                    {/* Edit button */}
-                                    <button
-                                        onClick={() => handleOpenEdit(faq)}
-                                        style={styles.editBtn}
-                                    >
-                                        ✏️ Edit
-                                    </button>
-
-                                    {/* Delete button */}
-                                    <button
-                                        onClick={() => handleDelete(faq)}
-                                        style={styles.deleteBtn}
-                                    >
-                                        🗑️ Delete
-                                    </button>
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
+
+                            {/* Action buttons */}
+                            <div style={styles.faqActions}>
+                                {/* Edit button */}
+                                <button
+                                    onClick={() => handleOpenEdit(faq)}
+                                    className="btn-secondary"
+                                    style={styles.editBtn}
+                                >
+                                    <EditIcon size={14} />
+                                    <span>Edit</span>
+                                </button>
+
+                                {/* Delete button */}
+                                <button
+                                    onClick={() => handleDeleteClick(faq)}
+                                    className="btn-danger"
+                                    style={styles.deleteBtn}
+                                >
+                                    <TrashIcon size={14} />
+                                    <span>Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <ConfirmDialog
+                open={!!confirmingFaq}
+                title="Delete FAQ"
+                message={confirmingFaq ? `Are you sure you want to delete "${confirmingFaq.question}"? This action cannot be undone.` : ''}
+                confirmLabel={deleting ? 'Deleting...' : 'Delete'}
+                danger
+                onConfirm={confirmDelete}
+                onCancel={() => setConfirmingFaq(null)}
+            />
+        </AdminLayout>
     );
 }
 
 // Styles
 const styles = {
-    container: {
-        minHeight: '100vh',
-        backgroundColor: '#f0fdf4',
-        width: '100%',
-    },
-    navbar: {
-        backgroundColor: '#16a34a',
-        padding: '0.75rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    navTitle: {
-        color: 'white',
-        fontSize: '1.25rem',
-        margin: 0,
-    },
-    navRight: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-    },
-    navBtn: {
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        color: 'white',
-        border: '1px solid rgba(255,255,255,0.3)',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.8rem',
-    },
-    navRole: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        color: 'white',
-        padding: '0.25rem 0.75rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-    },
-    navUser: {
-        color: 'white',
-        fontSize: '0.875rem',
-    },
-    logoutBtn: {
-        backgroundColor: 'transparent',
-        color: 'white',
-        border: '1px solid white',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-    },
-    content: {
-        width: '100%',
-        maxWidth: '900px',
-        margin: '0 auto',
-        padding: '2rem',
-        boxSizing: 'border-box',
-    },
     pageHeader: {
         display: 'flex',
         justifyContent: 'space-between',
@@ -394,31 +333,35 @@ const styles = {
         marginBottom: '1.5rem',
     },
     pageTitle: {
-        fontSize: '1.5rem',
-        color: '#111827',
+        ...typography.h1,
         marginBottom: '0.25rem',
     },
     pageSubtitle: {
-        color: '#6b7280',
+        fontSize: '0.875rem',
+        color: colors.textMuted,
         margin: 0,
     },
     createBtn: {
-        backgroundColor: '#16a34a',
+        backgroundColor: '#1a4a3a',
         color: 'white',
         border: 'none',
         padding: '0.75rem 1.25rem',
-        borderRadius: '8px',
+        borderRadius: '10px',
         cursor: 'pointer',
         fontSize: '0.875rem',
         fontWeight: '600',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
     },
     success: {
-        backgroundColor: '#dcfce7',
-        color: '#16a34a',
-        padding: '1rem',
+        backgroundColor: '#f0f7f4',
+        color: '#1a4a3a',
+        padding: '0.75rem',
         borderRadius: '8px',
         marginBottom: '1rem',
+        fontSize: '0.875rem',
     },
     error: {
         backgroundColor: '#fef2f2',
@@ -426,14 +369,15 @@ const styles = {
         padding: '0.75rem',
         borderRadius: '8px',
         marginBottom: '1rem',
+        fontSize: '0.875rem',
     },
     formCard: {
         backgroundColor: 'white',
-        borderRadius: '12px',
+        borderRadius: '16px',
         padding: '1.5rem',
         marginBottom: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        border: '2px solid #16a34a',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        border: '2px solid #1a4a3a',
     },
     formTitle: {
         fontSize: '1rem',
@@ -483,32 +427,13 @@ const styles = {
         fontSize: '0.875rem',
     },
     saveBtn: {
-        backgroundColor: '#16a34a',
+        backgroundColor: '#1a4a3a',
         color: 'white',
         border: 'none',
         padding: '0.625rem 1.25rem',
         borderRadius: '8px',
         fontSize: '0.875rem',
         fontWeight: '600',
-    },
-    loadingText: {
-        textAlign: 'center',
-        color: '#6b7280',
-        padding: '3rem',
-    },
-    emptyState: {
-        textAlign: 'center',
-        padding: '3rem',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-    },
-    emptyIcon: {
-        fontSize: '2.5rem',
-        marginBottom: '0.5rem',
-    },
-    emptyText: {
-        color: '#6b7280',
     },
     faqList: {
         display: 'flex',
@@ -517,9 +442,10 @@ const styles = {
     },
     faqCard: {
         backgroundColor: 'white',
-        borderRadius: '12px',
+        borderRadius: '16px',
         padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        border: '1px solid #f3f4f6',
         display: 'flex',
         gap: '1rem',
         alignItems: 'flex-start',
@@ -529,6 +455,7 @@ const styles = {
     },
     faqQuestion: {
         fontSize: '1rem',
+        fontWeight: '700',
         color: '#111827',
         marginTop: 0,
         marginBottom: '0.5rem',
@@ -550,9 +477,9 @@ const styles = {
         color: '#9ca3af',
     },
     keywordTag: {
-        backgroundColor: '#f0fdf4',
-        color: '#16a34a',
-        border: '1px solid #bbf7d0',
+        backgroundColor: '#f0f7f4',
+        color: '#1a4a3a',
+        border: '1px solid #dbe7e1',
         padding: '0.2rem 0.6rem',
         borderRadius: '999px',
         fontSize: '0.75rem',
@@ -564,23 +491,29 @@ const styles = {
         flexShrink: 0,
     },
     editBtn: {
-        backgroundColor: '#f0fdf4',
-        color: '#16a34a',
-        border: '1px solid #bbf7d0',
+        backgroundColor: '#f0f7f4',
+        color: '#1a4a3a',
+        border: '1px solid #dbe7e1',
         padding: '0.5rem 1rem',
-        borderRadius: '6px',
+        borderRadius: '8px',
         cursor: 'pointer',
         fontSize: '0.8rem',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
     },
     deleteBtn: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',
         border: '1px solid #fca5a5',
         padding: '0.5rem 1rem',
-        borderRadius: '6px',
+        borderRadius: '8px',
         cursor: 'pointer',
         fontSize: '0.8rem',
         whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
     },
 };

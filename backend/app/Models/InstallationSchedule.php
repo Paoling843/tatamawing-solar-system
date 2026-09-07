@@ -9,6 +9,8 @@ class InstallationSchedule extends Model
     protected $fillable = [
         'quotation_id',
         'scheduled_date',
+        'scheduled_time',
+        'status',
         'assigned_technician',
     ];
 

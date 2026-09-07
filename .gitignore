@@ -12,6 +12,12 @@ backend/bootstrap/cache/
 frontend/node_modules/
 frontend/dist/
 
+# Editors
+.vscode/
+
+# Scratch design mockups kept at the repo root
+/*.html
+
 # General
 .DS_Store
 Thumbs.db

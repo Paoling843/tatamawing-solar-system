@@ -134,4 +134,17 @@ class MessageController extends Controller
         ]);
     }
     
+    public function checkUnread(Request $request, $userId)
+    {
+        $currentUser = $request->user();
+
+        $hasUnread = ChatMessage::where('sender_id', $userId)
+            ->where('receiver_id', $currentUser->id)
+            ->whereNull('read_at')
+            ->exists();
+        
+        return response()->json([
+            'has_unread' => $hasUnread,
+        ]);
+    }
 }

@@ -1,404 +1,688 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from 'react';
+
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import api from "../api/axios";
+
+import AdminLayout from '../components/AdminLayout';
+
+import Badge from '../components/Badge';
+import EmptyState from '../components/EmptyState';
+import LoadingState from '../components/LoadingState';
+
+import api from '../api/axios';
+
+import { CalendarIcon, DownloadIcon, DocumentIcon, CheckIcon, ClockIcon, LeafIcon } from '../components/Icons';
+import { colors, typography } from '../styles/theme';
 
 export default function AdminDashboardPage() {
-    const { user, logout } = useAuth();
     const navigate = useNavigate();
+
     const [quotations, setQuotations] = useState([]);
-    const [statusFilter, setStatusFilter] = useState('pending');
+
+    const [statusFilter, setStatusFilter] = useState('all');
+
     const [loading, setLoading] = useState(true);
+
     const [error, setError] = useState('');
-    
 
-    useEffect(() => {
-        fetchQuotations();
-    }, [statusFilter]);
+    const [selectedQuotation, setSelectedQuotation] = useState(null);
 
-    const fetchQuotations = async () => {
+
+    const fetchQuotations = useCallback(async () => {
         setLoading(true);
         setError('');
-
         try {
-            const res = await api.get(`/admin/quotation-requests?status=${statusFilter}`);
-            
+            const url = statusFilter === 'all'
+                ? '/admin/quotation-requests'
+                : `/admin/quotation-requests?status=${statusFilter}`;
+            const res = await api.get(url);
             setQuotations(res.data);
-        } catch (err) {
+        } catch {
             setError('Failed to load quotations. Please try again.');
         } finally {
             setLoading(false);
         }
-    };
+    }, [statusFilter]);
 
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    }
+    useEffect(() => {
+        // Start the fetch in a microtask so its state updates land after
+        // this effect returns rather than cascading a render inside it
+        Promise.resolve().then(fetchQuotations);
+    }, [fetchQuotations]);
 
     const formatCurrency = (amount) => {
+        if (!amount) return 'N/A';
         return '₱' + parseFloat(amount).toLocaleString('en-PH', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
     };
 
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-PH', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-        });
+    const formatReference = (id, createdAt) => {
+        const year = new Date(createdAt).getFullYear();
+        const paddedId = String(id).padStart(3, '0');
+        return `#Q-${year}-${paddedId}`;
     };
 
-    const getStatusStyle = (status) => {
-        const statusStyle = {
-            pending: { backgroundColor: '#fef9c3', color: '#ca8a04' },
-            approved: { backgroundColor: '#dcfce7', color: '#16a34a' },
-            rejected: { backgroundColor: '#fef2f2', color: '#dc2626' },
-            draft: { backgroundColor: '#f3f4f6', color: '#6b7280' },
-        };
-        return statusStyle[status] || statusStyle.draft;
-    };
+    const totalCount = quotations.length;
+    const approvedCount = quotations.filter(q => q.status === 'approved').length;
+    const pendingCount = quotations.filter(q => q.status === 'pending').length;
 
     return (
-        // Outer container with light green background
-        <div style={styles.container}>
+        <AdminLayout active="Overview">
 
-            {/* Top navigation bar */}
-            <div style={styles.navbar}>
-                {/* App name on the left */}
-                <h1 style={styles.navTitle}>TataMawing Solar</h1>
-
-                <button
-                    onClick={() => navigate('/admin/inbox')}
-                    style={{
-                        backgroundColor: 'rgba(255,255,255,0.15)',
-                        color: 'white',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                    }}
-                >
-                    💬 Messages
-                </button>
-                {/* Link to schedules page */}
-                    <button
-                        onClick={() => navigate('/admin/schedules')}
-                        style={styles.navBtn}
-                    >
-                        📅 Schedules
+            <div style={styles.pageHeader}>
+                <div>
+                    <h1 style={styles.pageTitle}>Operational Overview</h1>
+                    <p style={styles.pageSubtitle}>
+                        Real-time procurement metrics and eco-impact tracking.
+                    </p>
+                </div>
+                <div style={styles.headerActions}>
+                    <button className="btn-secondary" style={{ ...styles.lastDaysBtn, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <CalendarIcon size={15} color="currentColor" /> Last 30 Days
                     </button>
-
-                {/* Link to FAQ management */}
                     <button
-                        onClick={() => navigate('/admin/faqs')}
-                        style={styles.navBtn}
-                    >
-                        ❓ FAQs
-                    </button>
-
-                    {/* Link to reports page */}
-                    <button
+                        className="btn-primary"
+                        style={{ ...styles.exportBtn, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         onClick={() => navigate('/admin/reports')}
-                        style={styles.navBtn}
                     >
-                        📊 Reports
-                    </button>
-
-                {/* Right side — admin label, user name, logout */}
-                <div style={styles.navRight}>
-                    {/* Admin role indicator */}
-                    <span style={styles.navRole}>Admin</span>
-
-                    {/* Logged-in admin's name */}
-                    <span style={styles.navUser}>Hello, {user?.name}</span>
-
-                    {/* Logout button */}
-                    <button onClick={handleLogout} style={styles.logoutBtn}>
-                        Logout
+                        <DownloadIcon size={15} color="currentColor" /> Export Report
                     </button>
                 </div>
             </div>
 
-            {/* Main content area */}
-            <div style={styles.content}>
-
-                {/* Page header */}
-                <h2 style={styles.pageTitle}>Quotation Requests</h2>
-                <p style={styles.pageSubtitle}>
-                    Review and manage customer solar quotation requests.
-                </p>
-
-                {/* Status filter tabs */}
-                <div style={styles.tabs}>
-                    {/* Map over each status option to create a tab button */}
-                    {['pending', 'approved', 'rejected', 'draft'].map((status) => (
-                        <button
-                            key={status}
-                            // When clicked, update the filter and re-fetch
-                            onClick={() => setStatusFilter(status)}
-                            style={{
-                                ...styles.tab,
-                                // Highlight the active tab with green background
-                                ...(statusFilter === status ? styles.tabActive : {}),
-                            }}
-                        >
-                            {/* Capitalize the first letter of each tab label */}
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </button>
-                    ))}
+            <div className="responsive-grid-4" style={styles.summaryGrid}>
+                <div style={styles.summaryCard}>
+                    <div style={styles.summaryCardHeader}>
+                        <span style={styles.summaryCardIcon}><DocumentIcon size={24} color="#f59e0b" /></span>
+                    </div>
+                    <p style={styles.summaryLabel}>Total Requests</p>
+                    <p style={styles.summaryValue}>{totalCount.toLocaleString()}</p>
+                    <div style={{ ...styles.accentBar, backgroundColor: '#f59e0b' }} />
                 </div>
 
-                {/* Show error message if fetch failed */}
+                <div style={styles.summaryCard}>
+                    <div style={styles.summaryCardHeader}>
+                        <span style={styles.summaryCardIcon}><CheckIcon size={24} color={colors.success} /></span>
+                    </div>
+                    <p style={styles.summaryLabel}>Approved Projects</p>
+                    <p style={styles.summaryValue}>{approvedCount.toLocaleString()}</p>
+                    <div style={{ ...styles.accentBar, backgroundColor: colors.success }} />
+                </div>
+
+                <div style={styles.summaryCard}>
+                    <div style={styles.summaryCardHeader}>
+                        <span style={styles.summaryCardIcon}><ClockIcon size={24} color="#f59e0b" /></span>
+                    </div>
+                    <p style={styles.summaryLabel}>Pending Procurement</p>
+                    <p style={styles.summaryValue}>{pendingCount.toLocaleString()}</p>
+                    <div style={{ ...styles.accentBar, backgroundColor: '#f59e0b' }} />
+                </div>
+
+                <div style={{ ...styles.summaryCard, backgroundColor: colors.primary }}>
+                    <div style={styles.summaryCardHeader}>
+                        <span style={styles.summaryCardIcon}><LeafIcon size={24} color="white" /></span>
+                    </div>
+                    <p style={{ ...styles.summaryLabel, color: 'rgba(255,255,255,0.7)' }}>
+                        Eco-Impact Score
+                    </p>
+                    <p style={{ ...styles.summaryValue, color: 'white', fontSize: '2rem' }}>
+                        94.8
+                        <span style={{ fontSize: '0.9rem', fontWeight: '400' }}> / 100</span>
+                    </p>
+                </div>
+            </div>
+
+            <div style={styles.tableCard}>
+                <div style={styles.tableCardHeader}>
+                    <div>
+                        <h2 style={styles.tableTitle}>Recent Quotations</h2>
+                        <p style={styles.tableSubtitle}>
+                            Manage and review latest quotation requests
+                        </p>
+                    </div>
+
+                    <div style={styles.filterTabs}>
+                        {['all', 'approved', 'pending', 'rejected'].map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => {
+                                    setStatusFilter(tab);
+                                    setSelectedQuotation(null);
+                                }}
+                                style={{
+                                    ...styles.filterTab,
+                                    ...(statusFilter === tab ? styles.filterTabActive : {}),
+                                }}
+                            >
+                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {error && <div style={styles.error}>{error}</div>}
 
-                {/* Show loading spinner while fetching */}
                 {loading ? (
-                    <div style={styles.loadingText}>Loading quotations...</div>
+                    <LoadingState label="Loading quotations..." />
                 ) : quotations.length === 0 ? (
-                    // Show empty state message if no quotations match the filter
-                    <div style={styles.emptyState}>
-                        <p>No {statusFilter} quotations found.</p>
-                    </div>
+                    <EmptyState
+                        icon={<DocumentIcon size={32} color={colors.textFaint} />}
+                        title="No quotations found"
+                        description="Quotation requests will appear here once customers submit them."
+                    />
                 ) : (
-                    // Show the list of quotations
-                    <div style={styles.tableWrapper}>
-
-                        {/* Table header row */}
+                    <div className="table-scroll">
                         <div style={styles.tableHeader}>
-                            <span style={{ flex: 2 }}>Customer</span>
-                            <span style={{ flex: 2 }}>System Type</span>
-                            <span style={{ flex: 2 }}>Estimated Cost</span>
-                            <span style={{ flex: 1 }}>Status</span>
-                            <span style={{ flex: 2 }}>Date Submitted</span>
-                            <span style={{ flex: 1 }}>Action</span>
+                            <span style={{ flex: 1.5 }}>REFERENCE</span>
+                            <span style={{ flex: 2 }}>CUSTOMER NAME</span>
+                            <span style={{ flex: 1.5 }}>SYSTEM TYPE</span>
+                            <span style={{ flex: 1.5 }}>VALUE</span>
+                            <span style={{ flex: 1 }}>STATUS</span>
+                            <span style={{ flex: 0.5, textAlign: 'right' }}>ACTIONS</span>
                         </div>
 
-                        {/* One row per quotation request */}
                         {quotations.map((quotation) => (
-                            <div key={quotation.id} style={styles.tableRow}>
-
-                                {/* Customer name from nested user relation */}
-                                <span style={{ flex: 2 }}>
-                                    {quotation.customer?.user?.name || 'Unknown'}
-                                </span>
-
-                                {/* Solar system type — capitalize first letter */}
-                                <span style={{ flex: 2 }}>
-                                    {quotation.solar_system_type.charAt(0).toUpperCase() +
-                                     quotation.solar_system_type.slice(1)}
-                                </span>
-
-                                {/* Estimated cost from the solar computation */}
-                                <span style={{ flex: 2 }}>
-                                    {quotation.solar_computation
-                                        ? formatCurrency(quotation.solar_computation.estimated_cost)
-                                        : 'N/A'
-                                    }
-                                </span>
-
-                                {/* Status badge with dynamic color */}
-                                <span style={{ flex: 1 }}>
-                                    <span style={{
-                                        ...styles.badge,
-                                        ...getStatusStyle(quotation.status),
-                                    }}>
-                                        {quotation.status.charAt(0).toUpperCase() +
-                                         quotation.status.slice(1)}
+                            <div
+                                key={quotation.id}
+                                style={{
+                                    ...styles.tableRow,
+                                    ...(selectedQuotation?.id === quotation.id
+                                        ? styles.tableRowSelected : {}),
+                                }}
+                                onClick={() => setSelectedQuotation(
+                                    selectedQuotation?.id === quotation.id
+                                        ? null
+                                        : quotation
+                                )}
+                            >
+                                <span style={{ flex: 1.5 }}>
+                                    <span style={styles.referenceText}>
+                                        {formatReference(quotation.id, quotation.created_at)}
                                     </span>
                                 </span>
 
-                                {/* Formatted submission date */}
                                 <span style={{ flex: 2 }}>
-                                    {formatDate(quotation.submission_date)}
+                                    <span style={styles.customerName}>
+                                        {quotation.customer?.user?.name || 'N/A'}
+                                    </span>
+                                    <br />
+                                    <span style={styles.customerLocation}>
+                                        {quotation.customer?.install_location || ''}
+                                    </span>
                                 </span>
 
-                                {/* View button — navigates to the detail page */}
+                                <span style={{ flex: 1.5, textTransform: 'capitalize' }}>
+                                    {quotation.solar_system_type?.replace('-', ' ')}
+                                </span>
+
+                                <span style={{ flex: 1.5 }}>
+                                    {formatCurrency(
+                                        quotation.solar_computation?.estimated_cost
+                                    )}
+                                </span>
+
                                 <span style={{ flex: 1 }}>
+                                    <Badge status={quotation.status} />
+                                </span>
+
+                                <span style={{ flex: 0.5, textAlign: 'right' }}>
                                     <button
-                                        // Navigate to the detail page with this quotation's id
-                                        onClick={() => navigate(`/admin/quotation-requests/${quotation.id}`)}
-                                        style={styles.viewBtn}
+                                        style={styles.actionDots}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/admin/quotation-requests/${quotation.id}`);
+                                        }}
                                     >
-                                        View
+                                        ⋯
                                     </button>
                                 </span>
                             </div>
                         ))}
                     </div>
                 )}
+
+                {!loading && quotations.length > 0 && (
+                    <div style={styles.paginationRow}>
+                        <span style={styles.paginationText}>
+                            Showing {quotations.length} of {quotations.length} results
+                        </span>
+                    </div>
+                )}
             </div>
-        </div>
+
+            {selectedQuotation && (
+                <div style={styles.detailPanel}>
+                    <h3 style={styles.detailTitle}>
+                        Quotation {formatReference(
+                            selectedQuotation.id,
+                            selectedQuotation.created_at
+                        )}
+                    </h3>
+
+                    <div className="responsive-grid-2" style={styles.detailGrid}>
+
+                        <div>
+                            <h4 style={styles.detailSectionTitle}>Customer Information</h4>
+                            <p style={styles.detailText}>
+                                Name: {selectedQuotation.customer?.user?.name}
+                            </p>
+                            <p style={styles.detailText}>
+                                Contact: {selectedQuotation.customer?.contact_number}
+                            </p>
+                            <p style={styles.detailText}>
+                                Address: {selectedQuotation.customer?.address}
+                            </p>
+
+                            <h4 style={{ ...styles.detailSectionTitle, marginTop: '1rem' }}>
+                                Appliance List
+                            </h4>
+                            <div className="table-scroll" style={styles.applianceTable}>
+                                <div style={styles.applianceHeader}>
+                                    <span style={{ flex: 2 }}>APPLIANCE</span>
+                                    <span style={{ flex: 1 }}>QTY.</span>
+                                    <span style={{ flex: 1 }}>WATTS</span>
+                                    <span style={{ flex: 1 }}>HOURS/DAY</span>
+                                </div>
+                                {selectedQuotation.appliance_items?.map((item) => (
+                                    <div key={item.id} style={styles.applianceRow}>
+                                        <span style={{ flex: 2 }}>{item.appliance_name}</span>
+                                        <span style={{ flex: 1 }}>{item.quantity}</span>
+                                        <span style={{ flex: 1 }}>{item.wattage}W</span>
+                                        <span style={{ flex: 1 }}>{item.usage_hours_per_day}H</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 style={styles.detailSectionTitle}>Cost Breakdown</h4>
+
+                            {selectedQuotation.quotation ? (
+                                <>
+                                    <div style={styles.costRow}>
+                                        <span>Materials</span>
+                                        <span>{formatCurrency(selectedQuotation.quotation.adjusted_cost)}</span>
+                                    </div>
+                                    <div style={styles.costRow}>
+                                        <span>Labor</span>
+                                        <span>{formatCurrency(selectedQuotation.quotation.labor_fee)}</span>
+                                    </div>
+                                    <div style={styles.costRow}>
+                                        <span>Others</span>
+                                        <span>{formatCurrency(selectedQuotation.quotation.transportation_fee)}</span>
+                                    </div>
+                                    <div style={{ ...styles.costRow, ...styles.costTotal }}>
+                                        <span>Total:</span>
+                                        <span>{formatCurrency(selectedQuotation.quotation.total_amount)}</span>
+                                    </div>
+                                </>
+                            ) : selectedQuotation.solar_computation ? (
+                                <>
+                                    <div style={styles.costRow}>
+                                        <span>Estimated Cost</span>
+                                        <span>{formatCurrency(selectedQuotation.solar_computation.estimated_cost)}</span>
+                                    </div>
+                                    <p style={styles.detailNote}>
+                                        *Pending admin review and final cost adjustment
+                                    </p>
+                                </>
+                            ) : (
+                                <p style={styles.detailText}>No cost data available.</p>
+                            )}
+
+                            {selectedQuotation.status === 'pending' && (
+                                <>
+                                    <h4 style={{ ...styles.detailSectionTitle, marginTop: '1.5rem' }}>
+                                        Admin Controls
+                                    </h4>
+                                    <div style={styles.adminControls}>
+                                        <button
+                                            className="btn-primary"
+                                            style={styles.approveControlBtn}
+                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
+                                        >
+                                            Approve
+                                        </button>
+                                        <button
+                                            className="btn-danger"
+                                            style={styles.rejectControlBtn}
+                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            className="btn-primary"
+                                            style={styles.editControlBtn}
+                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div style={styles.footer}>
+                <span>© 2024 TataMawing Solar. All rights reserved.</span>
+                <div style={styles.footerLinks}>
+                    <span style={styles.footerLink}>Privacy Policy</span>
+                    <span style={styles.footerLink}>Terms of Service</span>
+                    <span style={styles.footerLink}>Sustainability Report</span>
+                </div>
+            </div>
+        </AdminLayout>
     );
 }
 
-// Styles object
 const styles = {
-    // Light green full-page background
-    container: {
-        width: '100%',
-        minHeight: '100vh',
-        backgroundColor: '#f0fdf4',
-        margin: 'flex',
-    },
-    // Green navbar
-    navbar: {
-        backgroundColor: '#16a34a',
-        padding: '1rem 2rem',
+    pageHeader: {
         display: 'flex',
-        alignItems: 'center',
         justifyContent: 'space-between',
-    },
-    // White app name
-    navTitle: {
-        color: 'white',
-        fontSize: '1.25rem',
-        margin: 0,
-    },
-    // Right side of navbar
-    navRight: {
-        display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap',
         gap: '1rem',
     },
-    // Admin role badge in navbar
-    navRole: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        color: 'white',
-        padding: '0.25rem 0.75rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-    },
-    // White username text
-    navUser: {
-        color: 'white',
-        fontSize: '0.875rem',
-    },
-    // Transparent logout button
-    logoutBtn: {
-        backgroundColor: 'transparent',
-        color: 'white',
-        border: '1px solid white',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-    },
-    // Centered content area
-    content: {
-        // Remove maxWidth entirely so content stretches full width
-        width: '100%',
-        // Keep padding so content doesn't touch the edges
-        padding: '2rem',
-        // Remove margin: '0 auto' since we no longer need centering
-        boxSizing: 'border-box',
-    },
-    // Page heading
     pageTitle: {
-        fontSize: '1.5rem',
-        color: '#111827',
+        ...typography.h1,
         marginBottom: '0.25rem',
     },
-    // Page description
     pageSubtitle: {
-        color: '#6b7280',
-        marginBottom: '1.5rem',
+        ...typography.small,
+        margin: 0,
     },
-    // Tab buttons container
-    tabs: {
+    headerActions: {
         display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-        borderBottom: '2px solid #e5e7eb',
-        paddingBottom: '0',
+        gap: '0.75rem',
+        alignItems: 'center',
     },
-    // Individual tab button
-    tab: {
-        padding: '0.625rem 1.25rem',
-        backgroundColor: 'transparent',
-        border: 'none',
-        borderBottom: '2px solid transparent',
-        cursor: 'pointer',
+    lastDaysBtn: {
+        padding: '0.5rem 1rem',
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        backgroundColor: 'white',
+        color: '#374151',
         fontSize: '0.875rem',
-        color: '#6b7280',
-        fontWeight: '500',
-        marginBottom: '-2px',
     },
-    // Active tab styling
-    tabActive: {
-        color: '#16a34a',
-        borderBottom: '2px solid #16a34a',
+    exportBtn: {
+        padding: '0.5rem 1rem',
+        border: 'none',
+        borderRadius: '8px',
+        backgroundColor: colors.primary,
+        color: 'white',
+        fontSize: '0.875rem',
         fontWeight: '600',
     },
-    // Red error box
+    summaryGrid: {
+        marginBottom: '1.5rem',
+    },
+    summaryCard: {
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '1.25rem',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    summaryCardHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.75rem',
+    },
+    summaryCardIcon: {
+        fontSize: '1.5rem',
+    },
+    summaryLabel: {
+        fontSize: '0.8rem',
+        color: '#6b7280',
+        margin: '0 0 0.25rem 0',
+    },
+    summaryValue: {
+        fontSize: '2rem',
+        fontWeight: '700',
+        color: '#111827',
+        margin: 0,
+    },
+    accentBar: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '3px',
+    },
+    tableCard: {
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        marginBottom: '1.5rem',
+    },
+    tableCardHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+    },
+    tableTitle: {
+        ...typography.h2,
+        margin: '0 0 0.25rem 0',
+    },
+    tableSubtitle: {
+        fontSize: '0.8rem',
+        color: '#6b7280',
+        margin: 0,
+    },
+    filterTabs: {
+        display: 'flex',
+        gap: '0.25rem',
+        backgroundColor: '#f3f4f6',
+        padding: '4px',
+        borderRadius: '8px',
+    },
+    filterTab: {
+        padding: '0.375rem 0.875rem',
+        border: 'none',
+        borderRadius: '6px',
+        backgroundColor: 'transparent',
+        color: '#6b7280',
+        fontSize: '0.8rem',
+        cursor: 'pointer',
+    },
+    filterTabActive: {
+        backgroundColor: 'white',
+        color: '#111827',
+        fontWeight: '600',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    },
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',
         padding: '0.75rem',
         borderRadius: '8px',
         marginBottom: '1rem',
+        fontSize: '0.875rem',
     },
-    // Loading text
-    loadingText: {
-        textAlign: 'center',
-        color: '#6b7280',
-        padding: '3rem',
-    },
-    // Empty state message
-    emptyState: {
-        textAlign: 'center',
-        color: '#6b7280',
-        padding: '3rem',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-    },
-    // White table container
-    tableWrapper: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        overflow: 'hidden',
-    },
-    // Table header row
     tableHeader: {
         display: 'flex',
-        padding: '1rem 1.5rem',
-        backgroundColor: '#f9fafb',
-        borderBottom: '1px solid #e5e7eb',
-        fontSize: '0.75rem',
-        color: '#6b7280',
+        padding: '0.75rem 1rem',
+        fontSize: '0.7rem',
+        color: '#9ca3af',
         fontWeight: '600',
         textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        borderBottom: '1px solid #f3f4f6',
     },
-    // Each data row
     tableRow: {
         display: 'flex',
-        padding: '1rem 1.5rem',
-        borderBottom: '1px solid #f3f4f6',
+        padding: '1rem',
+        borderBottom: '1px solid #f9fafb',
         alignItems: 'center',
         fontSize: '0.875rem',
         color: '#374151',
+        cursor: 'pointer',
     },
-    // Status badge pill
-    badge: {
-        padding: '0.25rem 0.625rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
+    tableRowSelected: {
+        backgroundColor: '#f0f7f4',
+    },
+    referenceText: {
         fontWeight: '600',
+        color: '#111827',
     },
-    // Green view button
-    viewBtn: {
-        backgroundColor: '#16a34a',
+    customerName: {
+        fontWeight: '500',
+        color: '#111827',
+        fontSize: '0.875rem',
+    },
+    customerLocation: {
+        fontSize: '0.75rem',
+        color: '#9ca3af',
+    },
+    actionDots: {
+        background: 'none',
+        border: 'none',
+        fontSize: '1.25rem',
+        cursor: 'pointer',
+        color: '#9ca3af',
+        padding: '0 0.25rem',
+    },
+    paginationRow: {
+        padding: '1rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    paginationText: {
+        fontSize: '0.8rem',
+        color: colors.primary,
+    },
+    detailPanel: {
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        marginBottom: '1.5rem',
+    },
+    detailTitle: {
+        fontSize: '1rem',
+        fontWeight: '600',
+        color: '#111827',
+        marginBottom: '1.25rem',
+        marginTop: 0,
+    },
+    detailGrid: {},
+    detailSectionTitle: {
+        fontSize: '0.9rem',
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: '0.75rem',
+        marginTop: 0,
+    },
+    detailText: {
+        fontSize: '0.875rem',
+        color: '#374151',
+        marginBottom: '0.25rem',
+        margin: '0 0 0.25rem 0',
+    },
+    applianceTable: {
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        marginTop: '0.5rem',
+    },
+    applianceHeader: {
+        display: 'flex',
+        padding: '0.5rem 0.75rem',
+        backgroundColor: '#f9fafb',
+        fontSize: '0.7rem',
+        color: '#9ca3af',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+    },
+    applianceRow: {
+        display: 'flex',
+        padding: '0.625rem 0.75rem',
+        borderTop: '1px solid #f3f4f6',
+        fontSize: '0.875rem',
+        color: '#374151',
+    },
+    costRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        padding: '0.375rem 0',
+        fontSize: '0.875rem',
+        color: '#374151',
+    },
+    costTotal: {
+        fontWeight: '700',
+        fontSize: '1rem',
+        color: '#111827',
+        borderTop: '1px solid #e5e7eb',
+        paddingTop: '0.75rem',
+        marginTop: '0.5rem',
+    },
+    detailNote: {
+        fontSize: '0.75rem',
+        color: '#9ca3af',
+        marginTop: '0.5rem',
+        margin: '0.5rem 0 0 0',
+    },
+    adminControls: {
+        display: 'flex',
+        gap: '0.75rem',
+        marginTop: '0.5rem',
+        flexWrap: 'wrap',
+    },
+    approveControlBtn: {
+        padding: '0.625rem 1.25rem',
+        backgroundColor: colors.primary,
         color: 'white',
         border: 'none',
-        padding: '0.375rem 0.75rem',
-        borderRadius: '6px',
-        cursor: 'pointer',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+    },
+    rejectControlBtn: {
+        padding: '0.625rem 1.25rem',
+        backgroundColor: '#dc2626',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+    },
+    editControlBtn: {
+        padding: '0.625rem 1.25rem',
+        backgroundColor: colors.primary,
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+    },
+    footer: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '1rem 0',
+        borderTop: '1px solid #e5e7eb',
         fontSize: '0.8rem',
+        color: '#9ca3af',
+        marginTop: '1rem',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+    },
+    footerLinks: {
+        display: 'flex',
+        gap: '1.5rem',
+    },
+    footerLink: {
+        cursor: 'pointer',
     },
 };

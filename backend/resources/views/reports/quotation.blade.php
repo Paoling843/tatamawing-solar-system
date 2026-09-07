@@ -9,7 +9,7 @@
         body { font-family: Arial, sans-serif; font-size: 12px; color: #111827; }
 
         /* Header section */
-        .header { background-color: #16a34a; color: white; padding: 20px; margin-bottom: 20px; }
+        .header { background-color: #1a4a3a; color: white; padding: 20px; margin-bottom: 20px; }
         .header h1 { font-size: 20px; margin-bottom: 4px; }
         .header p { font-size: 11px; opacity: 0.85; }
 
@@ -20,8 +20,8 @@
         .section-title {
             font-size: 13px;
             font-weight: bold;
-            color: #16a34a;
-            border-bottom: 2px solid #16a34a;
+            color: #1a4a3a;
+            border-bottom: 2px solid #1a4a3a;
             padding-bottom: 4px;
             margin: 16px 0 10px 0;
         }
@@ -38,9 +38,9 @@
         td { padding: 7px 8px; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
 
         /* Cost summary box */
-        .cost-box { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 14px; margin: 16px 0; }
+        .cost-box { background-color: #f0f7f4; border: 1px solid #dbe7e1; border-radius: 6px; padding: 14px; margin: 16px 0; }
         .cost-row { display: flex; justify-content: space-between; padding: 4px 0; }
-        .cost-total { font-size: 15px; font-weight: bold; color: #16a34a; border-top: 2px solid #16a34a; padding-top: 8px; margin-top: 8px; }
+        .cost-total { font-size: 15px; font-weight: bold; color: #1a4a3a; border-top: 2px solid #1a4a3a; padding-top: 8px; margin-top: 8px; }
 
         /* Status badge */
         .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: bold; }
@@ -203,12 +203,12 @@
                 </tr>
                 <tr>
                     <td colspan="2" style="border: none; padding: 0;">
-                        <div style="border-top: 1px solid #16a34a; margin: 8px 0;"></div>
+                        <div style="border-top: 1px solid #1a4a3a; margin: 8px 0;"></div>
                     </td>
                 </tr>
                 <tr>
-                    <td style="border: none; font-weight: bold; font-size: 14px; color: #16a34a;">TOTAL AMOUNT</td>
-                    <td style="border: none; font-weight: bold; font-size: 14px; color: #16a34a; text-align: right;">PHP{{ number_format($quotation->total_amount, 2) }}</td>
+                    <td style="border: none; font-weight: bold; font-size: 14px; color: #1a4a3a;">TOTAL AMOUNT</td>
+                    <td style="border: none; font-weight: bold; font-size: 14px; color: #1a4a3a; text-align: right;">PHP{{ number_format($quotation->total_amount, 2) }}</td>
                 </tr>
             </table>
         </div>

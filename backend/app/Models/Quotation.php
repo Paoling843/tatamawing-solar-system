@@ -34,7 +34,7 @@ class Quotation extends Model
         return $this->belongsTo(Admin::class, 'approved_by_admin_id');
     }
 
-    public function purchaseRequests()
+    public function purchaseRequest()
     {
         return $this->hasOne(PurchaseRequest::class);
     }

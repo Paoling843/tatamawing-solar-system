@@ -13,6 +13,11 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Dropping a property with rest destructuring (`const { id, ...rest }`)
+      // is deliberate, not an unused variable.
+      'no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
