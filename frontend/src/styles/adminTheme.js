@@ -1,0 +1,18 @@
+export const adminTokens = {
+    green: '#0f3b2c',
+    greenHover: '#0b2e22',
+    greenTint: '#e8efea',
+    gold: '#f4c542',
+    ink: '#16211c',
+    body: '#293530',
+    muted: '#6b7670',
+    faint: '#9aa39d',
+    page: '#f6f7f4',
+    surface: '#ffffff',
+    border: '#e6e8e2',
+    hairline: '#eef0ec',
+    hairline2: '#f1f3ef',
+    danger: '#c0392b',
+    fontUI: "'Figtree', sans-serif",
+    fontMono: "'IBM Plex Mono', monospace",
+};

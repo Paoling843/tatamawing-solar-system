@@ -31,21 +31,21 @@ class FaqController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'question' => 'required|string|max:500',
-            'answer' => 'required|string',
-            'keywords' => 'nullable|string|max:255',
+            'question' => ['required', 'string', 'min:10', 'max:500'],
+            'answer' => ['required', 'string', 'min:10'],
+            'keywords' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
-            return respones()->json(['errors' => $validator->errors()], 422);
+            return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
         $admin = $request->user()->admin;
 
         $faq = Faq::create([
-            'question' => $request->question,
-            'answer' => $request->answer,
-            'keywords' => $request->keywords,
+            'question' => trim($request->question),
+            'answer' => trim($request->answer),
+            'keywords' => $request->keywords ? trim($request->keywords) : null,
             'created_by' => $admin->id,
         ]);
 
@@ -58,9 +58,9 @@ class FaqController extends Controller
     public function update (Request $request, Faq $faq)
     {
         $validator = Validator::make($request->all(), [
-            'question' => 'required|string|max:500',
-            'answer' => 'required|string',
-            'keywords' => 'nullable|string|max:255',
+            'question' => ['required', 'string', 'min:10', 'max:500'],
+            'answer' => ['required', 'string', 'min:10'],
+            'keywords' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
@@ -68,9 +68,9 @@ class FaqController extends Controller
         }
 
         $faq->update([
-            'question' => $request->question,
-            'answer' => $request->answer,
-            'keywords' => $request->keywords,
+            'question' => trim($request->question),
+            'answer' => trim($request->answer),
+            'keywords' => $request->keywords ? trim($request->keywords) : null,
         ]);
 
         return response()->json([

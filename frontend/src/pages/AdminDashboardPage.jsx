@@ -3,54 +3,239 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
+import { adminTokens } from '../styles/adminTheme';
 
-import Badge from '../components/Badge';
-import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 
 import api from '../api/axios';
 
-import { CalendarIcon, DownloadIcon, DocumentIcon, CheckIcon, ClockIcon, LeafIcon } from '../components/Icons';
-import { colors, typography } from '../styles/theme';
+import { CalendarIcon, CheckIcon, ChevronDownIcon, ClockIcon, DownloadIcon, XIcon } from '../components/Icons';
+
+const TABLE_COLUMNS = '126px minmax(0,1.5fr) 96px 124px 78px 108px 40px';
+
+const TODAY = new Date();
+TODAY.setHours(0, 0, 0, 0);
+const NOW_MS = Date.now();
+const MIN_SCHEDULE_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function toDateKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 export default function AdminDashboardPage() {
     const navigate = useNavigate();
 
     const [quotations, setQuotations] = useState([]);
-
-    const [statusFilter, setStatusFilter] = useState('all');
-
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState('');
 
-    const [selectedQuotation, setSelectedQuotation] = useState(null);
+    const [schedules, setSchedules] = useState([]);
+    const [scheduleLoading, setScheduleLoading] = useState(true);
+    const [externalRequests, setExternalRequests] = useState([]);
 
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
+    const [selectedQuotation, setSelectedQuotation] = useState(null);
+    const [confirmingExternal, setConfirmingExternal] = useState(null);
+    const [confirmForm, setConfirmForm] = useState({
+        scheduled_date: '',
+        scheduled_time: '',
+        assigned_technician: '',
+    });
+    const [confirmViewYear, setConfirmViewYear] = useState(TODAY.getFullYear());
+    const [confirmViewMonth, setConfirmViewMonth] = useState(TODAY.getMonth());
+    const [confirmLoading, setConfirmLoading] = useState(false);
+    const [rejectingExternal, setRejectingExternal] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [rejectLoading, setRejectLoading] = useState(false);
+    const [quotationPreview, setQuotationPreview] = useState(null);
+    const [quotationPreviewLoadingId, setQuotationPreviewLoadingId] = useState(null);
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const url = statusFilter === 'all'
-                ? '/admin/quotation-requests'
-                : `/admin/quotation-requests?status=${statusFilter}`;
-            const res = await api.get(url);
+            const res = await api.get('/admin/quotation-requests');
             setQuotations(res.data);
         } catch {
             setError('Failed to load quotations. Please try again.');
         } finally {
             setLoading(false);
         }
-    }, [statusFilter]);
+    }, []);
+
+    const fetchSchedules = useCallback(async () => {
+        setScheduleLoading(true);
+        try {
+            const res = await api.get('/admin/schedules');
+            setSchedules(res.data);
+        } catch {
+            setSchedules([]);
+        } finally {
+            setScheduleLoading(false);
+        }
+    }, []);
+
+    const fetchExternalRequests = useCallback(async () => {
+        try {
+            const res = await api.get('/admin/external-installation-requests');
+            setExternalRequests(res.data);
+        } catch {
+            setExternalRequests([]);
+        }
+    }, []);
 
     useEffect(() => {
-        // Start the fetch in a microtask so its state updates land after
-        // this effect returns rather than cascading a render inside it
         Promise.resolve().then(fetchQuotations);
-    }, [fetchQuotations]);
+        Promise.resolve().then(fetchSchedules);
+        Promise.resolve().then(fetchExternalRequests);
+    }, [fetchQuotations, fetchSchedules, fetchExternalRequests]);
+
+    const openConfirmExternal = (requestRecord) => {
+        const preferredDate = requestRecord.preferred_installation_date?.split('T')[0] || '';
+        const initialDate = preferredDate >= MIN_SCHEDULE_DATE ? preferredDate : '';
+        const initialDateObject = initialDate ? new Date(`${initialDate}T00:00:00`) : new Date(`${MIN_SCHEDULE_DATE}T00:00:00`);
+        setConfirmForm({
+            scheduled_date: initialDate,
+            scheduled_time: '',
+            assigned_technician: '',
+        });
+        setConfirmViewYear(initialDateObject.getFullYear());
+        setConfirmViewMonth(initialDateObject.getMonth());
+        setConfirmingExternal(requestRecord);
+        setError('');
+    };
+
+    const closeConfirmExternal = () => {
+        if (!confirmLoading) setConfirmingExternal(null);
+    };
+
+    const shiftConfirmMonth = (delta) => {
+        let month = confirmViewMonth + delta;
+        let year = confirmViewYear;
+        if (month < 0) { month = 11; year -= 1; }
+        if (month > 11) { month = 0; year += 1; }
+        setConfirmViewMonth(month);
+        setConfirmViewYear(year);
+    };
+
+    const confirmFirstOfMonth = new Date(confirmViewYear, confirmViewMonth, 1);
+    const confirmStartOffset = confirmFirstOfMonth.getDay();
+    const confirmDaysInMonth = new Date(confirmViewYear, confirmViewMonth + 1, 0).getDate();
+    const confirmRowCount = Math.ceil((confirmStartOffset + confirmDaysInMonth) / 7);
+    const confirmCells = [];
+    for (let index = 0; index < confirmRowCount * 7; index++) {
+        const dayNumber = index - confirmStartOffset + 1;
+        const cellDate = new Date(confirmViewYear, confirmViewMonth, dayNumber);
+        const key = toDateKey(cellDate);
+        const inMonth = dayNumber >= 1 && dayNumber <= confirmDaysInMonth;
+        const daySchedules = schedules.filter((schedule) => schedule.scheduled_date?.split('T')[0] === key);
+        confirmCells.push({
+            key,
+            day: cellDate.getDate(),
+            inMonth,
+            isToday: key === toDateKey(TODAY),
+            isPicked: key === confirmForm.scheduled_date,
+            isBookable: key >= MIN_SCHEDULE_DATE,
+            bookedCount: daySchedules.length,
+        });
+    }
+
+    const confirmFormValid = Boolean(
+        confirmForm.scheduled_date &&
+        confirmForm.scheduled_time &&
+        confirmForm.assigned_technician.trim()
+    );
+
+    const handleConfirmExternal = async (event) => {
+        event.preventDefault();
+        if (!confirmingExternal) return;
+        setConfirmLoading(true);
+        setError('');
+        try {
+            await api.post(`/admin/external-installation-requests/${confirmingExternal.id}/confirm`, {
+                scheduled_date: confirmForm.scheduled_date,
+                scheduled_time: confirmForm.scheduled_time,
+                assigned_technician: confirmForm.assigned_technician,
+            });
+            setConfirmingExternal(null);
+            fetchExternalRequests();
+            fetchSchedules();
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Failed to confirm external installation request.');
+        } finally {
+            setConfirmLoading(false);
+        }
+    };
+
+    const openRejectExternal = (requestRecord) => {
+        setRejectingExternal(requestRecord);
+        setRejectionReason('');
+        setError('');
+    };
+
+    const closeRejectExternal = () => {
+        if (!rejectLoading) setRejectingExternal(null);
+    };
+
+    const handleRejectExternal = async (event) => {
+        event.preventDefault();
+        if (!rejectingExternal || !rejectionReason.trim()) return;
+        setRejectLoading(true);
+        setError('');
+        try {
+            await api.post(`/admin/external-installation-requests/${rejectingExternal.id}/reject`, {
+                rejection_reason: rejectionReason.trim(),
+            });
+            setRejectingExternal(null);
+            fetchExternalRequests();
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Failed to reject external installation request.');
+        } finally {
+            setRejectLoading(false);
+        }
+    };
+
+    const previewExternalQuotation = async (requestRecord) => {
+        setQuotationPreviewLoadingId(requestRecord.id);
+        setError('');
+        try {
+            const response = await api.get(`/admin/external-installation-requests/${requestRecord.id}/quotation`, {
+                responseType: 'blob',
+            });
+            const url = URL.createObjectURL(response.data);
+            setQuotationPreview({
+                requestRecord,
+                url,
+                type: response.data.type || response.headers['content-type'] || '',
+            });
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Failed to download quotation proof.');
+        } finally {
+            setQuotationPreviewLoadingId(null);
+        }
+    };
+
+    const closeQuotationPreview = () => {
+        if (quotationPreview?.url) URL.revokeObjectURL(quotationPreview.url);
+        setQuotationPreview(null);
+    };
+
+    const downloadPreviewedQuotation = () => {
+        if (!quotationPreview) return;
+        const link = document.createElement('a');
+        link.href = quotationPreview.url;
+        link.download = `external-quotation-${quotationPreview.requestRecord.id}`;
+        link.click();
+    };
 
     const formatCurrency = (amount) => {
-        if (!amount) return 'N/A';
+        if (!amount) return '₱0.00';
         return '₱' + parseFloat(amount).toLocaleString('en-PH', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -63,626 +248,1362 @@ export default function AdminDashboardPage() {
         return `#Q-${year}-${paddedId}`;
     };
 
+    const formatTime = (timeStr) => {
+        if (!timeStr) return '';
+        const [h, m] = timeStr.split(':');
+        const hour = parseInt(h, 10);
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${m} ${period}`;
+    };
+
+    const daysAgo = (dateStr) => {
+        if (!dateStr) return 0;
+        const diff = NOW_MS - new Date(dateStr).getTime();
+        return Math.max(0, Math.floor(diff / 86400000));
+    };
+
+    const getValue = (q) => parseFloat(q.quotation?.total_amount ?? q.solar_computation?.estimated_cost ?? 0) || 0;
+
+    const updateQuotationInState = (updated) => {
+        setQuotations((prev) => prev.map((q) => (q.id === updated.id ? { ...q, ...updated } : q)));
+        setSelectedQuotation((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    };
+
+    const handleApprove = async (quotation) => {
+        setError('');
+        try {
+            const res = await api.post(`/admin/quotation-requests/${quotation.id}/approve`);
+            updateQuotationInState(res.data.quotation_request);
+            window.dispatchEvent(new Event('admin:counts-refresh'));
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to approve quotation.');
+        }
+    };
+
+    const handleReject = async (quotation) => {
+        const reason = window.prompt('Reason for rejecting this quotation:');
+        if (!reason) return;
+        setError('');
+        try {
+            const res = await api.post(`/admin/quotation-requests/${quotation.id}/reject`, {
+                rejection_reason: reason,
+            });
+            updateQuotationInState(res.data.quotation_request);
+            window.dispatchEvent(new Event('admin:counts-refresh'));
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to reject quotation.');
+        }
+    };
+
+    const goToSchedule = (quotation) => {
+        navigate('/admin/schedule', {
+            state: {
+                scheduleQuotationId: quotation.quotation?.id,
+                scheduleCustomerName: quotation.customer?.user?.name || 'Customer',
+                scheduleLocation: quotation.customer?.install_location || '',
+                scheduleReference: formatReference(quotation.id, quotation.created_at),
+            },
+        });
+    };
+
     const totalCount = quotations.length;
-    const approvedCount = quotations.filter(q => q.status === 'approved').length;
-    const pendingCount = quotations.filter(q => q.status === 'pending').length;
+    const approvedList = quotations.filter((q) => q.status === 'approved');
+    const approvedCount = approvedList.length;
+    const pendingList = quotations.filter((q) => q.status === 'pending');
+    const pendingCount = pendingList.length;
+    const rejectedCount = quotations.filter((q) => q.status === 'rejected').length;
+
+    const oldestPendingDays = pendingList.length
+        ? Math.max(...pendingList.map((q) => daysAgo(q.created_at)))
+        : 0;
+
+    const contractedValue = approvedList.reduce((sum, q) => sum + getValue(q), 0);
+    const contractedValueM = (contractedValue / 1_000_000).toFixed(2);
+    const avgQuote = approvedCount ? contractedValue / approvedCount : 0;
+
+    const scheduledQuotationIds = new Set(schedules.map((s) => s.quotation_id).filter(Boolean));
+    const approvedUnscheduledList = approvedList.filter(
+        (q) => q.quotation?.id && !scheduledQuotationIds.has(q.quotation.id)
+    );
+
+    const queue = [
+        ...[...pendingList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+            .map((q) => ({ ...q, queueKind: 'pending' })),
+        ...[...approvedUnscheduledList].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+            .map((q) => ({ ...q, queueKind: 'approved' })),
+    ];
+
+    const upcomingSchedules = [...schedules]
+        .filter((s) => new Date(s.scheduled_date) >= TODAY)
+        .sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date))
+        .slice(0, 6);
+
+    const sortValue = (q, key) => {
+        if (key === 'reference') return q.id;
+        if (key === 'customer') return (q.customer?.user?.name || '').toLowerCase();
+        if (key === 'age') return daysAgo(q.created_at);
+        return 0;
+    };
+
+    const handleSort = (key) => {
+        setSort((prev) => (
+            prev.key === key
+                ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { key, dir: 'asc' }
+        ));
+    };
+
+    const filteredBase = statusFilter === 'all' ? quotations : quotations.filter((q) => q.status === statusFilter);
+    const filteredRows = [...filteredBase].sort((a, b) => {
+        const av = sortValue(a, sort.key);
+        const bv = sortValue(b, sort.key);
+        if (av < bv) return sort.dir === 'asc' ? -1 : 1;
+        if (av > bv) return sort.dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const filterCounts = { all: totalCount, approved: approvedCount, pending: pendingCount, rejected: rejectedCount };
 
     return (
-        <AdminLayout active="Overview">
+        <AdminLayout
+            active="Overview"
+            title="Operational Overview"
+            subtitle="Real-time procurement metrics and eco-impact tracking."
+            actions={
+                <button
+                    className="btn-primary"
+                    style={styles.exportBtn}
+                    onClick={() => navigate('/admin/reports')}
+                >
+                    <DownloadIcon size={15} color="currentColor" /> Export Report
+                </button>
+            }
+        >
+            {loading ? (
+                <LoadingState label="Loading dashboard..." />
+            ) : (
+                <div style={styles.blocks}>
 
-            <div style={styles.pageHeader}>
-                <div>
-                    <h1 style={styles.pageTitle}>Operational Overview</h1>
-                    <p style={styles.pageSubtitle}>
-                        Real-time procurement metrics and eco-impact tracking.
-                    </p>
-                </div>
-                <div style={styles.headerActions}>
-                    <button className="btn-secondary" style={{ ...styles.lastDaysBtn, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <CalendarIcon size={15} color="currentColor" /> Last 30 Days
-                    </button>
-                    <button
-                        className="btn-primary"
-                        style={{ ...styles.exportBtn, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                        onClick={() => navigate('/admin/reports')}
-                    >
-                        <DownloadIcon size={15} color="currentColor" /> Export Report
-                    </button>
-                </div>
-            </div>
-
-            <div className="responsive-grid-4" style={styles.summaryGrid}>
-                <div style={styles.summaryCard}>
-                    <div style={styles.summaryCardHeader}>
-                        <span style={styles.summaryCardIcon}><DocumentIcon size={24} color="#f59e0b" /></span>
-                    </div>
-                    <p style={styles.summaryLabel}>Total Requests</p>
-                    <p style={styles.summaryValue}>{totalCount.toLocaleString()}</p>
-                    <div style={{ ...styles.accentBar, backgroundColor: '#f59e0b' }} />
-                </div>
-
-                <div style={styles.summaryCard}>
-                    <div style={styles.summaryCardHeader}>
-                        <span style={styles.summaryCardIcon}><CheckIcon size={24} color={colors.success} /></span>
-                    </div>
-                    <p style={styles.summaryLabel}>Approved Projects</p>
-                    <p style={styles.summaryValue}>{approvedCount.toLocaleString()}</p>
-                    <div style={{ ...styles.accentBar, backgroundColor: colors.success }} />
-                </div>
-
-                <div style={styles.summaryCard}>
-                    <div style={styles.summaryCardHeader}>
-                        <span style={styles.summaryCardIcon}><ClockIcon size={24} color="#f59e0b" /></span>
-                    </div>
-                    <p style={styles.summaryLabel}>Pending Procurement</p>
-                    <p style={styles.summaryValue}>{pendingCount.toLocaleString()}</p>
-                    <div style={{ ...styles.accentBar, backgroundColor: '#f59e0b' }} />
-                </div>
-
-                <div style={{ ...styles.summaryCard, backgroundColor: colors.primary }}>
-                    <div style={styles.summaryCardHeader}>
-                        <span style={styles.summaryCardIcon}><LeafIcon size={24} color="white" /></span>
-                    </div>
-                    <p style={{ ...styles.summaryLabel, color: 'rgba(255,255,255,0.7)' }}>
-                        Eco-Impact Score
-                    </p>
-                    <p style={{ ...styles.summaryValue, color: 'white', fontSize: '2rem' }}>
-                        94.8
-                        <span style={{ fontSize: '0.9rem', fontWeight: '400' }}> / 100</span>
-                    </p>
-                </div>
-            </div>
-
-            <div style={styles.tableCard}>
-                <div style={styles.tableCardHeader}>
-                    <div>
-                        <h2 style={styles.tableTitle}>Recent Quotations</h2>
-                        <p style={styles.tableSubtitle}>
-                            Manage and review latest quotation requests
-                        </p>
+                    <div style={styles.metricGrid}>
+                        <MetricCard
+                            label="TOTAL REQUESTS"
+                            value={totalCount.toLocaleString()}
+                            note="Across Sorsogon and Albay"
+                            barColor={adminTokens.gold}
+                        />
+                        <MetricCard
+                            label="APPROVED PROJECTS"
+                            value={approvedCount.toLocaleString()}
+                            note="Ready for procurement"
+                            barColor="#2f8f5b"
+                        />
+                        <MetricCard
+                            label="PENDING PROCUREMENT"
+                            value={pendingCount.toLocaleString()}
+                            note={`Oldest waiting ${oldestPendingDays}d`}
+                            barColor="#8a6a12"
+                        />
+                        <MetricCard
+                            label="CONTRACTED VALUE"
+                            value={`₱${contractedValueM}`}
+                            unit="M"
+                            note={`Average quote ${formatCurrency(avgQuote)}`}
+                            barColor={adminTokens.green}
+                        />
                     </div>
 
-                    <div style={styles.filterTabs}>
-                        {['all', 'approved', 'pending', 'rejected'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => {
-                                    setStatusFilter(tab);
-                                    setSelectedQuotation(null);
-                                }}
-                                style={{
-                                    ...styles.filterTab,
-                                    ...(statusFilter === tab ? styles.filterTabActive : {}),
-                                }}
-                            >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {error && <div style={styles.error}>{error}</div>}
-
-                {loading ? (
-                    <LoadingState label="Loading quotations..." />
-                ) : quotations.length === 0 ? (
-                    <EmptyState
-                        icon={<DocumentIcon size={32} color={colors.textFaint} />}
-                        title="No quotations found"
-                        description="Quotation requests will appear here once customers submit them."
-                    />
-                ) : (
-                    <div className="table-scroll">
-                        <div style={styles.tableHeader}>
-                            <span style={{ flex: 1.5 }}>REFERENCE</span>
-                            <span style={{ flex: 2 }}>CUSTOMER NAME</span>
-                            <span style={{ flex: 1.5 }}>SYSTEM TYPE</span>
-                            <span style={{ flex: 1.5 }}>VALUE</span>
-                            <span style={{ flex: 1 }}>STATUS</span>
-                            <span style={{ flex: 0.5, textAlign: 'right' }}>ACTIONS</span>
-                        </div>
-
-                        {quotations.map((quotation) => (
-                            <div
-                                key={quotation.id}
-                                style={{
-                                    ...styles.tableRow,
-                                    ...(selectedQuotation?.id === quotation.id
-                                        ? styles.tableRowSelected : {}),
-                                }}
-                                onClick={() => setSelectedQuotation(
-                                    selectedQuotation?.id === quotation.id
-                                        ? null
-                                        : quotation
-                                )}
-                            >
-                                <span style={{ flex: 1.5 }}>
-                                    <span style={styles.referenceText}>
-                                        {formatReference(quotation.id, quotation.created_at)}
-                                    </span>
-                                </span>
-
-                                <span style={{ flex: 2 }}>
-                                    <span style={styles.customerName}>
-                                        {quotation.customer?.user?.name || 'N/A'}
-                                    </span>
-                                    <br />
-                                    <span style={styles.customerLocation}>
-                                        {quotation.customer?.install_location || ''}
-                                    </span>
-                                </span>
-
-                                <span style={{ flex: 1.5, textTransform: 'capitalize' }}>
-                                    {quotation.solar_system_type?.replace('-', ' ')}
-                                </span>
-
-                                <span style={{ flex: 1.5 }}>
-                                    {formatCurrency(
-                                        quotation.solar_computation?.estimated_cost
-                                    )}
-                                </span>
-
-                                <span style={{ flex: 1 }}>
-                                    <Badge status={quotation.status} />
-                                </span>
-
-                                <span style={{ flex: 0.5, textAlign: 'right' }}>
-                                    <button
-                                        style={styles.actionDots}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(`/admin/quotation-requests/${quotation.id}`);
-                                        }}
-                                    >
-                                        ⋯
-                                    </button>
+                    <div style={styles.twoColGrid}>
+                        <div style={styles.card}>
+                            <div style={styles.queueHeader}>
+                                <div>
+                                    <h2 style={styles.cardTitle}>Decision queue</h2>
+                                    <p style={styles.cardSubtitle}>Pending decisions and approved installs to schedule</p>
+                                </div>
+                                <span style={{
+                                    ...styles.countPill,
+                                    ...(pendingList.length ? styles.countPillGold : styles.countPillGreen),
+                                }}>
+                                    {pendingList.length} waiting
                                 </span>
                             </div>
-                        ))}
-                    </div>
-                )}
 
-                {!loading && quotations.length > 0 && (
-                    <div style={styles.paginationRow}>
-                        <span style={styles.paginationText}>
-                            Showing {quotations.length} of {quotations.length} results
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {selectedQuotation && (
-                <div style={styles.detailPanel}>
-                    <h3 style={styles.detailTitle}>
-                        Quotation {formatReference(
-                            selectedQuotation.id,
-                            selectedQuotation.created_at
-                        )}
-                    </h3>
-
-                    <div className="responsive-grid-2" style={styles.detailGrid}>
-
-                        <div>
-                            <h4 style={styles.detailSectionTitle}>Customer Information</h4>
-                            <p style={styles.detailText}>
-                                Name: {selectedQuotation.customer?.user?.name}
-                            </p>
-                            <p style={styles.detailText}>
-                                Contact: {selectedQuotation.customer?.contact_number}
-                            </p>
-                            <p style={styles.detailText}>
-                                Address: {selectedQuotation.customer?.address}
-                            </p>
-
-                            <h4 style={{ ...styles.detailSectionTitle, marginTop: '1rem' }}>
-                                Appliance List
-                            </h4>
-                            <div className="table-scroll" style={styles.applianceTable}>
-                                <div style={styles.applianceHeader}>
-                                    <span style={{ flex: 2 }}>APPLIANCE</span>
-                                    <span style={{ flex: 1 }}>QTY.</span>
-                                    <span style={{ flex: 1 }}>WATTS</span>
-                                    <span style={{ flex: 1 }}>HOURS/DAY</span>
+                            {queue.length === 0 ? (
+                                <div style={styles.queueEmpty}>Nothing waiting on a decision.</div>
+                            ) : (
+                                <div style={styles.queueList}>
+                                    {queue.map((q) => {
+                                        const age = daysAgo(q.created_at);
+                                        const isPending = q.queueKind === 'pending';
+                                        const stale = isPending && age >= 3;
+                                        return (
+                                            <div
+                                                key={q.id}
+                                                style={{
+                                                    ...styles.queueRow,
+                                                    borderLeft: `3px solid ${stale ? adminTokens.danger : adminTokens.gold}`,
+                                                }}
+                                            >
+                                                <div style={styles.queueTopLine}>
+                                                    <button
+                                                        style={styles.queueRef}
+                                                        onClick={() => setSelectedQuotation(q)}
+                                                    >
+                                                        {formatReference(q.id, q.created_at)}
+                                                    </button>
+                                                    <span style={styles.queueCustomer}>
+                                                        {q.customer?.user?.name || 'N/A'}
+                                                    </span>
+                                                    <span style={{
+                                                        ...styles.queueAgePill,
+                                                        ...(stale ? styles.queueAgePillDanger : {}),
+                                                    }}>
+                                                        {isPending ? `waiting ${age}d` : `approved ${age}d ago`}
+                                                    </span>
+                                                </div>
+                                                <div style={styles.queueBottomLine}>
+                                                    <span style={styles.queueLocation}>
+                                                        {q.customer?.install_location || ''}
+                                                    </span>
+                                                    <span style={styles.queueValue}>
+                                                        {formatCurrency(getValue(q))}
+                                                    </span>
+                                                    <div style={styles.queueActions}>
+                                                        {isPending ? (
+                                                            <>
+                                                                <button
+                                                                    style={styles.queueApproveBtn}
+                                                                    onClick={() => handleApprove(q)}
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    style={styles.queueRejectBtn}
+                                                                    onClick={() => handleReject(q)}
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                style={styles.queueScheduleBtn}
+                                                                onClick={() => goToSchedule(q)}
+                                                            >
+                                                                Schedule
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                {selectedQuotation.appliance_items?.map((item) => (
-                                    <div key={item.id} style={styles.applianceRow}>
-                                        <span style={{ flex: 2 }}>{item.appliance_name}</span>
-                                        <span style={{ flex: 1 }}>{item.quantity}</span>
-                                        <span style={{ flex: 1 }}>{item.wattage}W</span>
-                                        <span style={{ flex: 1 }}>{item.usage_hours_per_day}H</span>
+                            )}
+                        </div>
+
+                        <div style={{ ...styles.card, ...styles.scheduleCard }}>
+                            <div style={styles.scheduleHeader}>
+                                <h2 style={styles.cardTitle}>Upcoming schedules</h2>
+                                <span
+                                    style={styles.scheduleLink}
+                                    onClick={() => navigate('/admin/schedule')}
+                                >
+                                    Schedule
+                                </span>
+                            </div>
+
+                            {scheduleLoading ? (
+                                <p style={styles.cardSubtitle}>Loading schedules...</p>
+                            ) : upcomingSchedules.length === 0 ? (
+                                <div style={styles.queueEmpty}>No upcoming installations scheduled.</div>
+                            ) : (
+                                <div style={styles.scheduleList}>
+                                    {upcomingSchedules.map((s) => {
+                                        const d = new Date(s.scheduled_date);
+                                        const customerName = s.quotation?.quotation_request?.customer?.user?.name
+                                            || s.customer?.user?.name || 'N/A';
+                                        const location = s.quotation?.quotation_request?.customer?.install_location
+                                            || s.customer?.install_location || '';
+                                        return (
+                                            <div key={s.id} style={styles.scheduleRow}>
+                                                <div style={styles.scheduleDateBlock}>
+                                                    <span style={styles.scheduleMonth}>
+                                                        {d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                                                    </span>
+                                                    <span style={styles.scheduleDay}>{d.getDate()}</span>
+                                                </div>
+                                                <div style={styles.scheduleInfo}>
+                                                    <div style={styles.scheduleCustomer}>{customerName}</div>
+                                                    <div style={styles.scheduleLocation}>{location}</div>
+                                                </div>
+                                                <span style={styles.scheduleTime}>{formatTime(s.scheduled_time)}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={styles.card}>
+                        <div style={styles.tableCardHeader}>
+                            <div>
+                                <h2 style={styles.cardTitle}>External installation requests</h2>
+                                <p style={styles.cardSubtitle}>Customers with quotations from another solar company</p>
+                            </div>
+                            <span style={{ ...styles.countPill, ...styles.countPillGold }}>
+                                {externalRequests.filter((item) => item.status === 'pending_review').length} pending review
+                            </span>
+                        </div>
+
+                        {externalRequests.length === 0 ? (
+                            <div style={styles.queueEmpty}>No external installation requests.</div>
+                        ) : (
+                            <div style={styles.externalList}>
+                                {externalRequests.map((requestRecord) => (
+                                    <div key={requestRecord.id} style={styles.externalRow}>
+                                        <div style={styles.externalInfo}>
+                                            <div style={styles.queueTopLine}>
+                                                <span style={styles.queueRef}>#EXT-{String(requestRecord.id).padStart(3, '0')}</span>
+                                                <span style={styles.queueCustomer}>{requestRecord.name}</span>
+                                                <span style={styles.externalSource}>External quotation</span>
+                                            </div>
+                                            <div style={styles.externalMeta}>
+                                                {requestRecord.other_company_name} · Preferred {new Date(requestRecord.preferred_installation_date).toLocaleDateString('en-PH')}
+                                            </div>
+                                        </div>
+                                        <div style={styles.externalActions}>
+                                            <button style={styles.queueScheduleBtn} onClick={() => previewExternalQuotation(requestRecord)} disabled={quotationPreviewLoadingId === requestRecord.id}>
+                                                {quotationPreviewLoadingId === requestRecord.id ? 'Loading...' : 'View quotation'}
+                                            </button>
+                                            {requestRecord.status === 'pending_review' && (
+                                                <>
+                                                    <button style={styles.queueApproveBtn} onClick={() => openConfirmExternal(requestRecord)}>
+                                                        Confirm
+                                                    </button>
+                                                    <button style={styles.queueRejectBtn} onClick={() => openRejectExternal(requestRecord)}>
+                                                        Reject
+                                                    </button>
+                                                </>
+                                            )}
+                                            {requestRecord.status !== 'pending_review' && (
+                                                <StatusPill status={requestRecord.status} />
+                                            )}
+                                        </div>
                                     </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={styles.card}>
+                        <div style={styles.tableCardHeader}>
+                            <div>
+                                <h2 style={styles.cardTitle}>Recent Quotations</h2>
+                                <p style={styles.cardSubtitle}>Manage and review latest quotation requests</p>
+                            </div>
+
+                            <div style={styles.segmented}>
+                                {['all', 'approved', 'pending', 'rejected'].map((tab) => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setStatusFilter(tab)}
+                                        style={{
+                                            ...styles.segmentBtn,
+                                            ...(statusFilter === tab ? styles.segmentBtnActive : {}),
+                                        }}
+                                    >
+                                        <span>{tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+                                        <span style={styles.segmentCount}>{filterCounts[tab]}</span>
+                                    </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div>
-                            <h4 style={styles.detailSectionTitle}>Cost Breakdown</h4>
+                        {error && <div style={styles.error}>{error}</div>}
 
-                            {selectedQuotation.quotation ? (
-                                <>
-                                    <div style={styles.costRow}>
-                                        <span>Materials</span>
-                                        <span>{formatCurrency(selectedQuotation.quotation.adjusted_cost)}</span>
-                                    </div>
-                                    <div style={styles.costRow}>
-                                        <span>Labor</span>
-                                        <span>{formatCurrency(selectedQuotation.quotation.labor_fee)}</span>
-                                    </div>
-                                    <div style={styles.costRow}>
-                                        <span>Others</span>
-                                        <span>{formatCurrency(selectedQuotation.quotation.transportation_fee)}</span>
-                                    </div>
-                                    <div style={{ ...styles.costRow, ...styles.costTotal }}>
-                                        <span>Total:</span>
-                                        <span>{formatCurrency(selectedQuotation.quotation.total_amount)}</span>
-                                    </div>
-                                </>
-                            ) : selectedQuotation.solar_computation ? (
-                                <>
-                                    <div style={styles.costRow}>
-                                        <span>Estimated Cost</span>
-                                        <span>{formatCurrency(selectedQuotation.solar_computation.estimated_cost)}</span>
-                                    </div>
-                                    <p style={styles.detailNote}>
-                                        *Pending admin review and final cost adjustment
-                                    </p>
-                                </>
+                        <div style={styles.tableScrollWrap}>
+                            <div style={{ ...styles.tableHeaderRow, gridTemplateColumns: TABLE_COLUMNS }}>
+                                <SortableHeader label="REFERENCE" sortKey="reference" sortState={sort} onSort={handleSort} />
+                                <SortableHeader label="CUSTOMER NAME" sortKey="customer" sortState={sort} onSort={handleSort} />
+                                <span style={styles.th}>SYSTEM</span>
+                                <span style={{ ...styles.th, justifyContent: 'flex-end' }}>VALUE</span>
+                                <SortableHeader label="AGE" sortKey="age" sortState={sort} onSort={handleSort} align="right" />
+                                <span style={styles.th}>STATUS</span>
+                                <span style={styles.th} />
+                            </div>
+
+                            {filteredRows.length === 0 ? (
+                                <div style={styles.emptyFilterState}>No quotations match this filter.</div>
                             ) : (
-                                <p style={styles.detailText}>No cost data available.</p>
-                            )}
+                                filteredRows.map((q) => {
+                                    const age = daysAgo(q.created_at);
+                                    const staleAge = q.status === 'pending' && age >= 3;
+                                    return (
+                                        <div
+                                            key={q.id}
+                                            className="qt-row"
+                                            style={{ ...styles.tableBodyRow, gridTemplateColumns: TABLE_COLUMNS }}
+                                            onClick={() => setSelectedQuotation(q)}
+                                        >
+                                            <span style={styles.tdMono}>{formatReference(q.id, q.created_at)}</span>
 
-                            {selectedQuotation.status === 'pending' && (
-                                <>
-                                    <h4 style={{ ...styles.detailSectionTitle, marginTop: '1.5rem' }}>
-                                        Admin Controls
-                                    </h4>
-                                    <div style={styles.adminControls}>
-                                        <button
-                                            className="btn-primary"
-                                            style={styles.approveControlBtn}
-                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
-                                        >
-                                            Approve
-                                        </button>
-                                        <button
-                                            className="btn-danger"
-                                            style={styles.rejectControlBtn}
-                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
-                                        >
-                                            Reject
-                                        </button>
-                                        <button
-                                            className="btn-primary"
-                                            style={styles.editControlBtn}
-                                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
-                                        >
-                                            Edit
-                                        </button>
-                                    </div>
-                                </>
+                                            <span style={{ minWidth: 0 }}>
+                                                <div style={styles.tdCustomerName}>
+                                                    {q.customer?.user?.name || 'N/A'}
+                                                </div>
+                                                <div style={styles.tdCustomerLocation}>
+                                                    {q.customer?.install_location || ''}
+                                                </div>
+                                            </span>
+
+                                            <span style={styles.tdSystem}>
+                                                {q.solar_system_type?.replace('-', ' ')}
+                                            </span>
+
+                                            <span style={styles.tdValue}>{formatCurrency(getValue(q))}</span>
+
+                                            <span style={{ ...styles.tdAge, ...(staleAge ? styles.tdAgeDanger : {}) }}>
+                                                {age}d
+                                            </span>
+
+                                            <span>
+                                                <StatusPill status={q.status} />
+                                            </span>
+
+                                            <span style={{ textAlign: 'right' }}>
+                                                <button
+                                                    style={styles.actionDots}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/admin/quotation-requests/${q.id}`);
+                                                    }}
+                                                >
+                                                    &#8943;
+                                                </button>
+                                            </span>
+                                        </div>
+                                    );
+                                })
                             )}
+                        </div>
+
+                        <div style={styles.footerRow}>
+                            <span style={styles.footerText}>
+                                Showing {filteredRows.length} of {quotations.length} quotations
+                            </span>
+                            <span style={styles.footerLink} onClick={() => navigate('/admin/quotations')}>
+                                View all
+                            </span>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div style={styles.footer}>
-                <span>© 2024 TataMawing Solar. All rights reserved.</span>
-                <div style={styles.footerLinks}>
-                    <span style={styles.footerLink}>Privacy Policy</span>
-                    <span style={styles.footerLink}>Terms of Service</span>
-                    <span style={styles.footerLink}>Sustainability Report</span>
+            {quotationPreview && (
+                <div style={styles.modalOverlay} onClick={closeQuotationPreview}>
+                    <div style={styles.quotationPreviewCard} onClick={(event) => event.stopPropagation()}>
+                        <div style={styles.quotationPreviewHeader}>
+                            <div>
+                                <div style={styles.modalEyebrow}>External quotation</div>
+                                <h2 style={styles.confirmModalTitle}>Quotation preview</h2>
+                                <p style={styles.confirmModalSubtitle}>
+                                    {quotationPreview.requestRecord.name} · #{String(quotationPreview.requestRecord.id).padStart(3, '0')}
+                                </p>
+                            </div>
+                            <button onClick={closeQuotationPreview} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={adminTokens.muted} />
+                            </button>
+                        </div>
+
+                        <div style={styles.quotationPreviewBody}>
+                            {quotationPreview.type.startsWith('image/') ? (
+                                <img
+                                    src={quotationPreview.url}
+                                    alt={`Quotation submitted by ${quotationPreview.requestRecord.name}`}
+                                    style={styles.quotationPreviewImage}
+                                />
+                            ) : quotationPreview.type === 'application/pdf' ? (
+                                <iframe
+                                    src={quotationPreview.url}
+                                    title={`Quotation submitted by ${quotationPreview.requestRecord.name}`}
+                                    style={styles.quotationPreviewFrame}
+                                />
+                            ) : (
+                                <div style={styles.quotationUnsupported}>
+                                    <p>This file type cannot be previewed here.</p>
+                                    <button type="button" className="btn-primary" style={styles.modalPrimaryBtn} onClick={downloadPreviewedQuotation}>
+                                        <DownloadIcon size={15} color="white" />
+                                        Download quotation
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={styles.confirmModalFooter}>
+                            <button type="button" className="btn-secondary" onClick={closeQuotationPreview} style={styles.modalSecondaryBtn}>Close</button>
+                            <button type="button" className="btn-primary" onClick={downloadPreviewedQuotation} style={styles.modalPrimaryBtn}>
+                                <DownloadIcon size={15} color="white" />
+                                Download
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {rejectingExternal && (
+                <div style={styles.modalOverlay} onClick={closeRejectExternal}>
+                    <div style={styles.rejectModalCard} onClick={(event) => event.stopPropagation()}>
+                        <div style={styles.rejectModalHeader}>
+                            <div>
+                                <div style={styles.rejectModalEyebrow}>Reject external installation</div>
+                                <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
+                                <p style={styles.confirmModalSubtitle}>
+                                    {rejectingExternal.name} · #{String(rejectingExternal.id).padStart(3, '0')}
+                                </p>
+                            </div>
+                            <button onClick={closeRejectExternal} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={adminTokens.muted} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleRejectExternal}>
+                            <div style={styles.rejectModalBody}>
+                                <p style={styles.rejectIntro}>The customer will receive this reason in their installation request update email.</p>
+                                <label style={styles.confirmField}>
+                                    <span style={styles.confirmLabel}>Reason for rejection</span>
+                                    <textarea
+                                        value={rejectionReason}
+                                        onChange={(event) => setRejectionReason(event.target.value)}
+                                        className="input-field"
+                                        style={styles.rejectTextarea}
+                                        placeholder="Explain why this request cannot be approved..."
+                                        maxLength={1000}
+                                        rows={5}
+                                        required
+                                    />
+                                </label>
+                                <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
+                            </div>
+                            <div style={styles.confirmModalFooter}>
+                                <button type="button" className="btn-secondary" onClick={closeRejectExternal} style={styles.modalSecondaryBtn}>Cancel</button>
+                                <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
+                                    {rejectLoading ? 'Rejecting...' : 'Reject request'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {confirmingExternal && (
+                <div style={styles.modalOverlay} onClick={closeConfirmExternal}>
+                    <div style={styles.confirmModalCard} onClick={(event) => event.stopPropagation()}>
+                        <div style={styles.confirmModalHeader}>
+                            <div>
+                                <div style={styles.modalEyebrow}>Confirm external installation</div>
+                                <h2 style={styles.confirmModalTitle}>Choose a schedule</h2>
+                                <p style={styles.confirmModalSubtitle}>
+                                    {confirmingExternal.name} · #{String(confirmingExternal.id).padStart(3, '0')}
+                                </p>
+                            </div>
+                            <button onClick={closeConfirmExternal} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={adminTokens.muted} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleConfirmExternal}>
+                            <div style={styles.confirmModalBody}>
+                                {error && <div style={styles.error}>{error}</div>}
+
+                                <div style={styles.confirmPreferredNote}>
+                                    <CalendarIcon size={15} color={adminTokens.green} />
+                                    <span>
+                                        Preferred date: <strong>{new Date(confirmingExternal.preferred_installation_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                                    </span>
+                                </div>
+
+                                <div style={styles.confirmCalendarHeader}>
+                                    <strong>{MONTHS[confirmViewMonth]} {confirmViewYear}</strong>
+                                    <div style={styles.confirmMonthNav}>
+                                        <button type="button" onClick={() => shiftConfirmMonth(-1)} style={styles.confirmNavBtn} aria-label="Previous month">
+                                            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><ChevronDownIcon size={14} color={adminTokens.green} /></span>
+                                        </button>
+                                        <button type="button" onClick={() => shiftConfirmMonth(1)} style={styles.confirmNavBtn} aria-label="Next month">
+                                            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}><ChevronDownIcon size={14} color={adminTokens.green} /></span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={styles.confirmWeekdayRow}>
+                                    {WEEKDAYS.map((weekday) => <div key={weekday} style={styles.confirmWeekday}>{weekday}</div>)}
+                                </div>
+                                <div style={styles.confirmCellGrid}>
+                                    {confirmCells.map((cell) => (
+                                        <button
+                                            type="button"
+                                            key={cell.key}
+                                            onClick={() => cell.isBookable && setConfirmForm({ ...confirmForm, scheduled_date: cell.key })}
+                                            disabled={!cell.isBookable}
+                                            style={{
+                                                ...styles.confirmDayCell,
+                                                backgroundColor: cell.isPicked ? adminTokens.greenTint : adminTokens.surface,
+                                                boxShadow: cell.isPicked
+                                                    ? `inset 0 0 0 2px ${adminTokens.green}`
+                                                    : `inset 0 0 0 1px ${adminTokens.border}`,
+                                                opacity: !cell.inMonth ? 0.38 : !cell.isBookable ? 0.45 : 1,
+                                            }}
+                                        >
+                                            <span style={{ ...styles.confirmDayNumber, ...(cell.isToday ? styles.confirmToday : {}) }}>{cell.day}</span>
+                                            {cell.bookedCount > 0 && <span style={styles.confirmBookedDot} title={`${cell.bookedCount} existing booking${cell.bookedCount === 1 ? '' : 's'}`} />}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div style={styles.confirmPickedDate}>
+                                    {confirmForm.scheduled_date
+                                        ? new Date(`${confirmForm.scheduled_date}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                                        : 'Select an available date above'}
+                                </div>
+
+                                <div style={styles.confirmFields}>
+                                    <label style={styles.confirmField}>
+                                        <span style={styles.confirmLabel}><ClockIcon size={14} color={adminTokens.muted} /> Start time</span>
+                                        <input type="time" value={confirmForm.scheduled_time} onChange={(event) => setConfirmForm({ ...confirmForm, scheduled_time: event.target.value })} className="input-field" style={styles.confirmInput} required />
+                                    </label>
+                                    <label style={styles.confirmField}>
+                                        <span style={styles.confirmLabel}><span style={styles.technicianMark}>T</span> Assigned technician</span>
+                                        <input type="text" value={confirmForm.assigned_technician} onChange={(event) => setConfirmForm({ ...confirmForm, assigned_technician: event.target.value })} className="input-field" style={styles.confirmInput} placeholder="Technician name" required />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style={styles.confirmModalFooter}>
+                                <button type="button" className="btn-secondary" onClick={closeConfirmExternal} style={styles.modalSecondaryBtn}>Cancel</button>
+                                <button type="submit" className="btn-primary" style={styles.modalPrimaryBtn} disabled={confirmLoading || !confirmFormValid}>
+                                    <CheckIcon size={15} color="white" />
+                                    {confirmLoading ? 'Confirming...' : 'Confirm installation'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {selectedQuotation && (
+                <>
+                    <div style={styles.scrim} onClick={() => setSelectedQuotation(null)} />
+                    <div style={styles.drawer}>
+                        <div style={styles.drawerHeader}>
+                            <span style={styles.drawerRef}>
+                                {formatReference(selectedQuotation.id, selectedQuotation.created_at)}
+                            </span>
+                            <button
+                                style={styles.drawerClose}
+                                onClick={() => setSelectedQuotation(null)}
+                                aria-label="Close"
+                            >
+                                &#10005;
+                            </button>
+                        </div>
+
+                        <h2 style={styles.drawerCustomer}>
+                            {selectedQuotation.customer?.user?.name || 'N/A'}
+                        </h2>
+                        <p style={styles.drawerLocation}>
+                            {selectedQuotation.customer?.install_location || ''}
+                        </p>
+
+                        <div style={styles.drawerRows}>
+                            <div style={styles.drawerRow}>
+                                <span style={styles.drawerRowLabel}>SYSTEM TYPE</span>
+                                <span style={styles.drawerRowValue}>
+                                    {selectedQuotation.solar_system_type?.replace('-', ' ')}
+                                </span>
+                            </div>
+                            <div style={styles.drawerRow}>
+                                <span style={styles.drawerRowLabel}>QUOTED VALUE</span>
+                                <span style={styles.drawerRowValue}>
+                                    {formatCurrency(getValue(selectedQuotation))}
+                                </span>
+                            </div>
+                            <div style={styles.drawerRow}>
+                                <span style={styles.drawerRowLabel}>REQUESTED</span>
+                                <span style={styles.drawerRowValue}>
+                                    {daysAgo(selectedQuotation.created_at)} days ago
+                                </span>
+                            </div>
+                            <div style={{ ...styles.drawerRow, ...styles.drawerRowLast }}>
+                                <span style={styles.drawerRowLabel}>STATUS</span>
+                                <StatusPill status={selectedQuotation.status} />
+                            </div>
+                        </div>
+
+                        {selectedQuotation.status === 'pending' ? (
+                            <div style={styles.drawerActions}>
+                                <button
+                                    style={styles.drawerApproveBtn}
+                                    onClick={() => handleApprove(selectedQuotation)}
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    style={styles.drawerRejectBtn}
+                                    onClick={() => handleReject(selectedQuotation)}
+                                >
+                                    Reject
+                                </button>
+                            </div>
+                        ) : selectedQuotation.status === 'approved' && selectedQuotation.quotation?.id
+                            && !scheduledQuotationIds.has(selectedQuotation.quotation.id) ? (
+                            <div style={styles.drawerActions}>
+                                <button
+                                    style={styles.drawerApproveBtn}
+                                    onClick={() => goToSchedule(selectedQuotation)}
+                                >
+                                    Schedule installation
+                                </button>
+                            </div>
+                        ) : selectedQuotation.status === 'approved' ? (
+                            <p style={styles.drawerDecided}>Installation already scheduled.</p>
+                        ) : (
+                            <p style={styles.drawerDecided}>This quotation has already been decided.</p>
+                        )}
+                    </div>
+                </>
+            )}
+
+            <style>{`.qt-row:hover { background-color: #fafbf9; }`}</style>
         </AdminLayout>
     );
 }
 
+function MetricCard({ label, value, unit, note, barColor }) {
+    return (
+        <div style={{ ...styles.metricCard, borderTop: `3px solid ${barColor}` }}>
+            <div style={styles.metricLabel}>{label}</div>
+            <div style={styles.metricValueRow}>
+                <span style={styles.metricValue}>{value}</span>
+                {unit && <span style={styles.metricUnit}>{unit}</span>}
+            </div>
+            <div style={styles.metricNote}>{note}</div>
+        </div>
+    );
+}
+
+function SortableHeader({ label, sortKey, sortState, onSort, align }) {
+    const active = sortState.key === sortKey;
+    const arrow = sortState.dir === 'asc' ? '↑' : '↓';
+    return (
+        <button
+            onClick={() => onSort(sortKey)}
+            style={{
+                ...styles.thSortable,
+                justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+            }}
+        >
+            {align === 'right' && active && <span style={styles.sortArrow}>{arrow}</span>}
+            <span>{label}</span>
+            {align !== 'right' && active && <span style={styles.sortArrow}>{arrow}</span>}
+        </button>
+    );
+}
+
+function StatusPill({ status }) {
+    const map = {
+        pending: { bg: '#fdf4dc', text: '#8a6a12', border: '#f3e3ad' },
+        approved: { bg: '#e4ede8', text: '#0f3b2c', border: '#cfe0d7' },
+        rejected: { bg: '#fbeae7', text: '#a4302a', border: '#f0d0cb' },
+    };
+    const c = map[status] || map.pending;
+    return (
+        <span style={{
+            display: 'inline-block',
+            padding: '4px 11px',
+            borderRadius: '999px',
+            fontSize: '12px',
+            fontWeight: 600,
+            backgroundColor: c.bg,
+            color: c.text,
+            border: `1px solid ${c.border}`,
+        }}>
+            {status ? status.charAt(0).toUpperCase() + status.slice(1) : ''}
+        </span>
+    );
+}
+
 const styles = {
-    pageHeader: {
+    exportBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.55rem 1rem',
+        border: 'none',
+        borderRadius: '10px',
+        backgroundColor: adminTokens.green,
+        color: 'white',
+        fontSize: '13.5px',
+        fontWeight: '700',
+        whiteSpace: 'nowrap',
+    },
+    blocks: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+    },
+    metricGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))',
+        gap: '14px',
+    },
+    metricCard: {
+        backgroundColor: adminTokens.surface,
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '13px',
+        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
+        padding: '16px 18px',
+    },
+    metricLabel: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10.5px',
+        fontWeight: 500,
+        textTransform: 'uppercase',
+        letterSpacing: '.11em',
+        color: adminTokens.faint,
+        marginBottom: '10px',
+    },
+    metricValueRow: { display: 'flex', alignItems: 'baseline', gap: '4px' },
+    metricValue: { fontSize: '30px', fontWeight: 800, color: adminTokens.ink, lineHeight: 1 },
+    metricUnit: { fontSize: '14px', fontWeight: 600, color: adminTokens.muted },
+    metricNote: { fontSize: '12.5px', color: adminTokens.muted, marginTop: '8px' },
+
+    twoColGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gap: '14px',
+        alignItems: 'stretch',
+    },
+    card: {
+        backgroundColor: adminTokens.surface,
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '13px',
+        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
+        padding: '20px',
+    },
+    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0 },
+    cardSubtitle: { fontSize: '12.5px', color: adminTokens.muted, margin: '2px 0 0' },
+
+    queueHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-        gap: '1rem',
-    },
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        ...typography.small,
-        margin: 0,
-    },
-    headerActions: {
-        display: 'flex',
+        marginBottom: '14px',
         gap: '0.75rem',
-        alignItems: 'center',
     },
-    lastDaysBtn: {
-        padding: '0.5rem 1rem',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        backgroundColor: 'white',
-        color: '#374151',
-        fontSize: '0.875rem',
+    countPill: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '11px',
+        fontWeight: 600,
+        padding: '4px 11px',
+        borderRadius: '999px',
+        whiteSpace: 'nowrap',
     },
-    exportBtn: {
-        padding: '0.5rem 1rem',
+    countPillGold: { backgroundColor: '#fdf4dc', color: '#8a6a12' },
+    countPillGreen: { backgroundColor: '#e4ede8', color: adminTokens.green },
+    queueEmpty: {
+        backgroundColor: '#e4ede8',
+        color: adminTokens.green,
+        borderRadius: '10px',
+        padding: '14px',
+        fontSize: '13px',
+        fontWeight: 600,
+        textAlign: 'center',
+    },
+    queueList: { display: 'flex', flexDirection: 'column', gap: '10px' },
+    externalList: { display: 'flex', flexDirection: 'column', gap: '10px' },
+    externalRow: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px',
+        flexWrap: 'wrap', borderRadius: '10px', backgroundColor: adminTokens.page, padding: '12px 14px',
+    },
+    externalInfo: { minWidth: 0, flex: '1 1 280px' },
+    externalSource: {
+        fontFamily: adminTokens.fontMono, fontSize: '10px', fontWeight: 600, padding: '3px 8px',
+        borderRadius: '999px', backgroundColor: '#fdf4dc', color: '#8a6a12',
+    },
+    externalMeta: { fontSize: '12px', color: adminTokens.muted, marginTop: '5px' },
+    externalActions: { display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' },
+    queueRow: {
+        borderRadius: '10px',
+        backgroundColor: adminTokens.page,
+        padding: '12px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+    },
+    queueTopLine: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+    queueRef: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '12.5px',
+        color: adminTokens.green,
+        textDecoration: 'underline',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 0,
+    },
+    queueCustomer: { fontSize: '13.5px', fontWeight: 600, color: adminTokens.ink },
+    queueAgePill: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10.5px',
+        fontWeight: 600,
+        padding: '3px 9px',
+        borderRadius: '999px',
+        backgroundColor: '#f2f4f0',
+        color: adminTokens.muted,
+        marginLeft: 'auto',
+    },
+    queueAgePillDanger: { backgroundColor: '#fbeae7', color: adminTokens.danger },
+    queueBottomLine: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' },
+    queueLocation: {
+        fontSize: '12px',
+        color: adminTokens.muted,
+        flex: 1,
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    },
+    queueValue: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink },
+    queueActions: { display: 'flex', gap: '6px' },
+    queueApproveBtn: {
+        padding: '5px 12px',
         border: 'none',
         borderRadius: '8px',
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
-        fontSize: '0.875rem',
-        fontWeight: '600',
+        fontSize: '12px',
+        fontWeight: 700,
+        cursor: 'pointer',
     },
-    summaryGrid: {
-        marginBottom: '1.5rem',
+    queueScheduleBtn: {
+        padding: '5px 12px',
+        border: 'none',
+        borderRadius: '8px',
+        backgroundColor: adminTokens.green,
+        color: 'white',
+        fontSize: '12px',
+        fontWeight: 700,
+        cursor: 'pointer',
     },
-    summaryCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.25rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        position: 'relative',
-        overflow: 'hidden',
+    queueRejectBtn: {
+        padding: '5px 12px',
+        border: '1px solid #f0d0cb',
+        borderRadius: '8px',
+        backgroundColor: '#fff',
+        color: adminTokens.danger,
+        fontSize: '12px',
+        fontWeight: 700,
+        cursor: 'pointer',
     },
-    summaryCardHeader: {
+
+    scheduleCard: { display: 'flex', flexDirection: 'column', height: '100%' },
+    scheduleHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '0.75rem',
+        marginBottom: '14px',
     },
-    summaryCardIcon: {
-        fontSize: '1.5rem',
+    scheduleLink: {
+        fontSize: '12.5px',
+        fontWeight: 600,
+        color: adminTokens.green,
+        cursor: 'pointer',
+        textDecoration: 'underline',
     },
-    summaryLabel: {
-        fontSize: '0.8rem',
-        color: '#6b7280',
-        margin: '0 0 0.25rem 0',
+    scheduleList: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+    scheduleRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '10px 0',
+        borderBottom: `1px solid ${adminTokens.hairline2}`,
     },
-    summaryValue: {
-        fontSize: '2rem',
-        fontWeight: '700',
-        color: '#111827',
-        margin: 0,
+    scheduleDateBlock: {
+        width: '44px',
+        flexShrink: 0,
+        textAlign: 'center',
+        paddingRight: '12px',
+        borderRight: `1px solid ${adminTokens.hairline}`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
     },
-    accentBar: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: '3px',
+    scheduleMonth: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10px',
+        color: adminTokens.faint,
+        textTransform: 'uppercase',
     },
-    tableCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        marginBottom: '1.5rem',
+    scheduleDay: { fontSize: '17px', fontWeight: 700, color: adminTokens.ink },
+    scheduleInfo: { flex: 1, minWidth: 0 },
+    scheduleCustomer: {
+        fontSize: '13.5px',
+        fontWeight: 600,
+        color: adminTokens.ink,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
     },
+    scheduleLocation: {
+        fontSize: '12px',
+        color: adminTokens.muted,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    },
+    scheduleTime: { fontFamily: adminTokens.fontMono, fontSize: '12px', color: adminTokens.muted, flexShrink: 0 },
+
     tableCardHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '1.5rem',
         flexWrap: 'wrap',
         gap: '0.75rem',
+        marginBottom: '16px',
     },
-    tableTitle: {
-        ...typography.h2,
-        margin: '0 0 0.25rem 0',
-    },
-    tableSubtitle: {
-        fontSize: '0.8rem',
-        color: '#6b7280',
-        margin: 0,
-    },
-    filterTabs: {
+    segmented: {
         display: 'flex',
-        gap: '0.25rem',
-        backgroundColor: '#f3f4f6',
+        gap: '2px',
+        backgroundColor: '#f2f4f0',
         padding: '4px',
-        borderRadius: '8px',
+        borderRadius: '10px',
     },
-    filterTab: {
-        padding: '0.375rem 0.875rem',
+    segmentBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px 12px',
         border: 'none',
-        borderRadius: '6px',
+        borderRadius: '8px',
         backgroundColor: 'transparent',
-        color: '#6b7280',
-        fontSize: '0.8rem',
+        color: adminTokens.muted,
+        fontSize: '12.5px',
+        fontWeight: 600,
         cursor: 'pointer',
+        fontFamily: adminTokens.fontUI,
     },
-    filterTabActive: {
-        backgroundColor: 'white',
-        color: '#111827',
-        fontWeight: '600',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    segmentBtnActive: {
+        backgroundColor: '#fff',
+        color: adminTokens.ink,
+        boxShadow: '0 1px 3px rgba(16,33,26,.12)',
     },
+    segmentCount: { fontFamily: adminTokens.fontMono, fontSize: '10.5px', color: adminTokens.faint },
+
     error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
+        backgroundColor: '#fbeae7',
+        color: '#a4302a',
         padding: '0.75rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
-    tableHeader: {
+
+    modalOverlay: {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300,
         display: 'flex',
-        padding: '0.75rem 1rem',
-        fontSize: '0.7rem',
-        color: '#9ca3af',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        borderBottom: '1px solid #f3f4f6',
-    },
-    tableRow: {
-        display: 'flex',
-        padding: '1rem',
-        borderBottom: '1px solid #f9fafb',
         alignItems: 'center',
-        fontSize: '0.875rem',
-        color: '#374151',
+        justifyContent: 'center',
+        padding: '20px',
+        backgroundColor: 'rgba(16,33,26,.42)',
+    },
+    confirmModalCard: {
+        width: 'min(760px, 100%)',
+        maxHeight: 'calc(100vh - 40px)',
+        overflowY: 'auto',
+        borderRadius: '16px',
+        backgroundColor: adminTokens.surface,
+        boxShadow: '0 20px 60px rgba(16,33,26,.22)',
+    },
+    rejectModalCard: {
+        width: 'min(520px, 100%)',
+        maxHeight: 'calc(100vh - 40px)',
+        overflowY: 'auto',
+        borderRadius: '16px',
+        backgroundColor: adminTokens.surface,
+        boxShadow: '0 20px 60px rgba(16,33,26,.22)',
+    },
+    quotationPreviewCard: {
+        width: 'min(900px, 100%)',
+        maxHeight: 'calc(100vh - 40px)',
+        overflow: 'hidden',
+        borderRadius: '16px',
+        backgroundColor: adminTokens.surface,
+        boxShadow: '0 20px 60px rgba(16,33,26,.22)',
+    },
+    quotationPreviewHeader: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: '20px',
+        padding: '24px 28px 20px',
+        backgroundColor: adminTokens.greenTint,
+        borderBottom: `1px solid ${adminTokens.border}`,
+    },
+    quotationPreviewBody: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '320px',
+        maxHeight: 'calc(100vh - 220px)',
+        overflow: 'auto',
+        padding: '20px',
+        backgroundColor: '#f2f4f0',
+    },
+    quotationPreviewImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 270px)', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 18px rgba(16,33,26,.14)' },
+    quotationPreviewFrame: { display: 'block', width: '100%', height: 'min(620px, calc(100vh - 270px))', border: 'none', borderRadius: '8px', backgroundColor: 'white' },
+    quotationUnsupported: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', color: adminTokens.muted, textAlign: 'center' },
+    confirmModalHeader: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: '20px',
+        padding: '24px 28px 20px',
+        backgroundColor: adminTokens.greenTint,
+        borderBottom: `1px solid ${adminTokens.border}`,
+    },
+    modalEyebrow: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10px',
+        fontWeight: 600,
+        letterSpacing: '.1em',
+        textTransform: 'uppercase',
+        color: adminTokens.green,
+    },
+    confirmModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
+    confirmModalSubtitle: { margin: 0, color: adminTokens.muted, fontSize: '13px' },
+    rejectModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', padding: '24px 28px 20px', backgroundColor: '#fbeae7', borderBottom: '1px solid #f0d0cb' },
+    rejectModalEyebrow: { fontFamily: adminTokens.fontMono, fontSize: '10px', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: adminTokens.danger },
+    rejectModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
+    modalCloseBtn: {
+        display: 'grid',
+        placeItems: 'center',
+        width: '30px',
+        height: '30px',
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '8px',
+        backgroundColor: adminTokens.surface,
+        cursor: 'pointer',
+        flexShrink: 0,
+    },
+    confirmModalBody: { padding: '24px 28px' },
+    rejectModalBody: { padding: '24px 28px 12px' },
+    rejectIntro: { margin: '0 0 18px', color: adminTokens.body, fontSize: '13px', lineHeight: 1.55 },
+    rejectTextarea: { width: '100%', boxSizing: 'border-box', minHeight: '126px', padding: '10px 11px', resize: 'vertical', fontFamily: adminTokens.fontUI, lineHeight: 1.5 },
+    rejectCharacterCount: { marginTop: '6px', color: adminTokens.faint, fontFamily: adminTokens.fontMono, fontSize: '10px', textAlign: 'right' },
+    confirmPreferredNote: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '18px',
+        padding: '10px 12px',
+        borderRadius: '8px',
+        backgroundColor: '#fdf8e8',
+        color: '#725b16',
+        fontSize: '12.5px',
+    },
+    confirmCalendarHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', color: adminTokens.ink, fontSize: '15px' },
+    confirmMonthNav: { display: 'flex', gap: '5px' },
+    confirmNavBtn: {
+        display: 'grid',
+        placeItems: 'center',
+        width: '28px',
+        height: '28px',
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '7px',
+        backgroundColor: adminTokens.surface,
         cursor: 'pointer',
     },
-    tableRowSelected: {
-        backgroundColor: '#f0f7f4',
+    confirmWeekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px', marginBottom: '5px' },
+    confirmWeekday: { textAlign: 'center', fontFamily: adminTokens.fontMono, fontSize: '9px', color: adminTokens.faint, textTransform: 'uppercase' },
+    confirmCellGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '5px' },
+    confirmDayCell: {
+        position: 'relative',
+        minHeight: '48px',
+        padding: '8px',
+        border: 'none',
+        borderRadius: '7px',
+        color: adminTokens.ink,
+        textAlign: 'left',
+        cursor: 'pointer',
     },
-    referenceText: {
-        fontWeight: '600',
-        color: '#111827',
+    confirmDayNumber: { fontSize: '12px', fontWeight: 600 },
+    confirmToday: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: adminTokens.gold },
+    confirmBookedDot: { position: 'absolute', right: '8px', bottom: '8px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#c58d1b' },
+    confirmPickedDate: { margin: '12px 0 20px', padding: '10px 12px', borderRadius: '8px', backgroundColor: adminTokens.page, color: adminTokens.green, fontSize: '13px', fontWeight: 600, textAlign: 'center' },
+    confirmFields: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' },
+    confirmField: { display: 'flex', flexDirection: 'column', gap: '7px' },
+    confirmLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: adminTokens.body },
+    technicianMark: { display: 'inline-grid', placeItems: 'center', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: adminTokens.green, color: 'white', fontSize: '9px' },
+    confirmInput: { width: '100%', boxSizing: 'border-box', padding: '10px 11px' },
+    confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', padding: '16px 28px 22px', borderTop: `1px solid ${adminTokens.hairline}` },
+    modalSecondaryBtn: { minWidth: '92px', minHeight: '40px', padding: '10px 16px', borderRadius: '9px', fontWeight: 600 },
+    modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '9px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },
+    modalDangerBtn: { minWidth: '132px', minHeight: '40px', padding: '10px 16px', border: '1px solid #c0392b', borderRadius: '9px', backgroundColor: '#c0392b', color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(192,57,43,.14)' },
+
+    tableScrollWrap: { overflowX: 'auto' },
+    th: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10.5px',
+        fontWeight: 500,
+        textTransform: 'uppercase',
+        letterSpacing: '.08em',
+        color: adminTokens.faint,
+        display: 'flex',
+        alignItems: 'center',
     },
-    customerName: {
-        fontWeight: '500',
-        color: '#111827',
-        fontSize: '0.875rem',
+    thSortable: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 0,
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10.5px',
+        fontWeight: 500,
+        textTransform: 'uppercase',
+        letterSpacing: '.08em',
+        color: adminTokens.faint,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
     },
-    customerLocation: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
+    sortArrow: { color: adminTokens.green, fontSize: '10px' },
+    tableHeaderRow: {
+        display: 'grid',
+        gap: '12px',
+        padding: '10px 20px',
+        minWidth: '860px',
+        borderBottom: `1px solid ${adminTokens.hairline}`,
     },
+    tableBodyRow: {
+        display: 'grid',
+        gap: '12px',
+        padding: '14px 20px',
+        minWidth: '860px',
+        alignItems: 'center',
+        borderBottom: `1px solid ${adminTokens.hairline2}`,
+        cursor: 'pointer',
+    },
+    tdMono: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink },
+    tdCustomerName: {
+        fontSize: '14px',
+        fontWeight: 600,
+        color: adminTokens.ink,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    },
+    tdCustomerLocation: {
+        fontSize: '12.5px',
+        color: adminTokens.faint,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    },
+    tdSystem: { fontSize: '13.5px', color: adminTokens.body, textTransform: 'capitalize' },
+    tdValue: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink, textAlign: 'right' },
+    tdAge: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.muted, textAlign: 'right' },
+    tdAgeDanger: { color: adminTokens.danger, fontWeight: 500 },
     actionDots: {
         background: 'none',
         border: 'none',
-        fontSize: '1.25rem',
+        fontSize: '1.1rem',
         cursor: 'pointer',
-        color: '#9ca3af',
+        color: adminTokens.faint,
         padding: '0 0.25rem',
     },
-    paginationRow: {
-        padding: '1rem',
+    emptyFilterState: {
+        padding: '32px 0',
+        textAlign: 'center',
+        fontSize: '13px',
+        color: adminTokens.muted,
+    },
+    footerRow: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingTop: '14px',
+        marginTop: '6px',
+        borderTop: `1px solid ${adminTokens.hairline}`,
     },
-    paginationText: {
-        fontSize: '0.8rem',
-        color: colors.primary,
+    footerText: { fontSize: '12.5px', color: adminTokens.muted },
+    footerLink: { fontSize: '12.5px', fontWeight: 600, color: adminTokens.green, cursor: 'pointer', textDecoration: 'underline' },
+
+    scrim: { position: 'fixed', inset: 0, backgroundColor: 'rgba(16,33,26,.32)', zIndex: 200 },
+    drawer: {
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 'min(400px, 88vw)',
+        backgroundColor: '#fff',
+        zIndex: 201,
+        padding: '24px',
+        overflowY: 'auto',
+        boxShadow: '-4px 0 24px rgba(16,33,26,.12)',
     },
-    detailPanel: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        marginBottom: '1.5rem',
-    },
-    detailTitle: {
-        fontSize: '1rem',
-        fontWeight: '600',
-        color: '#111827',
-        marginBottom: '1.25rem',
-        marginTop: 0,
-    },
-    detailGrid: {},
-    detailSectionTitle: {
-        fontSize: '0.9rem',
-        fontWeight: '700',
-        color: '#111827',
-        marginBottom: '0.75rem',
-        marginTop: 0,
-    },
-    detailText: {
-        fontSize: '0.875rem',
-        color: '#374151',
-        marginBottom: '0.25rem',
-        margin: '0 0 0.25rem 0',
-    },
-    applianceTable: {
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        marginTop: '0.5rem',
-    },
-    applianceHeader: {
+    drawerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' },
+    drawerRef: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.muted },
+    drawerClose: { background: 'none', border: 'none', fontSize: '18px', color: adminTokens.muted, cursor: 'pointer', lineHeight: 1 },
+    drawerCustomer: { fontSize: '22px', fontWeight: 800, color: adminTokens.ink, margin: '8px 0 2px' },
+    drawerLocation: { fontSize: '13px', color: adminTokens.muted, margin: '0 0 20px' },
+    drawerRows: { border: `1px solid ${adminTokens.border}`, borderRadius: '10px', overflow: 'hidden', marginBottom: '20px' },
+    drawerRow: {
         display: 'flex',
-        padding: '0.5rem 0.75rem',
-        backgroundColor: '#f9fafb',
-        fontSize: '0.7rem',
-        color: '#9ca3af',
-        fontWeight: '600',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 14px',
+        borderBottom: `1px solid ${adminTokens.hairline2}`,
+    },
+    drawerRowLast: { borderBottom: 'none' },
+    drawerRowLabel: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10.5px',
+        fontWeight: 500,
         textTransform: 'uppercase',
+        letterSpacing: '.08em',
+        color: adminTokens.faint,
     },
-    applianceRow: {
-        display: 'flex',
-        padding: '0.625rem 0.75rem',
-        borderTop: '1px solid #f3f4f6',
-        fontSize: '0.875rem',
-        color: '#374151',
-    },
-    costRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '0.375rem 0',
-        fontSize: '0.875rem',
-        color: '#374151',
-    },
-    costTotal: {
-        fontWeight: '700',
-        fontSize: '1rem',
-        color: '#111827',
-        borderTop: '1px solid #e5e7eb',
-        paddingTop: '0.75rem',
-        marginTop: '0.5rem',
-    },
-    detailNote: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-        marginTop: '0.5rem',
-        margin: '0.5rem 0 0 0',
-    },
-    adminControls: {
-        display: 'flex',
-        gap: '0.75rem',
-        marginTop: '0.5rem',
-        flexWrap: 'wrap',
-    },
-    approveControlBtn: {
-        padding: '0.625rem 1.25rem',
-        backgroundColor: colors.primary,
-        color: 'white',
+    drawerRowValue: { fontSize: '13px', fontWeight: 600, color: adminTokens.ink, textTransform: 'capitalize' },
+    drawerActions: { display: 'flex', gap: '10px' },
+    drawerApproveBtn: {
+        flex: 1,
+        padding: '12px',
         border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-    },
-    rejectControlBtn: {
-        padding: '0.625rem 1.25rem',
-        backgroundColor: '#dc2626',
+        borderRadius: '10px',
+        backgroundColor: adminTokens.green,
         color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-    },
-    editControlBtn: {
-        padding: '0.625rem 1.25rem',
-        backgroundColor: colors.primary,
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-    },
-    footer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: '1px solid #e5e7eb',
-        fontSize: '0.8rem',
-        color: '#9ca3af',
-        marginTop: '1rem',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-    },
-    footerLinks: {
-        display: 'flex',
-        gap: '1.5rem',
-    },
-    footerLink: {
+        fontSize: '13.5px',
+        fontWeight: 700,
         cursor: 'pointer',
+    },
+    drawerRejectBtn: {
+        flex: 1,
+        padding: '12px',
+        border: '1px solid #f0d0cb',
+        borderRadius: '10px',
+        backgroundColor: '#fff',
+        color: adminTokens.danger,
+        fontSize: '13.5px',
+        fontWeight: 700,
+        cursor: 'pointer',
+    },
+    drawerDecided: {
+        fontSize: '13px',
+        color: adminTokens.muted,
+        backgroundColor: adminTokens.page,
+        borderRadius: '10px',
+        padding: '14px',
+        textAlign: 'center',
     },
 };

@@ -7,28 +7,25 @@ import { useAuth } from './context/auth-context';
 
 // Import all the page components we'll be routing to
 // Make sure these names exactly match the export names in each file
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+import AuthPage from './pages/AuthPage';
 import QuotationFormPage from './pages/QuotationFormPage';
-import QuotationResultPage from './pages/QuotationResultPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminQuotationDetailPage from './pages/AdminQuotationDetailPage';
-import SupplierDashboardPage from './pages/SupplierDashboardPage';
-import SupplierPurchaseRequestPage from './pages/SupplierPurchaseRequestPage';
 import CustomerSchedulePage from './pages/CustomerSchedulePage';
 import AdminSchedulePage from './pages/AdminSchedulePage';
-import SupplierChatPage from './pages/SupplierChatPage';
 import AdminInboxPage from './pages/AdminInboxPage';
 import FaqPage from './pages/FaqPage';
 import AdminFaqPage from './pages/AdminFaqPage';
 import AdminReportPage from './pages/AdminReportPage';
 import CustomerDashboardPage from './pages/CustomerDashboardPage';
 import AdminPurchaseRequestsPage from './pages/AdminPurchaseRequests';
-import AdminProjectsPage from './pages/AdminProjectsPage';
+import AdminPurchaseRequestDetailPage from './pages/AdminPurchaseRequestDetailPage';
+import AdminQuotationsPage from './pages/AdminQuotationsPage';
 import AdminSystemPage from './pages/AdminSystemPage';
 import CustomerDownloadsPage from './pages/CustomerDownloadsPage';
 import CustomerMyQuotationsPage from './pages/CustomerMyQuotationsPage';
 import LandingPage from './pages/LandingPage';
+import ExternalInstallationRequestPage from './pages/ExternalInstallationRequestPage';
 
 function ProtectedRoute({ children, allowedRoles }) {
     const { user, loading } = useAuth();
@@ -48,20 +45,15 @@ export default function App() {
     return (
         <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            {/* One auth page with a Log in / Register switch. /register just opens
+                it in register mode (the keys make each URL start fresh). */}
+            <Route path="/login" element={<AuthPage key="login" />} />
+            <Route path="/register" element={<AuthPage key="register" initialMode="register" />} />
 
-            <Route path="/quotation/new" element={
-                <ProtectedRoute allowedRoles={['customer']}>
-                    <QuotationFormPage />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/quotation/result" element={
-                <ProtectedRoute allowedRoles={['customer']}>
-                    <QuotationResultPage />
-                </ProtectedRoute>
-            } />
+            {/* Solar Computation Engine — open to guests; login is only
+                required when they press "Request quotation" */}
+            <Route path="/quotation/new" element={<QuotationFormPage />} />
+            <Route path="/external-installation-request" element={<ExternalInstallationRequestPage />} />
 
             <Route path="*" element={<Navigate to="/login" />} />
 
@@ -77,18 +69,6 @@ export default function App() {
                 </ProtectedRoute>
             } />
 
-            <Route path="/supplier/dashboard" element={
-                <ProtectedRoute allowedRoles={['supplier']}>
-                    <SupplierDashboardPage />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/supplier/purchase-requests/:id" element={
-                <ProtectedRoute allowedRoles={['supplier']}>
-                    <SupplierPurchaseRequestPage />
-                </ProtectedRoute>
-            } />
-
             <Route path="/customer/schedule" element={
                 <ProtectedRoute allowedRoles={['customer']}>
                     <CustomerSchedulePage />
@@ -100,12 +80,6 @@ export default function App() {
                     <AdminSchedulePage />
                 </ProtectedRoute>
             } />
-            <Route path="/supplier/chat" element={
-                <ProtectedRoute allowedRoles={['supplier']}>
-                    <SupplierChatPage />
-                </ProtectedRoute>
-            } />
-
             <Route path="/admin/inbox" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <AdminInboxPage />
@@ -142,9 +116,14 @@ export default function App() {
                     <AdminPurchaseRequestsPage />
                 </ProtectedRoute>
             } />
-            <Route path="/admin/projects" element={
+            <Route path="/admin/purchase-requests/:id" element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminProjectsPage />
+                    <AdminPurchaseRequestDetailPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/quotations" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminQuotationsPage />
                 </ProtectedRoute>
             } />
 
@@ -153,7 +132,7 @@ export default function App() {
                     <AdminSystemPage />
                 </ProtectedRoute>
             } />
-            <Route path="/customer/quotations" element={
+            <Route path="/customer/my-quotations" element={
                 <ProtectedRoute allowedRoles={['customer']}>
                     <CustomerMyQuotationsPage />
                 </ProtectedRoute>

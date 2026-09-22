@@ -35,7 +35,6 @@
                 <tr>
                     <th>#</th>
                     <th>Customer</th>
-                    <th>Supplier</th>
                     <th>Request Date</th>
                     <th>Materials</th>
                     <th>Procurement Status</th>
@@ -46,7 +45,6 @@
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td>{{ $pr->quotation->quotationRequest->customer->user->name ?? 'N/A' }}</td>
-                    <td>{{ $pr->supplier->company_name ?? 'N/A' }}</td>
                     <td>{{ \Carbon\Carbon::parse($pr->request_date)->format('M d, Y') }}</td>
                     <td>
                         <div class="materials-list">

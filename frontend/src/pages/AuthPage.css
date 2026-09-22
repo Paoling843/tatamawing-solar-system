@@ -1,0 +1,66 @@
+/* Auth page — rules inline styles can't express: hover, focus, placeholder,
+   the two-column card and small-screen layout. Every class starts with
+   "auth-" so nothing here affects other pages. */
+
+.auth-root input::placeholder {
+    color: #a8b0aa;
+}
+
+/* Inputs: no focus ring, just a darker border */
+.auth-input:focus {
+    outline: none;
+    border-color: #0f3b2c !important;
+}
+
+.auth-btn-primary:hover:not(:disabled) { background: #0b2e22 !important; }
+.auth-btn-primary:disabled { opacity: 0.75; cursor: default !important; }
+.auth-btn-secondary:hover { background: #f2f4f0 !important; }
+.auth-link:hover { color: #0b2e22 !important; }
+
+/* Keyboard focus stays visible on buttons and the custom checkbox */
+.auth-root button:focus-visible {
+    outline: 2px solid #0f3b2c;
+    outline-offset: 2px;
+}
+.auth-checkbox input:focus-visible + span {
+    outline: 2px solid #0f3b2c;
+    outline-offset: 2px;
+}
+
+/* Hidden visually, still read by screen readers and usable by keyboard */
+.auth-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+    opacity: 0;
+}
+
+/* Form column + green panel side by side, stacked below ~900px */
+.auth-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.78fr);
+}
+
+@media (max-width: 900px) {
+    .auth-card { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+    .auth-header { padding: 10px 16px !important; }
+    .auth-header-phone,
+    .auth-header-prompt { display: none; }
+    .auth-body { padding: 24px 16px 48px !important; }
+    .auth-form-col { padding: 28px 20px !important; }
+    .auth-panel { padding: 32px 24px !important; }
+    .auth-footer { padding: 20px 16px !important; }
+}
+
+@media (max-width: 460px) {
+    .auth-name-grid,
+    .auth-social-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}

@@ -55,7 +55,6 @@ class ReportController extends Controller
     {
         $purchaseRequests = PurchaseRequest::with([
             'materialItems',
-            'supplier.user',
             'quotation.quotationRequest.customer.user',
         ])
         ->latest()
@@ -75,7 +74,6 @@ class ReportController extends Controller
     {
         $purchaseRequests = PurchaseRequest::with([
             'materialItems',
-            'supplier.user',
             'quotation.quotationRequest.customer.user'
         ])
         ->latest()
@@ -88,6 +86,23 @@ class ReportController extends Controller
 
         $pdf->setPaper('a4', 'landscape');
 
-        return $pdf->download('procurement-report.pdf'); 
+        return $pdf->download('procurement-report.pdf');
+    }
+
+    public function purchaseRequestReport($purchaseRequestId)
+    {
+        $purchaseRequest = PurchaseRequest::with([
+            'materialItems',
+            'quotation.quotationRequest.customer.user',
+        ])->findOrFail($purchaseRequestId);
+
+        $pdf = Pdf::loadView('reports.purchase-request', [
+            'purchaseRequest' => $purchaseRequest,
+            'generatedAt' => now()->format('F d, Y h:i A'),
+        ]);
+
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->download('purchase-request-' . $purchaseRequest->id . '.pdf');
     }
 }

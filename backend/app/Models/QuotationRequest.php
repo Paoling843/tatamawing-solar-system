@@ -37,6 +37,12 @@ class QuotationRequest extends Model
         return $this->hasOne(SolarComputation::class);
     }
 
+    // The (up to) two reference bills, most recent first
+    public function electricityBills()
+    {
+        return $this->hasMany(ElectricityBill::class)->orderBy('sequence');
+    }
+
     public function quotation()
     {
         return $this->hasOne(Quotation::class);

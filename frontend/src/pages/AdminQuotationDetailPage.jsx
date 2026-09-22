@@ -70,8 +70,6 @@ export default function AdminQuotationDetailPage() {
     const [bookedSchedules, setBookedSchedules] = useState([]);
     const [scheduleSuccess, setScheduleSuccess] = useState(false);
     const [scheduleLoading, setScheduleLoading] = useState(false);
-    const [suppliers, setSuppliers] = useState([]);
-    const [selectedSupplier, setSelectedSupplier] = useState('');
     const [materials, setMaterials] = useState(() => [
         {
             id: Date.now(),
@@ -155,15 +153,6 @@ export default function AdminQuotationDetailPage() {
         }
     };
 
-    const fetchSuppliers = async () => {
-        try {
-            const res = await api.get('/admin/suppliers');
-            setSuppliers(res.data);
-        }catch {
-            setError('Failed to load suppliers.');
-        }
-    };
-
     const addMaterial = () => {
         setMaterials([
             ...materials,
@@ -196,7 +185,6 @@ export default function AdminQuotationDetailPage() {
     try{
         await api.post('/admin/purchase-requests', {
             quotation_id: quotation?.quotation?.id,
-            supplier_id: selectedSupplier,
             materials: materials.map(({ id, ...rest }) => ({
                 ...rest,
                 quantity: parseInt(rest.quantity),
@@ -850,33 +838,39 @@ export default function AdminQuotationDetailPage() {
                         </section>
                     )}
 
-                    {/* ---- Supplier procurement ---- */}
+                    {/* ---- Materials & procurement ---- */}
                     {quotation?.status === 'approved' && (
                         <section id="procurement" style={{ ...styles.card, ...styles.cardAccent }}>
-                            <h3 style={styles.cardTitle}>Supplier Procurement</h3>
+                            <h3 style={styles.cardTitle}>Materials & Procurement</h3>
 
                             {purchaseRequest ? (
-                                <div style={styles.success}>
-                                    <CheckIcon size={16} color={colors.primary} />
-                                    <span>Purchase request has already been generated.</span>
+                                <div>
+                                    <div style={styles.success}>
+                                        <CheckIcon size={16} color={colors.primary} />
+                                        <span>Purchase request has already been generated.</span>
+                                    </div>
+                                    <button
+                                        className="btn-secondary"
+                                        onClick={() => navigate(`/admin/purchase-requests/${purchaseRequest.id}`)}
+                                        style={{ ...styles.cancelBtn, marginTop: '0.75rem' }}
+                                    >
+                                        View purchase request
+                                    </button>
                                 </div>
                             ) : prSuccess ? (
                                 <div style={styles.success}>
                                     <CheckIcon size={16} color={colors.primary} />
-                                    <span>Purchase request generated and sent to supplier.</span>
+                                    <span>Purchase request generated. Download its PDF to send to a supplier.</span>
                                 </div>
                             ) : !showPRForm ? (
                                 <div>
                                     <p style={styles.cardDesc}>
-                                        Generate a purchase request to order materials from a
-                                        supplier for this project.
+                                        Generate a purchase request to list the materials
+                                        needed for this project.
                                     </p>
                                     <button
                                         className="btn-primary"
-                                        onClick={() => {
-                                            setShowPRForm(true);
-                                            fetchSuppliers();
-                                        }}
+                                        onClick={() => setShowPRForm(true)}
                                         style={styles.approveBtn}
                                     >
                                         <span>Generate purchase request</span>
@@ -884,24 +878,6 @@ export default function AdminQuotationDetailPage() {
                                 </div>
                             ) : (
                                 <form onSubmit={handleGeneratePR}>
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Select Supplier</label>
-                                        <select
-                                            value={selectedSupplier}
-                                            onChange={(e) => setSelectedSupplier(e.target.value)}
-                                            className="input-field"
-                                            style={styles.input}
-                                            required
-                                        >
-                                            <option value="">— Select a supplier —</option>
-                                            {suppliers.map((supplier) => (
-                                                <option key={supplier.id} value={supplier.id}>
-                                                    {supplier.company_name} — {supplier.contact_person}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
                                     <div style={styles.field}>
                                         <label style={styles.label}>Materials Needed</label>
 
@@ -1061,7 +1037,7 @@ export default function AdminQuotationDetailPage() {
                                     <p style={styles.cardDesc}>
                                         {procurementConfirmed
                                             ? 'Pick a day, time and technician for this installation.'
-                                            : 'Available once the supplier confirms all materials.'}
+                                            : 'Available once material availability has been confirmed.'}
                                     </p>
 
                                     <button

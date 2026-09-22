@@ -61,17 +61,21 @@ export default function CustomerSchedulePage() {
     };
 
     // Builds a reference number the same way CustomerDownloadsPage does,
-    // using the linked quotation request's id + created_at.
-    // NOTE: assumes schedule.quotation.quotation_request has id & created_at —
-    // adjust the field paths here if your schema differs.
-    const formatReference = (id, createdAt) => {
-        if (!id || !createdAt) return '—';
-        const year = new Date(createdAt).getFullYear();
-        const paddedId = String(id).padStart(3, '0');
-        return `#Q-${year}-${paddedId}`;
+    // using the linked quotation request's id + created_at. A schedule
+    // booked directly by Admin (no quotation) falls back to its own id.
+    const formatReference = (schedule) => {
+        const id = schedule.quotation?.quotation_request?.id;
+        const createdAt = schedule.quotation?.quotation_request?.created_at;
+        if (id && createdAt) {
+            const year = new Date(createdAt).getFullYear();
+            return `#Q-${year}-${String(id).padStart(3, '0')}`;
+        }
+        const year = new Date(schedule.created_at).getFullYear();
+        return `#INST-${year}-${String(schedule.id).padStart(3, '0')}`;
     };
 
     const getSystemType = (schedule) => {
+        if (!schedule.quotation) return 'INSTALLATION ONLY';
         const type = schedule.quotation?.quotation_request?.solar_system_type;
         if (!type) return '—';
         return type.toUpperCase();
@@ -167,15 +171,13 @@ export default function CustomerSchedulePage() {
                         </thead>
                         <tbody>
                             {schedules.map((schedule) => {
-                                const requestId = schedule.quotation?.quotation_request?.id;
-                                const createdAt = schedule.quotation?.quotation_request?.created_at;
                                 const status = getInstallStatus(schedule.scheduled_date);
 
                                 return (
                                     <Fragment key={schedule.id}>
                                         <tr style={styles.tr}>
                                             <td style={styles.td}>
-                                                {formatReference(requestId, createdAt)}
+                                                {formatReference(schedule)}
                                             </td>
                                             <td style={styles.td}>
                                                 <span style={styles.systemBadge}>
@@ -273,7 +275,8 @@ export default function CustomerSchedulePage() {
                                                             </span>
                                                             <span style={styles.detailValue}>
                                                                 {schedule.quotation?.quotation_request
-                                                                    ?.customer?.install_location || '—'}
+                                                                    ?.customer?.install_location ||
+                                                                    schedule.customer?.install_location || '—'}
                                                             </span>
                                                         </div>
 
@@ -299,6 +302,12 @@ export default function CustomerSchedulePage() {
                                                             </span>
                                                         </div>
                                                     </div>
+
+                                                    {schedule.notes && (
+                                                        <div style={styles.notesBox}>
+                                                            <strong>Notes:</strong> {schedule.notes}
+                                                        </div>
+                                                    )}
 
                                                     <div style={styles.reminder}>
                                                         <strong>Reminder:</strong> Please make sure
@@ -518,5 +527,13 @@ const styles = {
         padding: '0.75rem 1rem',
         fontSize: '0.8125rem',
         color: '#92400e',
+    },
+    notesBox: {
+        backgroundColor: colors.borderLight,
+        borderRadius: '8px',
+        padding: '0.75rem 1rem',
+        fontSize: '0.8125rem',
+        color: '#374151',
+        marginBottom: '0.75rem',
     },
 };

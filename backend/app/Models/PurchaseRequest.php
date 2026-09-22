@@ -8,7 +8,6 @@ class PurchaseRequest extends Model
 {
     protected $fillable = [
         'quotation_id',
-        'supplier_id',
         'request_date',
         'procurement_status',
         'total_amount',
@@ -24,11 +23,6 @@ class PurchaseRequest extends Model
     public function quotation()
     {
         return $this->belongsTo(Quotation::class);
-    }
-
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class);
     }
 
     public function materialItems()

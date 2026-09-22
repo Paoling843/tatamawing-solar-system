@@ -15,17 +15,7 @@ export default function LandingPage() {
 
     const start = () => navigate('/quotation/new');
     const setInstallation = () => {
-        if (user?.role === 'customer') {
-            navigate('/customer/schedule');
-            return;
-        }
-
-        if (!user) {
-            navigate('/login?redirect=/customer/schedule');
-            return;
-        }
-
-        navigate('/admin/schedule');
+        navigate('/external-installation-request');
     };
 
     return (

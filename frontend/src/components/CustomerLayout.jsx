@@ -32,7 +32,7 @@ export default function CustomerLayout({ children, active }) {
     const navItems = [
         { label: 'Overview', path: '/customer/dashboard', icon: <GridIcon size={16} /> },
         { label: 'Request Quotation', path: '/quotation/new', icon: <EditIcon size={16} /> },
-        { label: 'My Quotations', path: '/customer/quotations', icon: <DocumentIcon size={16} /> },
+        { label: 'My Quotations', path: '/customer/my-quotations', icon: <DocumentIcon size={16} /> },
         { label: 'Installation Schedule', path: '/customer/schedule', icon: <CalendarIcon size={16} /> },
         { label: 'FAQs', path: '/faqs', icon: <HelpIcon size={16} /> },
         { label: 'Downloads', path: '/customer/downloads', icon: <DownloadIcon size={16} /> },

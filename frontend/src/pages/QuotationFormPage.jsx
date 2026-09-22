@@ -1,741 +1,372 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CustomerLayout from '../components/CustomerLayout';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import {
-    PlusIcon, SunIcon, UserIcon, PhoneIcon, MailIcon, LocationIcon,
-    PlugIcon, BoltIcon, ClockIcon, BuildingIcon, SendIcon,
-} from '../components/Icons';
+    computeLoad, resolveSelection, buildQuote, isRowComplete, prevMonth, buildSubmitPayload,
+} from '../services/solarEngine';
+import CustomerLayout from '../components/CustomerLayout';
+import LoadingState from '../components/LoadingState';
+import EngineHeader from './quote-builder/EngineHeader';
+import EngineStepNav from './quote-builder/EngineStepNav';
+import ApplianceLoadStep from './quote-builder/ApplianceLoadStep';
+import ComputationStep from './quote-builder/ComputationStep';
+import PackageStep from './quote-builder/PackageStep';
+import RequestQuoteDialog from './quote-builder/RequestQuoteDialog';
+import { C, SANS, s } from './quote-builder/engineStyles';
+import './quote-builder/engine.css';
 
+// =====================================================================
+// Solar Computation Engine page  (route: /quotation/new)
+// =====================================================================
+// This page holds ALL the state for the flow and decides which screen to
+// show: Step 1 (appliances) → Step 2 (computation) → Step 3 (package).
+// The step components only display that state. Every number they show
+// comes from services/solarEngine.js.
+//
+// The engine's landing screen is the home page (LandingPage.jsx, route /);
+// its "Get Started" button opens this page.
+// Guests see the steps full width with the engine header.
+// Logged-in customers see the steps inside CustomerLayout (sidebar).
+//
+// Guests can use the whole flow. Their inputs are saved in sessionStorage,
+// so when they log in or register to request the quotation, they come back
+// to Step 3 with everything still filled in.
+// =====================================================================
+
+// Where the unfinished inputs are saved in the browser tab
+const DRAFT_KEY = 'tatamawing.solarEngineDraft';
+
+const EMPTY_BILL = { period: '', amount: '', kwh: '' };
+const NO_CHOICE = { pkg: null, panels: null, battery: null };
+
+// Reads the saved draft. Returns null if there is none or storage is blocked.
+function loadDraft() {
+    try {
+        const raw = sessionStorage.getItem(DRAFT_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveDraft(draft) {
+    try {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+        // Storage can be blocked (e.g. private mode). The page still works,
+        // the inputs just won't survive a reload.
+    }
+}
+
+function clearDraft() {
+    try {
+        sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+        // Nothing to clear
+    }
+}
+
+// A new, empty appliance row. The id only exists so React can tell rows apart.
+function newRow() {
+    return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        appliance: 'other',
+        customName: '',
+        hp: '1',
+        watts: '',
+        qty: '',
+        dayFrom: '',
+        dayTo: '',
+        nightFrom: '',
+        nightTo: '',
+    };
+}
 
 export default function QuotationFormPage() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
-    const [solarSystemType, setSolarSystemType] = useState('on-grid');
+    // Read the saved draft once, when the page first opens
+    const [draft] = useState(loadDraft);
 
-    const [monthlyBill] = useState('');
+    // ----- State -----
+    const [screen, setScreen] = useState(draft?.screen ?? 'load');   // load | compute | package
+    const [timeFormat, setTimeFormat] = useState(draft?.timeFormat ?? '24');
+    const [rows, setRows] = useState(draft?.rows ?? []);
+    const [bills, setBills] = useState(draft?.bills ?? [EMPTY_BILL, EMPTY_BILL]);
 
-    const [appliances, setAppliances] = useState(() => [
-        { id: Date.now(), appliance_name: '', wattage: '', quantity: 1, usage_hours_per_day: '' }
-    ]);
+    // The customer's Step 3 picks. null means "use the recommended default".
+    // pkg and battery are indexes into PACKAGES / BATTERIES.
+    const [choice, setChoice] = useState(draft?.choice ?? NO_CHOICE);
 
-    const [installationLocation, setInstallationLocation] = useState({
-        barangay: '',
-        street: '',
-        buildingNumber: '',
-    });
+    // True after a guest was sent to log in, so we can welcome them back.
+    // It's set in sendToAuth() and cleared with the draft after submitting.
+    const [awaitingLogin] = useState(draft?.awaitingLogin ?? false);
 
-    const [error, setError] = useState('');
+    // Validation display: which fields were visited, and whether Continue was pressed
+    const [touched, setTouched] = useState({});
+    const [attempted, setAttempted] = useState(false);
 
-    const [loading, setLoading] = useState(false);
+    // Step 3 UI state
+    const [selectedCost, setSelectedCost] = useState(null);
+    const [authPromptOpen, setAuthPromptOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
 
-    const addAppliance = () => {
-        setAppliances([
-            ...appliances,
-            { id: Date.now(), appliance_name: '', wattage: '', quantity: 1, usage_hours_per_day: '' }
-        ]);
+    // ----- Derived values (recomputed whenever the inputs change) -----
+    const load = useMemo(() => computeLoad(rows), [rows]);
+    const selection = resolveSelection(load, choice);
+    const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
+    const loadReady = rows.length > 0 && rows.every(isRowComplete);
+
+    // Logged-in customers use the engine inside their sidebar layout
+    const isCustomer = user?.role === 'customer';
+
+    // Which screen to actually show:
+    // - a draft saved before the landing moved to the home page may still
+    //   say 'landing'; start those at Step 1
+    // - Steps 2 and 3 need a valid appliance list; if it isn't (e.g. every
+    //   row was removed), fall back to Step 1
+    let activeScreen = screen;
+    if (activeScreen === 'landing') activeScreen = 'load';
+    if ((activeScreen === 'compute' || activeScreen === 'package') && !loadReady) activeScreen = 'load';
+
+    // Save the inputs after every change so a refresh or a login doesn't lose them
+    useEffect(() => {
+        saveDraft({ screen, timeFormat, rows, bills, choice, awaitingLogin });
+    }, [screen, timeFormat, rows, bills, choice, awaitingLogin]);
+
+    const goTo = (next) => {
+        setScreen(next);
+        window.scrollTo(0, 0);
     };
 
-    const handleApplianceChange = (id, field, value) => {
-        setAppliances(appliances.map(a =>
-            a.id === id ? { ...a, [field]: value } : a
-        ));
+    // ----- Step 1: appliance rows -----
+    const handleRowChange = (id, key, rawValue) => {
+        // Watts and quantity are whole numbers, so strip anything else as they type
+        const value = key === 'watts' || key === 'qty' ? rawValue.replace(/[^0-9]/g, '') : rawValue;
+
+        setRows((prev) => prev.map((row) => {
+            if (row.id !== id) return row;
+            const next = { ...row, [key]: value };
+
+            // If a new "from" hour is at or after the "to" hour, clear "to" so
+            // the row never holds an impossible time range
+            if (key === 'dayFrom' && value !== '' && next.dayTo !== '' && Number(next.dayTo) <= Number(value)) {
+                next.dayTo = '';
+            }
+            if (key === 'nightFrom' && value !== '' && next.nightTo !== '' && Number(next.nightTo) <= Number(value)) {
+                next.nightTo = '';
+            }
+            return next;
+        }));
     };
 
-    const handleLocationChange = (field, value) => {
-        setInstallationLocation({ ...installationLocation, [field]: value });
+    const handleTouch = (id, key) => {
+        setTouched((prev) => ({ ...prev, [`${id}:${key}`]: true }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+    const handleAddRow = () => setRows((prev) => [...prev, newRow()]);
+    const handleRemoveRow = (id) => setRows((prev) => prev.filter((row) => row.id !== id));
 
-        try {
-            const res = await api.post('/quotation-requests', {
-                solar_system_type: solarSystemType,
-                monthly_bill: monthlyBill ? parseFloat(monthlyBill) : null,
-                appliances: appliances.map(({ id, ...rest }) => ({
-                    ...rest,
-                    wattage: parseInt(rest.wattage) || 0,
-                    quantity: parseInt(rest.quantity) || 1,
-                    usage_hours_per_day: parseFloat(rest.usage_hours_per_day) || 0,
-                })),
-            });
-
-            navigate('/quotation/result', {
-                state: {
-                    quotationRequest: res.data.quotation_request,
-                    computation: res.data.computation,
-                }
-            });
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to compute quotation. Please try again.');
-        } finally {
-            setLoading(false);
+    const handleContinue = () => {
+        if (loadReady) {
+            goTo('compute');
+        } else {
+            // Show every "Required" message at once
+            setAttempted(true);
         }
     };
 
-    return (
-        <CustomerLayout active="Request Quotation">
+    // ----- Monthly bills (reference only) -----
+    const handleBillChange = (index, key, event) => {
+        const input = event.target;
+        let value = key === 'period' ? input.value : input.value.replace(/[^0-9.]/g, '');
+        const next = bills.map((bill) => ({ ...bill }));
 
-            <div className="hero-banner" style={styles.hero}>
-                <div style={styles.heroLeft}>
-                    <div style={styles.heroBadge}>
-                        <div style={styles.heroBadgeIcon}>
-                            <SunIcon size={13} color="white" />
-                        </div>
-                        <span>Request a Quotation</span>
-                    </div>
-                    <h1 style={styles.heroTitle}>Let's Build a Cleaner, Brighter Future</h1>
-                    <p style={styles.heroSubtitle}>
-                        Fill out the form below to get a customized solar solution for your home or business.
-                    </p>
-                </div>
+        if (index === 1 && key === 'period') {
+            // Bill 2 is locked until bill 1 has a month...
+            const cap = prevMonth(bills[0].period);
+            if (!cap) {
+                input.value = '';
+                return;
+            }
+            // ...and can't be later than the month before bill 1. A typed-in
+            // month can already equal the value in state, in which case React
+            // won't re-render, so the field is also snapped back by hand.
+            if (value && value > cap) {
+                value = cap;
+                input.value = cap;
+            }
+        }
 
-            </div>
+        next[index][key] = value;
 
-            {error && <div style={styles.error}>{error}</div>}
+        if (index === 0 && key === 'period') {
+            // Changing bill 1 can make bill 2's month invalid — clear it if so
+            const cap = prevMonth(value);
+            if (!value || (next[1].period && next[1].period > cap)) {
+                next[1].period = '';
+            }
+        }
 
-            <form onSubmit={handleSubmit}>
-                <div className="responsive-grid-2" style={styles.formGrid}>
+        setBills(next);
+    };
 
-                    <div style={styles.panel}>
-                        <div style={styles.panelHeader}>
-                            <div style={styles.panelIconCircle}>
-                                <UserIcon size={18} color="#1a4a3a" />
-                            </div>
-                            <div>
-                                <h2 style={styles.panelTitle}>Customer Information</h2>
-                                <p style={styles.panelDesc}>
-                                    Please provide your contact details so we can get in touch with you.
-                                </p>
-                            </div>
-                        </div>
+    // ----- Step 3: selection -----
+    // Choosing a package resets the panel count to that package's default
+    const handlePickPackage = (index) => setChoice((prev) => ({ ...prev, pkg: index, panels: null }));
+    const handlePanelsChange = (panels) => setChoice((prev) => ({ ...prev, panels }));
+    const handlePickBattery = (index) => setChoice((prev) => ({ ...prev, battery: index }));
 
-                        <div style={styles.field}>
-                            <label style={styles.label}>
-                                <UserIcon size={14} color="#6b7280" />
-                                <span>Full Name</span>
-                                <span style={styles.required}>*</span>
-                            </label>
-                            <input
-                                type="text"
-                                value={user?.name || ''}
-                                readOnly
-                                style={{ ...styles.input, backgroundColor: '#f9fafb' }}
-                            />
-                        </div>
+    // ----- Request quotation -----
+    const handleRequestQuote = async () => {
+        setSubmitError('');
+        if (authLoading) return;
 
-                        <div style={styles.field}>
-                            <label style={styles.label}>
-                                <PhoneIcon size={14} color="#6b7280" />
-                                <span>Contact Number</span>
-                                <span style={styles.required}>*</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="09XXXXXXXXX"
-                                style={styles.input}
-                                required
-                            />
-                        </div>
+        // Guests must log in first — their inputs stay saved
+        if (!user) {
+            setAuthPromptOpen(true);
+            return;
+        }
 
-                        <div style={styles.field}>
-                            <label style={styles.label}>
-                                <MailIcon size={14} color="#6b7280" />
-                                <span>Email</span>
-                                <span style={styles.required}>*</span>
-                            </label>
-                            <input
-                                type="email"
-                                value={user?.email || ''}
-                                readOnly
-                                style={{ ...styles.input, backgroundColor: '#f9fafb' }}
-                            />
-                        </div>
+        if (user.role !== 'customer') {
+            setSubmitError('Only customer accounts can request a quotation. Log in with a customer account to continue.');
+            return;
+        }
 
-                        <div style={styles.field}>
-                            <label style={styles.label}>
-                                <LocationIcon size={14} color="#6b7280" />
-                                <span>Address</span>
-                                <span style={styles.required}>*</span>
-                            </label>
-                            <textarea
-                                placeholder="Your address"
-                                style={{ ...styles.input, height: '90px', resize: 'vertical' }}
-                                required
-                            />
-                        </div>
-                    </div>
+        setSubmitting(true);
+        try {
+            // Only raw inputs and choices are sent; the server recomputes all totals
+            await api.post('/quotation-requests', buildSubmitPayload(rows, bills, selection));
+            clearDraft();
+            navigate('/customer/my-quotations');
+        } catch (err) {
+            setSubmitError(err.response?.data?.message || 'Could not send the quotation request. Please try again.');
+            setSubmitting(false);
+        }
+    };
 
-                    <div style={styles.rightColumn}>
+    // Send the guest to login/register. The draft is written right away
+    // (not in the effect above) because the page unmounts immediately.
+    const sendToAuth = (path) => {
+        saveDraft({ screen: 'package', timeFormat, rows, bills, choice, awaitingLogin: true });
+        navigate(`${path}?redirect=${encodeURIComponent('/quotation/new')}`);
+    };
 
-                        <div style={styles.panel}>
-                            <div style={styles.panelHeader}>
-                                <div style={styles.panelIconCircle}>
-                                    <BoltIcon size={18} color="#1a4a3a" />
-                                </div>
-                                <div>
-                                    <h2 style={styles.panelTitle}>Appliance and Power Usage</h2>
-                                    <p style={styles.panelDesc}>
-                                        Tell us about the appliances you'll be using and your daily consumption.
-                                    </p>
-                                </div>
-                            </div>
+    const closeAuthPrompt = useCallback(() => setAuthPromptOpen(false), []);
 
-                            <div style={styles.applianceHeader}>
-                                <span style={{ ...styles.applianceHeaderItem, flex: 3 }}>
-                                    <PlugIcon size={13} color="#9ca3af" />
-                                    <span>Appliance</span>
-                                </span>
-                                <span style={{ ...styles.applianceHeaderItem, flex: 1.5 }}>
-                                    <span style={styles.hashIcon}>#</span>
-                                    <span>Quantity</span>
-                                    <span style={styles.required}>*</span>
-                                </span>
-                                <span style={{ ...styles.applianceHeaderItem, flex: 1.5 }}>
-                                    <BoltIcon size={13} color="#9ca3af" />
-                                    <span>Watts</span>
-                                    <span style={styles.required}>*</span>
-                                </span>
-                                <span style={{ ...styles.applianceHeaderItem, flex: 1.5 }}>
-                                    <ClockIcon size={13} color="#9ca3af" />
-                                    <span>Hours/Day</span>
-                                    <span style={styles.required}>*</span>
-                                </span>
-                            </div>
+    // Message shown on Step 3 when a guest comes back after logging in
+    let resumeNotice = null;
+    if (awaitingLogin && user && activeScreen === 'package') {
+        resumeNotice = user.role === 'customer'
+            ? `Welcome back, ${user.name}. Your configuration is just as you left it — press Request quotation below to send it.`
+            : 'You are signed in with a non-customer account. Log in with a customer account to request this quotation.';
+    }
 
-                            {appliances.map((appliance) => (
-                                <div key={appliance.id} style={styles.applianceRow}>
-                                    <input
-                                        type="text"
-                                        value={appliance.appliance_name}
-                                        onChange={(e) => handleApplianceChange(
-                                            appliance.id, 'appliance_name', e.target.value
-                                        )}
-                                        style={{ ...styles.applianceInput, flex: 3 }}
-                                        placeholder="e.g. LED Bulb"
-                                        required
-                                    />
+    // Wait until we know whether someone is logged in, otherwise a customer
+    // would briefly see the guest page before switching to the sidebar layout
+    if (authLoading) {
+        return <LoadingState label="Loading..." />;
+    }
 
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={appliance.quantity}
-                                        onChange={(e) => handleApplianceChange(
-                                            appliance.id, 'quantity', e.target.value
-                                        )}
-                                        style={{ ...styles.applianceInput, flex: 1.5 }}
-                                        required
-                                    />
+    // Steps 1–3, shared by the customer layout and the guest page
+    const steps = (
+        <>
+            {activeScreen === 'load' && (
+                <ApplianceLoadStep
+                    rows={rows}
+                    load={load}
+                    selection={selection}
+                    timeFormat={timeFormat}
+                    touched={touched}
+                    attempted={attempted}
+                    loadReady={loadReady}
+                    bills={bills}
+                    onTimeFormatChange={setTimeFormat}
+                    onRowChange={handleRowChange}
+                    onTouch={handleTouch}
+                    onAddRow={handleAddRow}
+                    onRemoveRow={handleRemoveRow}
+                    onBillChange={handleBillChange}
+                    onContinue={handleContinue}
+                />
+            )}
 
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={appliance.wattage}
-                                        onChange={(e) => handleApplianceChange(
-                                            appliance.id, 'wattage', e.target.value
-                                        )}
-                                        style={{ ...styles.applianceInput, flex: 1.5 }}
-                                        placeholder="W"
-                                        required
-                                    />
+            {activeScreen === 'compute' && (
+                <ComputationStep
+                    rows={rows}
+                    load={load}
+                    onBack={() => goTo('load')}
+                    onNext={() => goTo('package')}
+                />
+            )}
 
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        value={appliance.usage_hours_per_day}
-                                        onChange={(e) => handleApplianceChange(
-                                            appliance.id, 'usage_hours_per_day', e.target.value
-                                        )}
-                                        style={{ ...styles.applianceInput, flex: 1.5 }}
-                                        placeholder="h"
-                                        required
-                                    />
-                                </div>
-                            ))}
-
-                            <button
-                                type="button"
-                                onClick={addAppliance}
-                                className="btn-primary"
-                                style={styles.addApplianceBtn}
-                            >
-                                <PlusIcon size={14} color="white" />
-                                <span>Add Appliance</span>
-                            </button>
-                        </div>
-
-                        <div style={styles.panel}>
-                            <div style={styles.panelHeader}>
-                                <div style={styles.panelIconCircle}>
-                                    <SunIcon size={18} color="#1a4a3a" />
-                                </div>
-                                <div>
-                                    <h2 style={styles.panelTitle}>Solar Type</h2>
-                                    <p style={styles.panelDesc}>
-                                        What type of solar system are you interested in?
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div style={styles.radioGroup}>
-
-                                <label style={styles.radioLabel}>
-                                    <div style={styles.radioInputWrapper}>
-                                        <input
-                                            type="radio"
-                                            name="solar_type"
-                                            value="on-grid"
-                                            checked={solarSystemType === 'on-grid'}
-                                            onChange={() => setSolarSystemType('on-grid')}
-                                            style={styles.radioInput}
-                                        />
-                                        <div style={{
-                                            ...styles.radioCircle,
-                                            borderColor: solarSystemType === 'on-grid' ? '#1a4a3a' : '#d1d5db',
-                                            backgroundColor: solarSystemType === 'on-grid' ? '#1a4a3a' : 'transparent',
-                                        }}>
-                                            {solarSystemType === 'on-grid' && (
-                                                <div style={styles.radioInner} />
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span style={styles.radioText}>On Grid</span>
-                                </label>
-
-                                <label style={styles.radioLabel}>
-                                    <div style={styles.radioInputWrapper}>
-                                        <input
-                                            type="radio"
-                                            name="solar_type"
-                                            value="off-grid"
-                                            checked={solarSystemType === 'off-grid'}
-                                            onChange={() => setSolarSystemType('off-grid')}
-                                            style={styles.radioInput}
-                                        />
-                                        <div style={{
-                                            ...styles.radioCircle,
-                                            borderColor: solarSystemType === 'off-grid' ? '#1a4a3a' : '#d1d5db',
-                                            backgroundColor: solarSystemType === 'off-grid' ? '#1a4a3a' : 'transparent',
-                                        }}>
-                                            {solarSystemType === 'off-grid' && (
-                                                <div style={styles.radioInner} />
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span style={styles.radioText}>Off Grid</span>
-                                </label>
-
-                                <label style={styles.radioLabel}>
-                                    <div style={styles.radioInputWrapper}>
-                                        <input
-                                            type="radio"
-                                            name="solar_type"
-                                            value="hybrid"
-                                            checked={solarSystemType === 'hybrid'}
-                                            onChange={() => setSolarSystemType('hybrid')}
-                                            style={styles.radioInput}
-                                        />
-                                        <div style={{
-                                            ...styles.radioCircle,
-                                            borderColor: solarSystemType === 'hybrid' ? '#1a4a3a' : '#d1d5db',
-                                            backgroundColor: solarSystemType === 'hybrid' ? '#1a4a3a' : 'transparent',
-                                        }}>
-                                            {solarSystemType === 'hybrid' && (
-                                                <div style={styles.radioInner} />
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span style={styles.radioText}>Hybrid</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div style={styles.panel}>
-                            <div style={styles.panelHeader}>
-                                <div style={styles.panelIconCircle}>
-                                    <LocationIcon size={18} color="#1a4a3a" />
-                                </div>
-                                <div>
-                                    <h2 style={styles.panelTitle}>Installation Location</h2>
-                                    <p style={styles.panelDesc}>
-                                        Where do you want the system to be installed?
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="location-row" style={styles.locationRow}>
-                                <div style={{ ...styles.field, flex: 1, marginBottom: 0 }}>
-                                    <label style={styles.label}>
-                                        <LocationIcon size={14} color="#6b7280" />
-                                        <span>Brgy.</span>
-                                        <span style={styles.required}>*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={installationLocation.barangay}
-                                        onChange={(e) => handleLocationChange('barangay', e.target.value)}
-                                        style={styles.input}
-                                        placeholder="Barangay"
-                                        required
-                                    />
-                                </div>
-
-                                <div style={{ ...styles.field, flex: 1, marginBottom: 0 }}>
-                                    <label style={styles.label}>
-                                        <span>Street</span>
-                                        <span style={styles.required}>*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={installationLocation.street}
-                                        onChange={(e) => handleLocationChange('street', e.target.value)}
-                                        style={styles.input}
-                                        placeholder="Street name"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="location-row" style={{ ...styles.locationRow, alignItems: 'flex-end' }}>
-                                <div style={{ ...styles.field, flex: 1, marginBottom: 0 }}>
-                                    <label style={styles.label}>
-                                        <BuildingIcon size={14} color="#6b7280" />
-                                        <span>Building Number</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={installationLocation.buildingNumber}
-                                        onChange={(e) => handleLocationChange('buildingNumber', e.target.value)}
-                                        style={styles.input}
-                                        placeholder="Building / House number"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    className="btn-primary"
-                                    style={{
-                                        ...styles.submitBtn,
-                                        opacity: loading ? 0.7 : 1,
-                                        cursor: loading ? 'not-allowed' : 'pointer',
-                                    }}
-                                    disabled={loading}
-                                >
-                                    <SendIcon size={15} color="white" />
-                                    <span>{loading ? 'Submitting...' : 'Submit Request'}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </form>
-
-            <Footer />
-        </CustomerLayout>
+            {activeScreen === 'package' && (
+                <PackageStep
+                    load={load}
+                    selection={selection}
+                    quote={quote}
+                    selectedCost={selectedCost}
+                    submitting={submitting}
+                    submitError={submitError}
+                    resumeNotice={resumeNotice}
+                    onPickPackage={handlePickPackage}
+                    onPanelsChange={handlePanelsChange}
+                    onPickBattery={handlePickBattery}
+                    onSelectCost={setSelectedCost}
+                    onBack={() => goTo('compute')}
+                    onRequestQuote={handleRequestQuote}
+                />
+            )}
+        </>
     );
-}
 
-// Shared page footer — declared at module scope so React sees the same
-// component type on every render
-function Footer() {
-    return (
-        <div style={styles.footer}>
-            <div style={styles.footerLeft}>
-                <span style={styles.footerText}>© 2024 TataMawing Solar. All rights reserved.</span>
-                <div style={styles.footerLinks}>
-                    <span style={styles.footerLink}>Privacy Policy</span>
-                    <span style={styles.footerLink}>Terms of Service</span>
-                    <span style={styles.footerLink}>Sustainability Report</span>
+    // ----- Logged-in customer: steps inside the customer sidebar layout -----
+    if (isCustomer) {
+        return (
+            <CustomerLayout active="Request Quotation">
+                <div className="se-root se-embedded" style={styles.embedded}>
+                    <div className="se-embedded-nav">
+                        <EngineStepNav screen={activeScreen} />
+                    </div>
+                    {steps}
                 </div>
-            </div>
+            </CustomerLayout>
+        );
+    }
+
+    // ----- Guest (or any non-customer): full-width page with the engine header -----
+    return (
+        <div className="se-root" style={s.page}>
+            <EngineHeader
+                screen={activeScreen}
+                user={user}
+                onLogoClick={() => navigate('/')}
+            />
+
+            {steps}
+
+            {authPromptOpen && (
+                <RequestQuoteDialog
+                    summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.battery.ah} Ah`}
+                    adjustedWh={load.adjusted}
+                    onClose={closeAuthPrompt}
+                    onLogin={() => sendToAuth('/login')}
+                    onRegister={() => sendToAuth('/register')}
+                />
+            )}
         </div>
     );
 }
 
 const styles = {
-    error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
-    hero: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '1.5rem',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        marginBottom: '1.5rem',
-        background: 'linear-gradient(90deg, #eaf6f0 0%, #eaf6f0 30%, #1a4a3a 100%)',
-    },
-    heroLeft: {
-        flex: 1,
-        minWidth: 0,
-        padding: '2rem 0 2rem 2rem',
-    },
-    heroBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        fontSize: '0.7rem',
-        fontWeight: '700',
-        letterSpacing: '0.05em',
-        textTransform: 'uppercase',
-        color: '#1a4a3a',
-        marginBottom: '0.75rem',
-    },
-    heroBadgeIcon: {
-        width: '26px',
-        height: '26px',
-        borderRadius: '50%',
-        backgroundColor: '#1a4a3a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-    },
-    heroTitle: {
-        fontSize: '1.5rem',
-        fontWeight: '700',
-        color: '#111827',
-        margin: '0 0 0.5rem 0',
-        lineHeight: 1.25,
-    },
-    heroSubtitle: {
-        fontSize: '0.875rem',
-        color: '#374151',
-        maxWidth: '420px',
-        margin: 0,
-        lineHeight: 1.5,
-    },
-    formGrid: {
-        marginBottom: '1.5rem',
-        alignItems: 'start',
-    },
-    rightColumn: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.5rem',
-    },
-    panel: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
-    },
-    panelHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '0.75rem',
-        marginBottom: '1.25rem',
-    },
-    panelIconCircle: {
-        width: '38px',
-        height: '38px',
-        borderRadius: '50%',
-        backgroundColor: '#f0f7f4',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-    },
-    panelTitle: {
-        fontSize: '0.95rem',
-        fontWeight: '700',
-        color: '#111827',
-        margin: '0 0 0.2rem 0',
-    },
-    panelDesc: {
-        fontSize: '0.8rem',
-        color: '#9ca3af',
-        margin: 0,
-    },
-    required: {
-        color: '#dc2626',
-    },
-    field: {
-        marginBottom: '1rem',
-    },
-    label: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.375rem',
-        fontSize: '0.875rem',
-        color: '#374151',
-        marginBottom: '0.375rem',
-    },
-    input: {
-        width: '100%',
-        padding: '0.625rem 0.75rem',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        color: '#374151',
-        backgroundColor: '#f9fafb',
-        outline: 'none',
-        boxSizing: 'border-box',
-        fontFamily: 'inherit',
-    },
-    applianceHeader: {
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '0.5rem',
-        fontSize: '0.75rem',
-        color: '#374151',
-        fontWeight: '500',
-    },
-    applianceHeaderItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.3rem',
-    },
-    hashIcon: {
-        fontSize: '0.75rem',
-        fontWeight: '700',
-        color: '#9ca3af',
-        width: '13px',
-        textAlign: 'center',
-    },
-    applianceRow: {
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '0.5rem',
-    },
-    applianceInput: {
-        padding: '0.5rem',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        fontSize: '0.8rem',
-        color: '#374151',
-        backgroundColor: '#f9fafb',
-        outline: 'none',
-        minWidth: 0,
-    },
-    addApplianceBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.375rem',
-        padding: '0.5rem 1rem',
-        backgroundColor: '#1a4a3a',
-        color: 'white',
-        border: 'none',
-        borderRadius: '999px',
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-        marginTop: '0.5rem',
-    },
-    radioGroup: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '2rem',
-    },
-    radioLabel: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        cursor: 'pointer',
-    },
-    radioInputWrapper: {
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-    },
-    radioInput: {
-        position: 'absolute',
-        opacity: 0,
-        width: 0,
-        height: 0,
-    },
-    radioCircle: {
-        width: '20px',
-        height: '20px',
-        borderRadius: '50%',
-        border: '2px solid',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'all 0.15s',
-    },
-    radioInner: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: 'white',
-    },
-    radioText: {
-        fontSize: '1rem',
-        fontWeight: '500',
-        color: '#374151',
-    },
-    locationRow: {
-        display: 'flex',
-        gap: '1rem',
-        marginBottom: '1rem',
-    },
-    submitBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.75rem 1.5rem',
-        backgroundColor: '#1a4a3a',
-        color: 'white',
-        border: 'none',
-        borderRadius: '999px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        whiteSpace: 'nowrap',
-    },
-    footer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: '1px solid #e5e7eb',
-        marginTop: '0.5rem',
-    },
-    footerLeft: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    footerText: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-    },
-    footerLinks: {
-        display: 'flex',
-        gap: '1rem',
-    },
-    footerLink: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-        cursor: 'pointer',
-    },
-    systemStatus: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-    },
-    statusDot: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: '#16a34a',
-    },
-    statusText: {
-        fontSize: '0.75rem',
-        color: '#6b7280',
-        fontWeight: '500',
+    // Inside CustomerLayout the layout already provides the page background
+    // and height, so only the engine's font and text colour are set here
+    embedded: {
+        fontFamily: SANS,
+        color: C.ink,
+        WebkitFontSmoothing: 'antialiased',
     },
 };

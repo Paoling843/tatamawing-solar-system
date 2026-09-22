@@ -59,11 +59,6 @@ class User extends Authenticatable
         return $this->hasOne(Admin::class);
     }
 
-    public function supplier()
-    {
-        return $this->hasOne(Supplier::class);
-    }
-
     public function sentMessages()
     {
         return $this->hasMany(ChatMessage::class, 'sender_id');
