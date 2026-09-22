@@ -12,17 +12,23 @@ class MessageController extends Controller
     public function send(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'receiver_id' => 'required|exists:users,id',
-            'message' => 'required|string|max:1000',
+            'receiver_id' => ['required', 'exists:users,id', 'different:sender_id'],
+            'message' => ['required', 'string', 'min:1', 'max:1000'],
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
         $sender = $request->user();
 
         $receiver = User::find($request->receiver_id);
+
+        if (! $receiver || $sender->id === (int) $request->receiver_id) {
+            return response()->json([
+                'message' => 'A valid recipient is required.',
+            ], 422);
+        }
 
         if ($sender->role !== 'admin' && $receiver->role !== 'admin') {
             return response()->json([
@@ -33,7 +39,7 @@ class MessageController extends Controller
         $chatMessage = ChatMessage::create([
             'sender_id' => $sender->id,
             'receiver_id' => $request->receiver_id,
-            'message' => $request->message,
+            'message' => trim($request->message),
         ]);
 
         $chatMessage->load(['sender','receiver']);

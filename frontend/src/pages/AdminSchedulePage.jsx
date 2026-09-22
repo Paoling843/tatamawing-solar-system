@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
@@ -11,6 +12,7 @@ import {
     ChevronDownIcon,
     CheckIcon,
     XIcon,
+    PlusIcon,
 } from '../components/Icons';
 import api from '../api/axios';
 import { colors, typography, statusColors } from '../styles/theme';
@@ -53,6 +55,9 @@ const TODAY = new Date();
 const TODAY_KEY = toDateKey(TODAY);
 
 export default function AdminSchedulePage() {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -73,6 +78,23 @@ export default function AdminSchedulePage() {
         assigned_technician: '',
     });
     const [editLoading, setEditLoading] = useState(false);
+
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        customer_id: '',
+        quotation_id: '',
+        scheduled_date: '',
+        scheduled_time: '',
+        assigned_technician: '',
+        notes: '',
+    });
+    const [linkedQuotation, setLinkedQuotation] = useState(null);
+    const [createViewYear, setCreateViewYear] = useState(TODAY.getFullYear());
+    const [createViewMonth, setCreateViewMonth] = useState(TODAY.getMonth());
+    const [customers, setCustomers] = useState([]);
+    const [customersLoading, setCustomersLoading] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
+    const [createError, setCreateError] = useState('');
 
 
     const fetchSchedules = useCallback(async () => {
@@ -96,9 +118,13 @@ export default function AdminSchedulePage() {
     }, [fetchSchedules]);
 
     const getCustomerName = (schedule) =>
-        schedule.quotation?.quotation_request?.customer?.user?.name || 'Unknown';
+        schedule.customer?.user?.name ||
+        schedule.quotation?.quotation_request?.customer?.user?.name ||
+        schedule.external_installation_request?.name ||
+        'Unknown';
 
     const getSystemType = (schedule) => {
+        if (!schedule.quotation) return 'Installation Service Only';
         const type = schedule.quotation?.quotation_request?.solar_system_type;
         return type ? type.charAt(0).toUpperCase() + type.slice(1) : '—';
     };
@@ -107,7 +133,10 @@ export default function AdminSchedulePage() {
         schedule.quotation?.quotation_request?.solar_computation?.panel_capacity_kw;
 
     const getLocation = (schedule) =>
-        schedule.quotation?.quotation_request?.customer?.install_location || '—';
+        schedule.quotation?.quotation_request?.customer?.install_location ||
+        schedule.customer?.install_location ||
+        schedule.external_installation_request?.address ||
+        '—';
 
     const getDateKey = (schedule) => schedule.scheduled_date.split('T')[0];
 
@@ -172,6 +201,145 @@ export default function AdminSchedulePage() {
         setViewMonth(m);
         setViewYear(y);
     };
+
+    // Mini calendar used inside the "New Schedule" modal — reads the same
+    // already-loaded `schedules` state, so no extra fetch is needed.
+    const createFirstOfMonth = new Date(createViewYear, createViewMonth, 1);
+    const createStartOffset = createFirstOfMonth.getDay();
+    const createDaysInMonth = new Date(createViewYear, createViewMonth + 1, 0).getDate();
+    const createRowCount = Math.ceil((createStartOffset + createDaysInMonth) / 7);
+
+    const createCells = [];
+    for (let i = 0; i < createRowCount * 7; i++) {
+        const dayNum = i - createStartOffset + 1;
+        const inMonth = dayNum >= 1 && dayNum <= createDaysInMonth;
+        const cellDate = new Date(createViewYear, createViewMonth, dayNum);
+        const key = toDateKey(cellDate);
+        const bookedCount = schedules.filter((s) => getDateKey(s) === key).length;
+
+        createCells.push({
+            key,
+            day: cellDate.getDate(),
+            inMonth,
+            isToday: key === TODAY_KEY,
+            isPicked: key === createForm.scheduled_date,
+            isBookable: key >= MIN_SCHEDULE_DATE,
+            bookedCount,
+        });
+    }
+
+    const shiftCreateMonth = (delta) => {
+        let m = createViewMonth + delta;
+        let y = createViewYear;
+        if (m < 0) { m = 11; y -= 1; }
+        if (m > 11) { m = 0; y += 1; }
+        setCreateViewMonth(m);
+        setCreateViewYear(y);
+    };
+
+    const fetchCustomers = async () => {
+        setCustomersLoading(true);
+        try {
+            const res = await api.get('/admin/customers');
+            setCustomers(res.data);
+        } catch {
+            setCreateError('Failed to load customers.');
+        } finally {
+            setCustomersLoading(false);
+        }
+    };
+
+    const openCreateModal = () => {
+        const [y, m] = MIN_SCHEDULE_DATE.split('-').map(Number);
+        setCreateViewYear(y);
+        setCreateViewMonth(m - 1);
+        setCreateForm({
+            customer_id: '',
+            quotation_id: '',
+            scheduled_date: '',
+            scheduled_time: '',
+            assigned_technician: '',
+            notes: '',
+        });
+        setLinkedQuotation(null);
+        setCreateError('');
+        setShowCreateModal(true);
+        fetchCustomers();
+    };
+
+    // Landed here from a quotation's "Schedule" button — open the modal pre-filled
+    // and locked to that quotation instead of the free-form customer picker.
+    const openCreateModalForQuotation = (info) => {
+        const [y, m] = MIN_SCHEDULE_DATE.split('-').map(Number);
+        setCreateViewYear(y);
+        setCreateViewMonth(m - 1);
+        setCreateForm({
+            customer_id: '',
+            quotation_id: info.id,
+            scheduled_date: '',
+            scheduled_time: '',
+            assigned_technician: '',
+            notes: '',
+        });
+        setLinkedQuotation(info);
+        setCreateError('');
+        setShowCreateModal(true);
+    };
+
+    const closeCreateModal = () => {
+        setShowCreateModal(false);
+        setLinkedQuotation(null);
+    };
+
+    useEffect(() => {
+        const state = location.state;
+        if (!state?.scheduleQuotationId) return;
+
+        // Deferred to a microtask so this state update lands after the effect
+        // returns rather than cascading a render inside it
+        Promise.resolve().then(() => {
+            openCreateModalForQuotation({
+                id: state.scheduleQuotationId,
+                customerName: state.scheduleCustomerName || 'Customer',
+                location: state.scheduleLocation || '',
+                reference: state.scheduleReference || '',
+            });
+
+            // Clear the router state so a refresh or back/forward doesn't reopen the modal
+            navigate(location.pathname, { replace: true });
+        });
+        // Only ever meant to run once, against whatever state we arrived with
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleCreateManualSchedule = async (e) => {
+        e.preventDefault();
+        setCreateLoading(true);
+        setCreateError('');
+
+        try {
+            await api.post('/admin/schedules', {
+                ...(createForm.quotation_id
+                    ? { quotation_id: createForm.quotation_id }
+                    : { customer_id: createForm.customer_id }),
+                scheduled_date: createForm.scheduled_date,
+                scheduled_time: createForm.scheduled_time,
+                assigned_technician: createForm.assigned_technician,
+                notes: createForm.notes || undefined,
+            });
+            setShowCreateModal(false);
+            setLinkedQuotation(null);
+            setSuccess('Installation schedule created successfully.');
+            fetchSchedules();
+        } catch (err) {
+            setCreateError(err.response?.data?.message || 'Failed to create installation schedule.');
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+    const createFormValid = (createForm.quotation_id || createForm.customer_id) &&
+        createForm.scheduled_date && createForm.scheduled_time && createForm.assigned_technician;
 
     const goToToday = () => {
         const now = new Date();
@@ -248,10 +416,18 @@ export default function AdminSchedulePage() {
 
     return (
         <AdminLayout active="Schedule">
-            <h1 style={styles.pageTitle}>Installation Schedule</h1>
-            <p style={styles.pageSubtitle}>
-                View and manage all scheduled solar installations.
-            </p>
+            <div style={styles.pageHeader}>
+                <div>
+                    <h1 style={styles.pageTitle}>Installation Schedule</h1>
+                    <p style={styles.pageSubtitle}>
+                        View and manage all scheduled solar installations.
+                    </p>
+                </div>
+                <button className="btn-primary" style={styles.newScheduleBtn} onClick={openCreateModal}>
+                    <PlusIcon size={14} color="white" />
+                    <span>New Schedule</span>
+                </button>
+            </div>
 
             {success && <div style={styles.success}>{success}</div>}
             {error && <div style={styles.error}>{error}</div>}
@@ -262,7 +438,9 @@ export default function AdminSchedulePage() {
                 <EmptyState
                     icon={<CalendarIcon size={32} color={colors.textFaint} />}
                     title="No installation schedules yet"
-                    description="Schedules are created when approving quotations after supplier confirmation."
+                    description="Schedules are created when approving quotations, or you can book one directly for a customer who already has their own materials."
+                    actionLabel="Schedule Installation"
+                    onAction={openCreateModal}
                 />
             ) : (
                 <div className="content-grid-sidebar" style={styles.contentGrid}>
@@ -572,10 +750,16 @@ export default function AdminSchedulePage() {
                                     {STATUS_LABELS[modalSchedule.status] || modalSchedule.status}
                                 </span>
                             </div>
-                            <div style={{ ...styles.modalFieldRow, borderBottom: 'none' }}>
+                            <div style={{ ...styles.modalFieldRow, borderBottom: modalSchedule.notes ? '1px solid #f3f4f6' : 'none' }}>
                                 <span style={styles.modalFieldLabel}>Location</span>
                                 <span style={styles.modalFieldValue}>{getLocation(modalSchedule)}</span>
                             </div>
+                            {modalSchedule.notes && (
+                                <div style={{ ...styles.modalFieldRow, borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.3rem' }}>
+                                    <span style={styles.modalFieldLabel}>Notes</span>
+                                    <span style={{ ...styles.modalFieldValue, textAlign: 'left' }}>{modalSchedule.notes}</span>
+                                </div>
+                            )}
                         </div>
 
                         <div style={styles.modalFooter}>
@@ -610,11 +794,201 @@ export default function AdminSchedulePage() {
                     </div>
                 </div>
             )}
+
+            {showCreateModal && (
+                <div style={styles.modalOverlay} onClick={closeCreateModal}>
+                    <div style={styles.createModalCard} onClick={(e) => e.stopPropagation()}>
+
+                        <div style={styles.createModalHeader}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={styles.modalEyebrow}>{linkedQuotation ? 'From Quotation' : 'New Booking'}</div>
+                                <h2 style={styles.modalTitle}>Schedule an Installation</h2>
+                                <p style={styles.modalSubtitle}>
+                                    {linkedQuotation
+                                        ? `Linked to ${linkedQuotation.reference || 'this quotation'} — the installation will be tied to it.`
+                                        : 'For a customer who already has their own materials/quotation.'}
+                                </p>
+                            </div>
+                            <button onClick={closeCreateModal} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={colors.textMuted} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateManualSchedule}>
+                            <div style={styles.createModalBody}>
+                                {createError && <div style={styles.modalError}>{createError}</div>}
+
+                                <div style={styles.field}>
+                                    <label style={styles.label}>Customer</label>
+                                    {linkedQuotation ? (
+                                        <div style={styles.linkedQuotationBox}>
+                                            {linkedQuotation.reference && (
+                                                <div style={styles.linkedQuotationRef}>{linkedQuotation.reference}</div>
+                                            )}
+                                            <div style={styles.linkedQuotationName}>{linkedQuotation.customerName}</div>
+                                            {linkedQuotation.location && (
+                                                <div style={styles.linkedQuotationLocation}>{linkedQuotation.location}</div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={createForm.customer_id}
+                                            onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}
+                                            className="input-field"
+                                            style={styles.input}
+                                            required
+                                        >
+                                            <option value="">
+                                                {customersLoading ? 'Loading customers...' : '— Select a customer —'}
+                                            </option>
+                                            {customers.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.user?.name} — {c.contact_number}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+
+                                <div style={styles.miniCalendarHeader}>
+                                    <span style={styles.miniMonthLabel}>{MONTHS[createViewMonth]} {createViewYear}</span>
+                                    <div style={styles.monthNav}>
+                                        <button type="button" onClick={() => shiftCreateMonth(-1)} style={styles.navBtn} aria-label="Previous month">
+                                            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
+                                                <ChevronDownIcon size={14} color={colors.primary} />
+                                            </span>
+                                        </button>
+                                        <button type="button" onClick={() => shiftCreateMonth(1)} style={styles.navBtn} aria-label="Next month">
+                                            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
+                                                <ChevronDownIcon size={14} color={colors.primary} />
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={styles.weekdayRow}>
+                                    {WEEKDAYS.map((w) => (
+                                        <div key={w} style={styles.weekdayLabel}>{w}</div>
+                                    ))}
+                                </div>
+
+                                <div style={styles.cellGrid}>
+                                    {createCells.map((cell) => (
+                                        <div
+                                            key={cell.key}
+                                            onClick={() => cell.isBookable && setCreateForm({ ...createForm, scheduled_date: cell.key })}
+                                            style={{
+                                                ...styles.createDayCell,
+                                                backgroundColor: cell.isPicked ? colors.primaryTint : 'white',
+                                                boxShadow: cell.isPicked
+                                                    ? `inset 0 0 0 2px ${colors.primary}`
+                                                    : `inset 0 0 0 1px ${colors.borderLight}`,
+                                                opacity: !cell.inMonth ? 0.4 : !cell.isBookable ? 0.45 : 1,
+                                                cursor: cell.isBookable ? 'pointer' : 'not-allowed',
+                                            }}
+                                        >
+                                            <span style={{ ...styles.dayNumber, ...(cell.isToday ? styles.dayNumberToday : {}) }}>
+                                                {cell.day}
+                                            </span>
+                                            {cell.bookedCount > 0 && <span style={styles.miniBookedDot} />}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={styles.pickedBanner}>
+                                    {createForm.scheduled_date
+                                        ? formatDateLong(createForm.scheduled_date)
+                                        : 'Pick a day on the calendar above'}
+                                </div>
+
+                                <div style={styles.modalFormRow}>
+                                    <div style={styles.field}>
+                                        <label style={styles.label}>Start Time</label>
+                                        <input
+                                            type="time"
+                                            value={createForm.scheduled_time}
+                                            onChange={(e) => setCreateForm({ ...createForm, scheduled_time: e.target.value })}
+                                            className="input-field"
+                                            style={styles.input}
+                                            required
+                                        />
+                                    </div>
+                                    <div style={styles.field}>
+                                        <label style={styles.label}>Assigned Technician</label>
+                                        <input
+                                            type="text"
+                                            value={createForm.assigned_technician}
+                                            onChange={(e) => setCreateForm({ ...createForm, assigned_technician: e.target.value })}
+                                            className="input-field"
+                                            style={styles.input}
+                                            placeholder="Technician name"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={styles.field}>
+                                    <label style={styles.label}>
+                                        Notes <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span>
+                                    </label>
+                                    <textarea
+                                        value={createForm.notes}
+                                        onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
+                                        className="input-field"
+                                        style={{ ...styles.input, height: '70px', resize: 'vertical' }}
+                                        placeholder="e.g. Customer already has panels and inverter installed by another supplier."
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={styles.createModalFooter}>
+                                <button type="button" className="btn-secondary" onClick={closeCreateModal} style={styles.cancelBtn}>
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn-primary"
+                                    style={{
+                                        ...styles.saveBtn,
+                                        opacity: createLoading || !createFormValid ? 0.7 : 1,
+                                        cursor: createLoading || !createFormValid ? 'not-allowed' : 'pointer',
+                                    }}
+                                    disabled={createLoading || !createFormValid}
+                                >
+                                    {createLoading ? 'Saving...' : 'Confirm Schedule'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }
 
 const styles = {
+    pageHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+    },
+    newScheduleBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        backgroundColor: colors.primary,
+        color: 'white',
+        border: 'none',
+        minHeight: '40px',
+        padding: '0.65rem 1.1rem',
+        borderRadius: '9px',
+        fontSize: '0.875rem',
+        fontWeight: '600',
+        whiteSpace: 'nowrap',
+        boxShadow: '0 2px 6px rgba(15,59,44,.14)',
+    },
     pageTitle: {
         ...typography.h1,
         marginBottom: '0.25rem',
@@ -651,6 +1025,28 @@ const styles = {
         color: '#374151',
         fontWeight: '500',
     },
+    linkedQuotationBox: {
+        border: `1px solid ${colors.primaryBorder}`,
+        backgroundColor: colors.primaryTint,
+        borderRadius: '8px',
+        padding: '0.625rem 0.75rem',
+    },
+    linkedQuotationRef: {
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        color: colors.primary,
+        marginBottom: '0.125rem',
+    },
+    linkedQuotationName: {
+        fontSize: '0.9375rem',
+        fontWeight: '600',
+        color: colors.textDark,
+    },
+    linkedQuotationLocation: {
+        fontSize: '0.8125rem',
+        color: colors.textMuted,
+        marginTop: '0.125rem',
+    },
     input: {
         width: '100%',
         padding: '0.625rem',
@@ -678,18 +1074,22 @@ const styles = {
         backgroundColor: 'white',
         color: '#374151',
         border: '1px solid #d1d5db',
+        minHeight: '40px',
         padding: '0.625rem 1.25rem',
-        borderRadius: '8px',
+        borderRadius: '9px',
         fontSize: '0.875rem',
+        fontWeight: '600',
     },
     saveBtn: {
         backgroundColor: colors.primary,
         color: 'white',
         border: 'none',
+        minHeight: '40px',
         padding: '0.625rem 1.25rem',
-        borderRadius: '8px',
+        borderRadius: '9px',
         fontSize: '0.875rem',
         fontWeight: '600',
+        boxShadow: '0 2px 6px rgba(15,59,44,.14)',
     },
     contentGrid: {
         display: 'grid',
@@ -991,6 +1391,85 @@ const styles = {
         justifyContent: 'center',
         zIndex: 300,
         padding: '1rem',
+    },
+    createModalCard: {
+        backgroundColor: 'white',
+        borderRadius: '20px',
+        maxWidth: '480px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+    },
+    createModalHeader: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '1rem',
+        padding: '1.5rem 1.5rem 1.25rem',
+        backgroundColor: colors.primaryTint,
+    },
+    createModalBody: {
+        padding: '1rem 1.5rem',
+        overflowY: 'auto',
+    },
+    createModalFooter: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '1rem',
+        padding: '1.25rem 1.5rem',
+        borderTop: '1px solid #f3f4f6',
+    },
+    modalError: {
+        backgroundColor: colors.dangerTint,
+        color: colors.danger,
+        padding: '0.75rem',
+        borderRadius: '8px',
+        marginBottom: '1rem',
+        fontSize: '0.875rem',
+    },
+    modalFormRow: {
+        display: 'flex',
+        gap: '1rem',
+    },
+    miniCalendarHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '0.5rem',
+    },
+    miniMonthLabel: {
+        fontSize: '0.9rem',
+        fontWeight: '700',
+        color: '#111827',
+    },
+    createDayCell: {
+        minHeight: '40px',
+        borderRadius: '8px',
+        padding: '4px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2px',
+        cursor: 'pointer',
+    },
+    miniBookedDot: {
+        width: '5px',
+        height: '5px',
+        borderRadius: '50%',
+        backgroundColor: colors.primary,
+    },
+    pickedBanner: {
+        textAlign: 'center',
+        fontSize: '0.8rem',
+        fontWeight: '600',
+        color: colors.primary,
+        backgroundColor: colors.primaryTint,
+        borderRadius: '8px',
+        padding: '0.6rem',
+        margin: '0.75rem 0 1rem',
     },
     modalCard: {
         backgroundColor: 'white',

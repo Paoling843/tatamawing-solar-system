@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RejectQuotationRequest;
+use App\Mail\QuotationApproved;
 use Illuminate\Http\Request;
-use App\Models\Admin;
 use App\Models\Quotation;
 use App\Models\QuotationRequest;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AdminQuotationController extends Controller
 {
@@ -47,15 +48,11 @@ class AdminQuotationController extends Controller
 
     public function approve(Request $request, QuotationRequest $quotationRequest)
     {
-        $validator = Validator::make($request->all(), [
-            'adjusted_cost' => ['nullable', 'numeric', 'min:0'],
-            'labor_fee' => ['nullable', 'numeric', 'min:0'],
-            'transportation_fee' => ['nullable', 'numeric', 'min:0'],
+        $validator = $request->validate([
+            'adjusted_cost' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'labor_fee' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'transportation_fee' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
         ]);
-
-        if($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
 
         if($quotationRequest->status !== 'pending') {
             return response()->json([
@@ -93,6 +90,10 @@ class AdminQuotationController extends Controller
             ]);
         });
 
+        $quotation->load('quotationRequest.customer.user');
+        Mail::to($quotation->quotationRequest->customer->user->email)
+            ->send(new QuotationApproved($quotation));
+
         return response()->json([
             'message' => 'Quotation request approved successfully!',
             'quotation_request' => $quotationRequest->load([
@@ -104,21 +105,11 @@ class AdminQuotationController extends Controller
         ]);
     }
 
-    public function reject(Request $request, QuotationRequest $quotationRequest) 
+    public function reject(RejectQuotationRequest $request, QuotationRequest $quotationRequest) 
     {
-        $validator = Validator::make($request->all(), [
-            'rejection_reason' => 'required|string|max:500',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Only pending quotation requests can be rejected.',
-            ], 422);    
-        }
-
         $quotationRequest->update([
             'status' => 'rejected',
-            'notes' => $request->rejection_reason,
+            'notes' => trim($request->rejection_reason),
         ]);
 
         return response()->json([

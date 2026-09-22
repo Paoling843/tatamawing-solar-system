@@ -40,8 +40,7 @@
                     — {{ ucfirst($pr->quotation->quotationRequest->solar_system_type ?? '') }} System
                 </div>
                 <div class="project-meta">
-                    Supplier: {{ $pr->supplier->company_name ?? 'N/A' }}
-                    &bull; Request Date: {{ \Carbon\Carbon::parse($pr->request_date)->format('M d, Y') }}
+                    Request Date: {{ \Carbon\Carbon::parse($pr->request_date)->format('M d, Y') }}
                     &bull; Status: {{ ucwords(str_replace('_', ' ', $pr->procurement_status)) }}
                 </div>
             </div>

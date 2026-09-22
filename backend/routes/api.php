@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\QuotationRequestController;
 use App\Http\Controllers\InstallationScheduleController;
+use App\Http\Controllers\ExternalInstallationRequestController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\ReportController;
@@ -30,18 +31,32 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/faqs', [FaqController::class, 'index']);
 
+Route::post('/external-installation-requests', [ExternalInstallationRequestController::class, 'store'])
+    ->middleware('throttle:10,60');
+Route::get('/external-installation-requests/{externalInstallationRequest}/status', [ExternalInstallationRequestController::class, 'status'])
+    ->middleware('signed')
+    ->name('external-installation-requests.status');
+
 Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/quotation-requests', [AdminQuotationController::class, 'index']);
     Route::get('/quotation-requests/{quotationRequest}', [AdminQuotationController::class, 'show']);
     Route::post('/quotation-requests/{quotationRequest}/approve', [AdminQuotationController::class, 'approve']);
     Route::post('/quotation-requests/{quotationRequest}/reject', [AdminQuotationController::class, 'reject']);
+    Route::get('/external-installation-requests', [ExternalInstallationRequestController::class, 'adminIndex']);
+    Route::get('/external-installation-requests/{externalInstallationRequest}/quotation', [ExternalInstallationRequestController::class, 'downloadQuotation']);
+    Route::post('/external-installation-requests/{externalInstallationRequest}/confirm', [ExternalInstallationRequestController::class, 'confirm']);
+    Route::post('/external-installation-requests/{externalInstallationRequest}/reject', [ExternalInstallationRequestController::class, 'reject']);
     Route::get('/purchase-requests', [PurchaseRequestController::class, 'adminIndex']);
     Route::post('/purchase-requests', [PurchaseRequestController::Class, 'store']);
-    Route::get('/suppliers', [PurchaseRequestController::class, 'getSuppliers']);
+    Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show']);
+    Route::patch('/purchase-requests/{purchaseRequest}/confirm', [PurchaseRequestController::class, 'confirm']);
+    Route::patch('/purchase-requests/{purchaseRequest}/update-items', [PurchaseRequestController::class, 'updateItems']);
+    Route::get('/reports/purchase-request/{purchaseRequestId}', [ReportController::class, 'purchaseRequestReport']);
     Route::get('/schedules', [InstallationScheduleController::class, 'adminIndex']);
     Route::post('/schedules', [InstallationScheduleController::class, 'store']);
     Route::put('/schedules/{installationSchedule}', [InstallationScheduleController::class, 'update']);
     Route::patch('/schedules/{installationSchedule}/status', [InstallationScheduleController::class, 'updateStatus']);
+    Route::get('/customers', [InstallationScheduleController::class, 'customersIndex']);
     Route::post('/faqs', [FaqController::class, 'store']);
     Route::put('/faqs/{faq}', [FaqController::class, 'update']);
     Route::delete('/faqs/{faq}', [FaqController::class, 'destroy']);
@@ -68,10 +83,4 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function() {
     Route::patch('/quotation-requests/{quotationRequest}/submit', [QuotationRequestController::class, 'submit']);
     Route::get('/customer/schedules', [InstallationScheduleController::class, 'customerSchedule']);
     Route::get('/customer/reports/quotation/{quotationId}', [ReportController::class, 'quotationReport']);
-});
-
-Route::middleware(['auth:sanctum', 'role:supplier'])->prefix('supplier')->group(function () {
-    Route::get('/purchase-requests', [PurchaseRequestController::class, 'supplierIndex']);
-    Route::patch('/purchase-requests/{purchaseRequest}/confirm', [PurchaseRequestController::class, 'confirm']);
-    Route::patch('/purchase-requests/{purchaseRequest}/update-items', [PurchaseRequestController::class, 'updateItems']);
 });

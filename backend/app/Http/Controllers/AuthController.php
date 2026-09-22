@@ -2,76 +2,44 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginUserRequest;
+use App\Http\Requests\RegisterUserRequest;
 use App\Models\User;
 use App\Models\Customer;
-use App\Models\Admin;
-use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    /**
+     * Public registration from the auth page. It only ever creates CUSTOMER
+     * accounts — letting anyone pick "admin" here would let anyone give
+     * themselves admin access.
+     *
+     * Address and install location are optional; they're collected later
+     * (e.g. at the site survey).
+     */
+    public function register(RegisterUserRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:customer,admin,supplier',
+        $normalizedEmail = strtolower(trim($request->email));
+        $normalizedPhone = preg_replace('/\s+/', '', trim($request->contact_number));
 
-        // specifically for customer
-            'contact_number' => 'required_if:role,customer|string|nullable',
-            'address' => 'required_if:role,customer|string|nullable',
-            'install_location' => 'required_if:role,customer|string|nullable',
-
-        // specifically for admin
-            'department' => 'nullable|string',
-
-        // specifically for supplier
-            'company_name' => 'required_if:role,supplier|string|nullable',
-            'contact_person' => 'required_if:role,supplier|string|nullable',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $user = DB::transaction(function () use ($request) {
+        $user = DB::transaction(function () use ($request, $normalizedEmail, $normalizedPhone) {
             $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
+                'name' => trim($request->first_name) . ' ' . trim($request->last_name),
+                'email' => $normalizedEmail,
                 'password' => Hash::make($request->password),
-                'role' => $request->role,
+                'role' => 'customer',
             ]);
 
-            switch ($request->role) {
-                case 'customer':
-                    Customer::create([
-                        'user_id' => $user->id,
-                        'contact_number' => $request->contact_number,
-                        'address' => $request->address,
-                        'install_location' => $request->install_location,
-                    ]);
-                    break;
+            Customer::create([
+                'user_id' => $user->id,
+                'contact_number' => $normalizedPhone,
+                'address' => $request->address ? trim($request->address) : null,
+                'install_location' => $request->install_location ? trim($request->install_location) : null,
+            ]);
 
-                case 'admin':
-                    Admin::create([
-                        'user_id' => $user->id,
-                        'department' => $request->department,
-                    ]);
-                    break;
-                
-                case 'supplier':
-                    Supplier::create([
-                        'user_id' => $user->id,
-                        'company_name' => $request->company_name,
-                        'contact_person' => $request->contact_person,
-                    ]);
-                    break;
-            }
-        
             return $user;
         });
 
@@ -79,26 +47,15 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Registration Succesful!',
-            'user' => $user,
+            'user' => $user->load('customer'),
             'token' => $token,
         ], 201);
-
     }
 
-    public function login(Request $request)
+    public function login(LoginUserRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email'=> 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $user = User::where('email', $request->email)->first();
+        $normalizedEmail = strtolower(trim($request->email));
+        $user = User::where('email', $normalizedEmail)->first();
 
         if(! $user || ! Hash::check($request->password, $user->password)){
             return response()->json([

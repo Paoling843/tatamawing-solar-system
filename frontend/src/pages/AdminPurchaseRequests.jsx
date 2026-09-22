@@ -87,7 +87,7 @@ export default function AdminPurchaseRequestsPage() {
         <AdminLayout active="Purchase Request">
 
             <h1 style={styles.pageTitle}>Purchase Request</h1>
-            <p style={styles.pageSubtitle}>Request a purchase to your suppliers</p>
+            <p style={styles.pageSubtitle}>Track material procurement for approved installations</p>
 
             {error && <div style={styles.error}>{error}</div>}
 
@@ -129,14 +129,17 @@ export default function AdminPurchaseRequestsPage() {
                         <div style={styles.tableHeader}>
                             <span style={{ flex: 1.2 }}>ORDER ID</span>
                             <span style={{ flex: 3 }}>MATERIAL</span>
-                            <span style={{ flex: 2 }}>SUPPLIER</span>
                             <span style={{ flex: 1.5 }}>ETA</span>
                             <span style={{ flex: 1.5 }}>STATUS</span>
                             <span style={{ flex: 0.5, textAlign: 'right' }}>ACTIONS</span>
                         </div>
 
                         {filteredRequests.map((pr) => (
-                            <div key={pr.id} style={styles.tableRow}>
+                            <div
+                                key={pr.id}
+                                style={{ ...styles.tableRow, cursor: 'pointer' }}
+                                onClick={() => navigate(`/admin/purchase-requests/${pr.id}`)}
+                            >
 
                                 <span style={{ flex: 1.2 }}>
                                     <span style={styles.orderIdText}>
@@ -163,10 +166,6 @@ export default function AdminPurchaseRequestsPage() {
                                     </div>
                                 </span>
 
-                                <span style={{ flex: 2 }}>
-                                    {pr.supplier?.company_name || 'N/A'}
-                                </span>
-
                                 <span style={{ flex: 1.5 }}>
                                     {formatDate(pr.request_date)}
                                 </span>
@@ -181,7 +180,15 @@ export default function AdminPurchaseRequestsPage() {
                                 </span>
 
                                 <span style={{ flex: 0.5, textAlign: 'right' }}>
-                                    <button style={styles.actionDots}>⋯</button>
+                                    <button
+                                        style={styles.actionDots}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(`/admin/purchase-requests/${pr.id}`);
+                                        }}
+                                    >
+                                        ⋯
+                                    </button>
                                 </span>
                             </div>
                         ))}

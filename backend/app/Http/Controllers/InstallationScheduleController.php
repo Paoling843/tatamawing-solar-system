@@ -2,68 +2,67 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreScheduleRequest;
+use App\Http\Requests\UpdateScheduleRequest;
 use Illuminate\Http\Request;
 use App\Models\InstallationSchedule;
 use App\Models\Quotation;
+use App\Models\Customer;
 use App\Models\PurchaseRequest;
-use Illuminate\Support\Facades\Validator;
 
 class InstallationScheduleController extends Controller
 {
-    public function store(Request $request)
+    public function store(StoreScheduleRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'quotation_id' => 'required|exists:quotations,id',
-            'scheduled_date' => 'required|date|after:today',
-            'scheduled_time' => 'required|date_format:H:i',
-            'assigned_technician' => 'required|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $quotation = Quotation::find($request->quotation_id);
-
-        if ($quotation->quotationRequest->status !== 'approved') {
-            return response()->json([
-                'message' => 'Installation can only be scheduled for approved quotation requests.'
-            ], 422);
-        }
-
-        $purchaseRequest = PurchaseRequest::where('quotation_id', $request->quotation_id)->first();
-
-        if (!$purchaseRequest) {
-            return response()->json([
-                'message' => 'A purchase request must be generated before scheduling an installation.'
-            ], 422);
-        }
-
-        if ($purchaseRequest->procurement_status !== 'confirmed') {
-            return response()->json([
-                'message' => 'Installation can only be scheduled after the supplier has confirmed the availability of all materials.'
-            ], 422);
-        }
-
-        if (InstallationSchedule::where('quotation_id', $request->quotation_id)->exists()) {
-            return response()->json([
-                'message' => 'An installation schedule already exists for this quotation.'
-            ], 422);
-        }
-
-        $schedule = InstallationSchedule::Create([
-            'quotation_id' => $request->quotation_id,
+        $scheduleData = [
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
-            'assigned_technician' => $request->assigned_technician,
-        ]);
-        
+            'assigned_technician' => trim($request->assigned_technician),
+            'notes' => $request->notes ? trim($request->notes) : null,
+        ];
+
+        if ($request->filled('quotation_id')) {
+            $quotation = Quotation::find($request->quotation_id);
+
+            if ($quotation->quotationRequest->status !== 'approved') {
+                return response()->json([
+                    'message' => 'Installation can only be scheduled for approved quotation requests.'
+                ], 422);
+            }
+
+            $purchaseRequest = PurchaseRequest::where('quotation_id', $request->quotation_id)->first();
+
+            if (!$purchaseRequest) {
+                return response()->json([
+                    'message' => 'A purchase request must be generated before scheduling an installation.'
+                ], 422);
+            }
+
+            if ($purchaseRequest->procurement_status !== 'confirmed') {
+                return response()->json([
+                    'message' => 'Installation can only be scheduled after the supplier has confirmed the availability of all materials.'
+                ], 422);
+            }
+
+            if (InstallationSchedule::where('quotation_id', $request->quotation_id)->exists()) {
+                return response()->json([
+                    'message' => 'An installation schedule already exists for this quotation.'
+                ], 422);
+            }
+
+            $scheduleData['quotation_id'] = $request->quotation_id;
+        } else {
+            $scheduleData['customer_id'] = $request->customer_id;
+        }
+
+        $schedule = InstallationSchedule::create($scheduleData);
 
         return response()->json([
             'message' => 'Installation schedule created successfully.',
             'schedule' => $schedule->load([
                 'quotation.quotationRequest.customer.user',
                 'quotation.quotationRequest.solarComputation',
+                'customer.user',
             ]),
         ], 201);
     }
@@ -73,6 +72,8 @@ class InstallationScheduleController extends Controller
         $schedules = InstallationSchedule::with([
             'quotation.quotationRequest.customer.user',
             'quotation.quotationRequest.solarComputation',
+            'customer.user',
+            'externalInstallationRequest',
         ])
         ->orderBy('scheduled_date', 'asc')
         ->get();
@@ -80,24 +81,22 @@ class InstallationScheduleController extends Controller
         return response()->json($schedules);
     }
 
-    public function update(Request $request, InstallationSchedule $installationSchedule)
+    public function customersIndex()
     {
-        $validator = Validator::make($request->all(), [
-            'scheduled_date' => 'required|date|after:today',
-            'scheduled_time' => 'required|date_format:H:i',
-            'assigned_technician' => 'required|string|max:255',
-        ]);
+        $customers = Customer::with('user')
+            ->get()
+            ->sortBy(fn ($c) => $c->user->name ?? '')
+            ->values();
 
-        if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        return response()->json($customers);
+    }
 
+    public function update(UpdateScheduleRequest $request, InstallationSchedule $installationSchedule)
+    {
         $installationSchedule->update([
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
-            'assigned_technician' => $request->assigned_technician,
+            'assigned_technician' => trim($request->assigned_technician),
         ]);
 
         return response()->json([
@@ -138,12 +137,16 @@ class InstallationScheduleController extends Controller
     {
         $customer = $request->user()->customer;
 
-        $schedules = InstallationSchedule::whereHas('quotation.quotationRequest', function ($query) use ($customer) {
-            $query->where('customer_id', $customer->id);
+        $schedules = InstallationSchedule::where(function ($query) use ($customer) {
+            $query->where('customer_id', $customer->id)
+                ->orWhereHas('quotation.quotationRequest', function ($q) use ($customer) {
+                    $q->where('customer_id', $customer->id);
+                });
         })
         ->with([
             'quotation.quotationRequest.customer.user',
             'quotation.quotationRequest.solarComputation',
+            'customer.user',
         ])
         ->orderBy('scheduled_date', 'asc')
         ->get();

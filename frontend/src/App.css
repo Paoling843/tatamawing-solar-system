@@ -62,7 +62,7 @@
     .responsive-grid-2 { grid-template-columns: 1fr; }
 }
 
-/* ---------- Sidebar layout (Admin/Customer/Supplier) ---------- */
+/* ---------- Sidebar layout (Admin/Customer) ---------- */
 /* Phase 1 will apply className="app-sidebar" to the sidebar <div> and
    className="app-main" to the content wrapper — and stop setting `width` /
    `marginLeft` inline for those two elements, since this class now owns it.
@@ -70,11 +70,14 @@
    <button className="sidebar-hamburger"> and overlay <div className="sidebar-overlay">
    get added to each layout, toggled by a small `sidebarOpen` state. */
 .app-sidebar {
-    width: 210px;
+    width: 232px;
     transition: transform 200ms ease;
 }
 .app-main {
-    margin-left: 210px;
+    margin-left: 232px;
+    /* Lets wide content (e.g. tables) scroll inside its card instead of
+       pushing the page wider than the screen */
+    min-width: 0;
     transition: margin-left 200ms ease;
 }
 .sidebar-hamburger {
@@ -94,7 +97,7 @@
 /* Mobile: off-canvas drawer behind a hamburger toggle */
 @media (max-width: 640px) {
     .app-sidebar {
-        width: 210px;
+        width: 232px;
         position: fixed;
         z-index: 200;
         transform: translateX(-100%);

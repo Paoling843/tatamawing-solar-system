@@ -22,4 +22,9 @@ class Customer extends Model
     {
         return $this->hasMany(QuotationRequest::class);
     }
+
+    public function installationSchedules()
+    {
+        return $this->hasMany(InstallationSchedule::class);
+    }
 }

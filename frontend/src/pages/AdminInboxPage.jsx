@@ -112,7 +112,6 @@ export default function AdminInboxPage() {
 
     const getRoleColor = (role) => {
         if (role === 'customer') return '#3b82f6';
-        if (role === 'supplier') return '#f59e0b';
         return '#6b7280';
     };
 

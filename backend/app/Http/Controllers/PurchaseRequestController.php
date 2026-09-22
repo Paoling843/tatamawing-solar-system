@@ -2,34 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePurchaseRequest;
+use App\Http\Requests\UpdateMaterialItemsRequest;
+use App\Http\Requests\UpdatePurchaseRequestStatus;
 use Illuminate\Http\Request;
 use App\Models\ApplianceItem;
 use App\Models\MaterialItem;
 use App\Models\PurchaseRequest;
 use App\Models\Quotation;
-use App\Models\Supplier;
 use App\Models\QuotationRequest;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseRequestController extends Controller
 {
-    public function store(Request $request)
+    public function store(StorePurchaseRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'quotation_id' => 'required|exists:quotations,id',
-            'supplier_id' => 'required|exists:suppliers,id',
-            'materials' => 'required|array|min:1',
-            'materials.*.material_name' => 'required|string|max:255',
-            'materials.*.quantity' => 'required|integer|min:1',
-            'materials.*.unit' => 'nullable|string|max:50',
-            'materials.*.unit_price' => 'nullable|numeric|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        } 
-
         $quotation = Quotation::find($request->quotation_id);
 
         if ($quotation->quotationRequest->status !== 'approved') {
@@ -47,7 +34,6 @@ class PurchaseRequestController extends Controller
         $purchaseRequest = DB::transaction(function () use ($request) {
             $purchaseRequest = PurchaseRequest::create([
                 'quotation_id' => $request->quotation_id,
-                'supplier_id' => $request->supplier_id,
                 'request_date' => now(),
                 'procurement_status' => 'pending',
             ]);
@@ -55,10 +41,10 @@ class PurchaseRequestController extends Controller
             foreach ($request->materials as $material) {
                 MaterialItem::create([
                     'purchase_request_id' => $purchaseRequest->id,
-                    'material_name' => $material['material_name'],
-                    'quantity' => $material['quantity'],
-                    'unit' => $material['unit'] ?? null,
-                    'unit_price' => $material['unit_price'] ?? null,
+                    'material_name' => trim($material['material_name']),
+                    'quantity' => (int) $material['quantity'],
+                    'unit' => $material['unit'] ? trim($material['unit']) : null,
+                    'unit_price' => $material['unit_price'] !== null && $material['unit_price'] !== '' ? (float) $material['unit_price'] : null,
                     'availability' => 'available',
                 ]);
             }
@@ -70,17 +56,15 @@ class PurchaseRequestController extends Controller
         return response()->json([
             'message' => 'Purchase request generated successfully.',
             'purchase_request' => $purchaseRequest->load([
-                'supplier.user',
                 'materialItems',
                 'quotation.quotationRequest.customer.user',
             ]),
-        ], 201);    
+        ], 201);
     }
 
     public function adminIndex()
     {
         $purchaseRequests = PurchaseRequest::with([
-            'supplier.user',
             'materialItems',
             'quotation.quotationRequest.customer.user',
         ])
@@ -90,69 +74,28 @@ class PurchaseRequestController extends Controller
         return response()->json($purchaseRequests);
     }
 
-    public function supplierIndex(Request $request)
+    public function show(PurchaseRequest $purchaseRequest)
     {
-        $supplier = $request->user()->supplier;
-
-        $purchaseRequests = PurchaseRequest::where('supplier_id', $supplier->id)
-        ->with([
+        return response()->json($purchaseRequest->load([
             'materialItems',
             'quotation.quotationRequest.customer.user',
-        ])
-
-        ->latest()
-        ->get();
-
-        return response()->json($purchaseRequests);
+        ]));
     }
 
-    public function confirm(Request $request, PurchaseRequest $purchaseRequest)
+    public function confirm(UpdatePurchaseRequestStatus $request, PurchaseRequest $purchaseRequest)
     {
-        $supplier = $request->user()->supplier;
-
-        if ($purchaseRequest->supplier_id !== $supplier->id) {
-            return response()->json([
-                'message' =>  'Forbidden.'
-            ], 403);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'procurement_status' => 'required|in:confirmed,partially_available,unavailable',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
         $purchaseRequest->update([
             'procurement_status' => $request->procurement_status,
         ]);
 
         return response()->json([
             'message' => 'Purchase request status updated.',
-            'purchase_request' => $purchaseRequest->load(['materialItems', 'supplier.user']),
+            'purchase_request' => $purchaseRequest->load('materialItems'),
         ]);
     }
 
-    public function updateItems(Request $request, PurchaseRequest $purchaseRequest)
+    public function updateItems(UpdateMaterialItemsRequest $request, PurchaseRequest $purchaseRequest)
     {
-        $supplier = $request->user()->supplier;
-
-        if ($purchaseRequest->supplier_id !== $supplier->id) {
-            return response()->json([ 'message' => 'Forbidden.'], 403);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'required|exists:material_items,id',
-            'items.*.availability' => 'required|in:available,limited,out_of_stock',
-            'items.*.unit_price' => 'nullable|numeric|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
         foreach ($request->items as $itemData) {
             $materialItem = MaterialItem::find($itemData['id']);
 
@@ -169,12 +112,4 @@ class PurchaseRequestController extends Controller
             'puchase_request' => $purchaseRequest->load('materialItems'),
         ]);
     }
-
-    public function getSuppliers()
-    {
-        $suppliers = Supplier::with('user')->get();
-
-        return response()->json($suppliers);
-    }
-
 }

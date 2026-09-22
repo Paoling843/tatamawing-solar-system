@@ -55,9 +55,6 @@ export default function AdminSystemPage() {
         if (role === 'admin' || role === 'Senior Admin') {
             return { backgroundColor: '#dbeafe', color: '#1d4ed8' };
         }
-        if (role === 'supplier') {
-            return { backgroundColor: '#f0fdf4', color: '#16a34a' };
-        }
         return { backgroundColor: '#f3f4f6', color: '#6b7280' };
     };
 
@@ -65,7 +62,6 @@ export default function AdminSystemPage() {
         const labels = {
             admin: 'Admin',
             customer: 'Customer',
-            supplier: 'Supplier',
         };
         return labels[role] || role;
     };
@@ -87,8 +83,8 @@ export default function AdminSystemPage() {
         },
         {
             id: 3,
-            title: 'New Supplier Invited',
-            desc: 'New supplier joined via invite link',
+            title: 'New Customer Registered',
+            desc: 'New customer account created',
             time: '09:04 AM • Users',
             color: '#111827',
         },
@@ -105,9 +101,13 @@ export default function AdminSystemPage() {
                     </p>
                 </div>
 
+                {/* Disabled for now: public registration only creates customer
+                    accounts, so creating users from here needs its own admin-only
+                    form and endpoint */}
                 <button
-                    style={styles.createUserBtn}
-                    onClick={() => navigate('/register')}
+                    style={{ ...styles.createUserBtn, opacity: 0.55, cursor: 'not-allowed' }}
+                    disabled
+                    title="Creating users from here isn't available yet"
                 >
                     + Create New User
                 </button>
@@ -146,8 +146,6 @@ export default function AdminSystemPage() {
                                             ...styles.userAvatar,
                                             backgroundColor: user.role === 'admin'
                                                 ? '#1d4ed8'
-                                                : user.role === 'supplier'
-                                                ? '#16a34a'
                                                 : '#6b7280',
                                         }}>
                                             {getInitials(user.name)}
