@@ -5,6 +5,7 @@ import AdminLayout from '../components/AdminLayout';
 import { adminTokens } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { XIcon } from '../components/Icons';
 
 const APPLIANCE_COLUMNS = 'minmax(0,1.6fr) minmax(36px,0.5fr) minmax(48px,0.7fr) minmax(56px,0.95fr)';
 
@@ -107,6 +108,9 @@ export default function AdminQuotationsPage() {
     const [sortKey, setSortKey] = useState('newest');
     const [searchValue, setSearchValue] = useState('');
     const [selectedId, setSelectedId] = useState(null);
+    const [rejectingQuotation, setRejectingQuotation] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [rejectLoading, setRejectLoading] = useState(false);
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
@@ -150,18 +154,32 @@ export default function AdminQuotationsPage() {
         }
     };
 
-    const handleReject = async (quotation) => {
-        const reason = window.prompt('Reason for rejecting this quotation:');
-        if (!reason) return;
+    const openRejectModal = (quotation) => {
+        setRejectingQuotation(quotation);
+        setRejectionReason('');
+        setActionError('');
+    };
+
+    const closeRejectModal = () => {
+        if (!rejectLoading) setRejectingQuotation(null);
+    };
+
+    const handleReject = async (event) => {
+        event.preventDefault();
+        if (!rejectingQuotation || !rejectionReason.trim()) return;
+        setRejectLoading(true);
         setActionError('');
         try {
-            const res = await api.post(`/admin/quotation-requests/${quotation.id}/reject`, {
-                rejection_reason: reason,
+            const res = await api.post(`/admin/quotation-requests/${rejectingQuotation.id}/reject`, {
+                rejection_reason: rejectionReason.trim(),
             });
             updateQuotation(res.data.quotation_request);
+            setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
             setActionError(err.response?.data?.message || 'Failed to reject quotation.');
+        } finally {
+            setRejectLoading(false);
         }
     };
 
@@ -458,7 +476,7 @@ export default function AdminQuotationsPage() {
 
                                     {selected.status === 'pending' ? (
                                         <div style={styles.actionBarRight}>
-                                            <button style={styles.rejectBtn} onClick={() => handleReject(selected)}>
+                                            <button style={styles.rejectBtn} onClick={() => openRejectModal(selected)}>
                                                 Reject
                                             </button>
                                             <button style={styles.approveBtn} onClick={() => handleApprove(selected)}>
@@ -489,6 +507,52 @@ export default function AdminQuotationsPage() {
                                 </div>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {rejectingQuotation && (
+                <div style={styles.modalOverlay} onClick={closeRejectModal}>
+                    <div style={styles.rejectModal} onClick={(event) => event.stopPropagation()}>
+                        <div style={styles.rejectModalHeader}>
+                            <div>
+                                <div style={styles.rejectEyebrow}>Quotation review</div>
+                                <h2 style={styles.rejectModalTitle}>Reject this request?</h2>
+                                <p style={styles.rejectModalSubtitle}>
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatReference(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                </p>
+                            </div>
+                            <button type="button" onClick={closeRejectModal} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={adminTokens.muted} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleReject}>
+                            <div style={styles.rejectModalBody}>
+                                <p style={styles.rejectIntro}>Give the customer a clear explanation they can act on.</p>
+                                <label style={styles.rejectField}>
+                                    <span style={styles.rejectLabel}>Reason for rejection</span>
+                                    <textarea
+                                        value={rejectionReason}
+                                        onChange={(event) => setRejectionReason(event.target.value)}
+                                        className="input-field"
+                                        style={styles.rejectTextarea}
+                                        placeholder="Explain why this quotation cannot be approved..."
+                                        maxLength={1000}
+                                        rows={5}
+                                        required
+                                        autoFocus
+                                    />
+                                </label>
+                                <div style={styles.rejectCount}>{rejectionReason.length}/1000</div>
+                            </div>
+                            <div style={styles.rejectModalFooter}>
+                                <button type="button" className="btn-secondary" onClick={closeRejectModal} style={styles.modalCancelBtn}>Cancel</button>
+                                <button type="submit" className="btn-danger" style={styles.modalRejectBtn} disabled={rejectLoading || !rejectionReason.trim()}>
+                                    {rejectLoading ? 'Rejecting...' : 'Reject quotation'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -904,5 +968,110 @@ const styles = {
     decidedNote: {
         fontSize: '13px',
         color: adminTokens.muted,
+    },
+    modalOverlay: {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 300,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        backgroundColor: 'rgba(12, 25, 19, 0.48)',
+    },
+    rejectModal: {
+        width: '100%',
+        maxWidth: '480px',
+        overflow: 'hidden',
+        borderRadius: '16px',
+        backgroundColor: adminTokens.surface,
+        boxShadow: '0 24px 70px rgba(16,33,26,.24)',
+    },
+    rejectModalHeader: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: '20px',
+        padding: '24px 28px 20px',
+        backgroundColor: '#fbeae7',
+        borderBottom: '1px solid #f0d0cb',
+    },
+    rejectEyebrow: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10px',
+        fontWeight: 600,
+        letterSpacing: '.1em',
+        textTransform: 'uppercase',
+        color: adminTokens.danger,
+    },
+    rejectModalTitle: {
+        margin: '7px 0 3px',
+        fontSize: '22px',
+        color: adminTokens.ink,
+    },
+    rejectModalSubtitle: {
+        margin: 0,
+        fontSize: '12.5px',
+        color: adminTokens.muted,
+    },
+    modalCloseBtn: {
+        width: '32px',
+        height: '32px',
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(255,255,255,.72)',
+        cursor: 'pointer',
+    },
+    rejectModalBody: {
+        padding: '24px 28px 12px',
+    },
+    rejectIntro: {
+        margin: '0 0 18px',
+        fontSize: '13px',
+        lineHeight: 1.55,
+        color: adminTokens.muted,
+    },
+    rejectField: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+    },
+    rejectLabel: {
+        fontSize: '12px',
+        fontWeight: 700,
+        color: adminTokens.body,
+    },
+    rejectTextarea: {
+        width: '100%',
+        minHeight: '126px',
+        resize: 'vertical',
+        lineHeight: 1.5,
+        boxSizing: 'border-box',
+    },
+    rejectCount: {
+        marginTop: '6px',
+        textAlign: 'right',
+        fontFamily: adminTokens.fontMono,
+        fontSize: '10px',
+        color: adminTokens.faint,
+    },
+    rejectModalFooter: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '10px',
+        padding: '16px 28px 22px',
+        borderTop: `1px solid ${adminTokens.hairline}`,
+    },
+    modalCancelBtn: {
+        padding: '9px 14px',
+        borderRadius: '9px',
+    },
+    modalRejectBtn: {
+        padding: '9px 16px',
+        borderRadius: '9px',
     },
 };

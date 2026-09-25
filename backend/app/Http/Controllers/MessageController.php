@@ -53,20 +53,28 @@ class MessageController extends Controller
     public function getConversation(Request $request, $userId)
     {
         $currentUser = $request->user();
+        $targetUserId = (int) $userId;
+        $adminId = User::where('role', 'admin')->value('id');
 
-        $messages = ChatMessage::where(function ($query) use ($currentUser, $userId) {
+        if ($currentUser->role === 'customer' && $targetUserId !== $currentUser->id && $targetUserId !== (int) $adminId) {
+            return response()->json([
+                'message' => 'Forbidden. You can only view your own conversation with the admin.',
+            ], 403);
+        }
+
+        $messages = ChatMessage::where(function ($query) use ($currentUser, $targetUserId) {
                 $query->where('sender_id', $currentUser->id)
-                    ->where('receiver_id', $userId);
+                    ->where('receiver_id', $targetUserId);
             })
-            ->orWhere(function ($query) use ($currentUser, $userId) {
-                $query->where('sender_id', $userId)
+            ->orWhere(function ($query) use ($currentUser, $targetUserId) {
+                $query->where('sender_id', $targetUserId)
                     ->where('receiver_id', $currentUser->id);
             })
             ->orderBy('created_at', 'asc')
             ->with(['sender', 'receiver'])
             ->get();
 
-        ChatMessage::where('sender_id', $userId)
+        ChatMessage::where('sender_id', $targetUserId)
             ->where('receiver_id', $currentUser->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
@@ -143,12 +151,20 @@ class MessageController extends Controller
     public function checkUnread(Request $request, $userId)
     {
         $currentUser = $request->user();
+        $targetUserId = (int) $userId;
+        $adminId = User::where('role', 'admin')->value('id');
 
-        $hasUnread = ChatMessage::where('sender_id', $userId)
+        if ($currentUser->role === 'customer' && $targetUserId !== (int) $adminId) {
+            return response()->json([
+                'message' => 'Forbidden. Only the admin conversation can be checked.',
+            ], 403);
+        }
+
+        $hasUnread = ChatMessage::where('sender_id', $targetUserId)
             ->where('receiver_id', $currentUser->id)
             ->whereNull('read_at')
             ->exists();
-        
+
         return response()->json([
             'has_unread' => $hasUnread,
         ]);

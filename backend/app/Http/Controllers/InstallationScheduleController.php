@@ -9,11 +9,15 @@ use App\Models\InstallationSchedule;
 use App\Models\Quotation;
 use App\Models\Customer;
 use App\Models\PurchaseRequest;
+use App\Services\AuditLogger;
+use Illuminate\Support\Facades\Validator;
 
 class InstallationScheduleController extends Controller
 {
     public function store(StoreScheduleRequest $request)
     {
+        $this->authorize('create', InstallationSchedule::class);
+
         $scheduleData = [
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
@@ -57,6 +61,15 @@ class InstallationScheduleController extends Controller
 
         $schedule = InstallationSchedule::create($scheduleData);
 
+        AuditLogger::log(
+            'installation_schedule_created',
+            'Created an installation schedule.',
+            InstallationSchedule::class,
+            $schedule->id,
+            'Installation Schedule #' . $schedule->id,
+            ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
+        );
+
         return response()->json([
             'message' => 'Installation schedule created successfully.',
             'schedule' => $schedule->load([
@@ -69,6 +82,8 @@ class InstallationScheduleController extends Controller
 
     public function adminIndex()
     {
+        $this->authorize('viewAny', InstallationSchedule::class);
+
         $schedules = InstallationSchedule::with([
             'quotation.quotationRequest.customer.user',
             'quotation.quotationRequest.solarComputation',
@@ -93,11 +108,22 @@ class InstallationScheduleController extends Controller
 
     public function update(UpdateScheduleRequest $request, InstallationSchedule $installationSchedule)
     {
+        $this->authorize('update', $installationSchedule);
+
         $installationSchedule->update([
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
             'assigned_technician' => trim($request->assigned_technician),
         ]);
+
+        AuditLogger::log(
+            'installation_schedule_updated',
+            'Updated an installation schedule.',
+            InstallationSchedule::class,
+            $installationSchedule->id,
+            'Installation Schedule #' . $installationSchedule->id,
+            ['scheduled_date' => $installationSchedule->scheduled_date, 'scheduled_time' => $installationSchedule->scheduled_time]
+        );
 
         return response()->json([
             'message' => 'Installation schedule created successfully.',
@@ -110,6 +136,8 @@ class InstallationScheduleController extends Controller
 
     public function updateStatus(Request $request, InstallationSchedule $installationSchedule)
     {
+        $this->authorize('updateStatus', $installationSchedule);
+
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:scheduled,in_progress,completed,delayed',
         ]);
@@ -124,6 +152,15 @@ class InstallationScheduleController extends Controller
             'status' => $request->status,
         ]);
 
+        AuditLogger::log(
+            'installation_schedule_status_updated',
+            'Updated an installation schedule status.',
+            InstallationSchedule::class,
+            $installationSchedule->id,
+            'Installation Schedule #' . $installationSchedule->id,
+            ['status' => $installationSchedule->status]
+        );
+
         return response()->json([
             'message' => 'Installation schedule updated successfully.',
             'schedule' => $installationSchedule->load([
@@ -135,6 +172,8 @@ class InstallationScheduleController extends Controller
 
     public function customerSchedule(Request $request)
     {
+        $this->authorize('viewAny', InstallationSchedule::class);
+
         $customer = $request->user()->customer;
 
         $schedules = InstallationSchedule::where(function ($query) use ($customer) {

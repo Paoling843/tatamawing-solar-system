@@ -41,6 +41,7 @@ export default function AdminDashboardPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
     const [selectedQuotation, setSelectedQuotation] = useState(null);
+    const [approvingQuotationId, setApprovingQuotationId] = useState(null);
     const [confirmingExternal, setConfirmingExternal] = useState(null);
     const [confirmForm, setConfirmForm] = useState({
         scheduled_date: '',
@@ -51,6 +52,7 @@ export default function AdminDashboardPage() {
     const [confirmViewMonth, setConfirmViewMonth] = useState(TODAY.getMonth());
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [rejectingExternal, setRejectingExternal] = useState(null);
+    const [rejectingQuotation, setRejectingQuotation] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
     const [rejectLoading, setRejectLoading] = useState(false);
     const [quotationPreview, setQuotationPreview] = useState(null);
@@ -271,28 +273,55 @@ export default function AdminDashboardPage() {
     };
 
     const handleApprove = async (quotation) => {
+        if (approvingQuotationId) return;
         setError('');
+        setApprovingQuotationId(quotation.id);
         try {
             const res = await api.post(`/admin/quotation-requests/${quotation.id}/approve`);
-            updateQuotationInState(res.data.quotation_request);
+            const approvedQuotation = res.data.quotation_request;
+            updateQuotationInState(approvedQuotation);
             window.dispatchEvent(new Event('admin:counts-refresh'));
+            navigate('/admin/schedule', {
+                state: {
+                    scheduleQuotationId: approvedQuotation.quotation?.id,
+                    scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
+                    scheduleLocation: approvedQuotation.customer?.install_location || '',
+                    scheduleReference: formatReference(approvedQuotation.id, approvedQuotation.created_at),
+                },
+            });
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to approve quotation.');
+        } finally {
+            setApprovingQuotationId(null);
         }
     };
 
-    const handleReject = async (quotation) => {
-        const reason = window.prompt('Reason for rejecting this quotation:');
-        if (!reason) return;
+    const openRejectQuotation = (quotation) => {
+        setRejectingQuotation(quotation);
+        setRejectionReason('');
+        setError('');
+    };
+
+    const closeRejectQuotation = () => {
+        if (!rejectLoading) setRejectingQuotation(null);
+    };
+
+    const handleRejectQuotation = async (event) => {
+        event.preventDefault();
+        if (!rejectingQuotation || !rejectionReason.trim()) return;
+        setRejectLoading(true);
         setError('');
         try {
-            const res = await api.post(`/admin/quotation-requests/${quotation.id}/reject`, {
-                rejection_reason: reason,
+            const res = await api.post(`/admin/quotation-requests/${rejectingQuotation.id}/reject`, {
+                rejection_reason: rejectionReason.trim(),
             });
             updateQuotationInState(res.data.quotation_request);
+            setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to reject quotation.');
+        } finally {
+            setRejectLoading(false);
         }
     };
 
@@ -472,14 +501,19 @@ export default function AdminDashboardPage() {
                                                         {isPending ? (
                                                             <>
                                                                 <button
-                                                                    style={styles.queueApproveBtn}
+                                                                    style={{
+                                                                        ...styles.queueApproveBtn,
+                                                                        opacity: approvingQuotationId ? 0.65 : 1,
+                                                                        cursor: approvingQuotationId ? 'not-allowed' : 'pointer',
+                                                                    }}
                                                                     onClick={() => handleApprove(q)}
+                                                                    disabled={Boolean(approvingQuotationId)}
                                                                 >
-                                                                    Approve
+                                                                    {approvingQuotationId === q.id ? 'Approving...' : 'Approve & schedule'}
                                                                 </button>
                                                                 <button
                                                                     style={styles.queueRejectBtn}
-                                                                    onClick={() => handleReject(q)}
+                                                                    onClick={() => openRejectQuotation(q)}
                                                                 >
                                                                     Reject
                                                                 </button>
@@ -521,9 +555,13 @@ export default function AdminDashboardPage() {
                                     {upcomingSchedules.map((s) => {
                                         const d = new Date(s.scheduled_date);
                                         const customerName = s.quotation?.quotation_request?.customer?.user?.name
-                                            || s.customer?.user?.name || 'N/A';
+                                            || s.customer?.user?.name
+                                            || s.external_installation_request?.name
+                                            || 'N/A';
                                         const location = s.quotation?.quotation_request?.customer?.install_location
-                                            || s.customer?.install_location || '';
+                                            || s.customer?.install_location
+                                            || s.external_installation_request?.address
+                                            || '';
                                         return (
                                             <div key={s.id} style={styles.scheduleRow}>
                                                 <div style={styles.scheduleDateBlock}>
@@ -747,6 +785,52 @@ export default function AdminDashboardPage() {
                                 Download
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {rejectingQuotation && (
+                <div style={styles.modalOverlay} onClick={closeRejectQuotation}>
+                    <div style={styles.rejectModalCard} onClick={(event) => event.stopPropagation()}>
+                        <div style={styles.rejectModalHeader}>
+                            <div>
+                                <div style={styles.rejectModalEyebrow}>Reject quotation request</div>
+                                <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
+                                <p style={styles.confirmModalSubtitle}>
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatReference(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                </p>
+                            </div>
+                            <button onClick={closeRejectQuotation} aria-label="Close" style={styles.modalCloseBtn}>
+                                <XIcon size={16} color={adminTokens.muted} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleRejectQuotation}>
+                            <div style={styles.rejectModalBody}>
+                                <p style={styles.rejectIntro}>The customer will see this explanation with their quotation status.</p>
+                                <label style={styles.confirmField}>
+                                    <span style={styles.confirmLabel}>Reason for rejection</span>
+                                    <textarea
+                                        value={rejectionReason}
+                                        onChange={(event) => setRejectionReason(event.target.value)}
+                                        className="input-field"
+                                        style={styles.rejectTextarea}
+                                        placeholder="Explain what needs to be changed or why this request cannot be approved..."
+                                        maxLength={1000}
+                                        rows={5}
+                                        required
+                                        autoFocus
+                                    />
+                                </label>
+                                <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
+                            </div>
+                            <div style={styles.confirmModalFooter}>
+                                <button type="button" className="btn-secondary" onClick={closeRejectQuotation} style={styles.modalSecondaryBtn}>Cancel</button>
+                                <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
+                                    {rejectLoading ? 'Rejecting...' : 'Reject quotation'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

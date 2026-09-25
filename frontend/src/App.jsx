@@ -17,6 +17,7 @@ import AdminInboxPage from './pages/AdminInboxPage';
 import FaqPage from './pages/FaqPage';
 import AdminFaqPage from './pages/AdminFaqPage';
 import AdminReportPage from './pages/AdminReportPage';
+import AdminAuditPage from './pages/AdminAuditPage';
 import CustomerDashboardPage from './pages/CustomerDashboardPage';
 import AdminPurchaseRequestsPage from './pages/AdminPurchaseRequests';
 import AdminPurchaseRequestDetailPage from './pages/AdminPurchaseRequestDetailPage';
@@ -130,6 +131,12 @@ export default function App() {
             <Route path="/admin/system" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <AdminSystemPage />
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/audit" element={<Navigate to="/admin/audit-logs" replace />} />
+            <Route path="/admin/audit-logs" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminAuditPage />
                 </ProtectedRoute>
             } />
             <Route path="/customer/my-quotations" element={
