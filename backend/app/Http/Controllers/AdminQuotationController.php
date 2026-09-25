@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\RejectQuotationRequest;
 use App\Mail\QuotationApproved;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use App\Models\Quotation;
 use App\Models\QuotationRequest;
@@ -14,6 +15,8 @@ class AdminQuotationController extends Controller
 {
     public function index (Request $request)
     {
+        $this->authorize('viewAny', QuotationRequest::class);
+
         $status = $request->query('status');
 
         $query = QuotationRequest::with([
@@ -35,6 +38,8 @@ class AdminQuotationController extends Controller
 
     public function show(QuotationRequest $quotationRequest)
     {
+        $this->authorize('view', $quotationRequest);
+
         $quotationRequest->load([
             'customer.user',
             'applianceItems',
@@ -48,6 +53,8 @@ class AdminQuotationController extends Controller
 
     public function approve(Request $request, QuotationRequest $quotationRequest)
     {
+        $this->authorize('approve', $quotationRequest);
+
         $validator = $request->validate([
             'adjusted_cost' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'labor_fee' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
@@ -60,7 +67,11 @@ class AdminQuotationController extends Controller
             ], 422);
         }
 
-        $admin = $request->user()->admin;
+        $admin = $request->user()->admin()->firstOrCreate([
+            'user_id' => $request->user()->id,
+        ], [
+            'department' => 'Operations',
+        ]);
 
         $computedCost = $quotationRequest->solarComputation->estimated_cost;
         $adjustedCost = $request->adjusted_cost ?? $computedCost;
@@ -76,11 +87,18 @@ class AdminQuotationController extends Controller
             $transportationFee,
             $totalAmount,
         ) {
+            $lockedQuotationRequest = QuotationRequest::query()
+                ->lockForUpdate()
+                ->findOrFail($quotationRequest->id);
 
-            $quotationRequest->update(['status' => 'approved']);
+            if ($lockedQuotationRequest->status !== 'pending' || $lockedQuotationRequest->quotation()->exists()) {
+                return null;
+            }
+
+            $lockedQuotationRequest->update(['status' => 'approved']);
 
             return Quotation::create([
-                'quotation_request_id' => $quotationRequest->id,
+                'quotation_request_id' => $lockedQuotationRequest->id,
                 'approved_by_admin_id' => $admin->id,
                 'approval_date' => now(),
                 'adjusted_cost' => $adjustedCost,
@@ -90,9 +108,30 @@ class AdminQuotationController extends Controller
             ]);
         });
 
+        if (! $quotation) {
+            return response()->json([
+                'message' => 'Only pending quotation requests can be approved.',
+            ], 422);
+        }
+
+        $quotationRequest->refresh();
         $quotation->load('quotationRequest.customer.user');
         Mail::to($quotation->quotationRequest->customer->user->email)
             ->send(new QuotationApproved($quotation));
+
+        AuditLogger::log(
+            'quotation_approved',
+            'Approved quotation request.',
+            QuotationRequest::class,
+            $quotationRequest->id,
+            'Quotation Request #' . $quotationRequest->id,
+            [
+                'adjusted_cost' => $adjustedCost,
+                'labor_fee' => $laborFee,
+                'transportation_fee' => $transportationFee,
+                'total_amount' => $totalAmount,
+            ]
+        );
 
         return response()->json([
             'message' => 'Quotation request approved successfully!',
@@ -107,10 +146,23 @@ class AdminQuotationController extends Controller
 
     public function reject(RejectQuotationRequest $request, QuotationRequest $quotationRequest) 
     {
+        $this->authorize('reject', $quotationRequest);
+
         $quotationRequest->update([
             'status' => 'rejected',
             'notes' => trim($request->rejection_reason),
         ]);
+
+        AuditLogger::log(
+            'quotation_rejected',
+            'Rejected quotation request.',
+            QuotationRequest::class,
+            $quotationRequest->id,
+            'Quotation Request #' . $quotationRequest->id,
+            [
+                'rejection_reason' => trim($request->rejection_reason),
+            ]
+        );
 
         return response()->json([
             'message' => 'Quotation rejected.',

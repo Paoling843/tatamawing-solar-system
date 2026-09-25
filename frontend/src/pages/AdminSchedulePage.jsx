@@ -814,7 +814,7 @@ export default function AdminSchedulePage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreateManualSchedule}>
+                        <form onSubmit={handleCreateManualSchedule} style={styles.createModalForm}>
                             <div style={styles.createModalBody}>
                                 {createError && <div style={styles.modalError}>{createError}</div>}
 
@@ -904,14 +904,18 @@ export default function AdminSchedulePage() {
                                 <div style={styles.modalFormRow}>
                                     <div style={styles.field}>
                                         <label style={styles.label}>Start Time</label>
-                                        <input
-                                            type="time"
-                                            value={createForm.scheduled_time}
-                                            onChange={(e) => setCreateForm({ ...createForm, scheduled_time: e.target.value })}
-                                            className="input-field"
-                                            style={styles.input}
-                                            required
-                                        />
+                                        <div style={styles.timeInputShell}>
+                                            <ClockIcon size={16} color={colors.primary} />
+                                            <input
+                                                type="time"
+                                                value={createForm.scheduled_time}
+                                                onChange={(e) => setCreateForm({ ...createForm, scheduled_time: e.target.value })}
+                                                className="input-field"
+                                                style={styles.timeInput}
+                                                required
+                                            />
+                                        </div>
+                                        <span style={styles.fieldHint}>Choose the installation start time</span>
                                     </div>
                                     <div style={styles.field}>
                                         <label style={styles.label}>Assigned Technician</label>
@@ -1054,6 +1058,33 @@ const styles = {
         borderRadius: '8px',
         fontSize: '1rem',
         boxSizing: 'border-box',
+    },
+    timeInputShell: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.55rem',
+        padding: '0 0.7rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '10px',
+        backgroundColor: 'white',
+        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
+    },
+    timeInput: {
+        width: '100%',
+        minWidth: 0,
+        padding: '0.7rem 0',
+        border: 'none',
+        outline: 'none',
+        backgroundColor: 'transparent',
+        color: colors.textDark,
+        fontSize: '0.9375rem',
+        fontWeight: '600',
+    },
+    fieldHint: {
+        display: 'block',
+        marginTop: '0.35rem',
+        fontSize: '0.72rem',
+        color: colors.textMuted,
     },
     formActions: {
         display: 'flex',
@@ -1391,13 +1422,15 @@ const styles = {
         justifyContent: 'center',
         zIndex: 300,
         padding: '1rem',
+        overflowY: 'auto',
     },
     createModalCard: {
         backgroundColor: 'white',
         borderRadius: '20px',
         maxWidth: '480px',
         width: '100%',
-        maxHeight: '90vh',
+        height: 'min(90vh, 760px)',
+        maxHeight: 'calc(100vh - 2rem)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
@@ -1410,8 +1443,16 @@ const styles = {
         padding: '1.5rem 1.5rem 1.25rem',
         backgroundColor: colors.primaryTint,
     },
+    createModalForm: {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+    },
     createModalBody: {
         padding: '1rem 1.5rem',
+        flex: 1,
+        minHeight: 0,
         overflowY: 'auto',
     },
     createModalFooter: {
@@ -1420,6 +1461,7 @@ const styles = {
         gap: '1rem',
         padding: '1.25rem 1.5rem',
         borderTop: '1px solid #f3f4f6',
+        flexShrink: 0,
     },
     modalError: {
         backgroundColor: colors.dangerTint,

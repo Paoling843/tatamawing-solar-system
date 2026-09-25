@@ -19,6 +19,8 @@ class ReportController extends Controller
             'approvedByAdmin.user',
         ])->findOrFail($quotationId);
 
+        $this->authorize('view', $quotation->quotationRequest);
+
         $pdf = Pdf::loadView('reports.quotation', [
             'quotation' => $quotation,
         ]);
@@ -95,6 +97,8 @@ class ReportController extends Controller
             'materialItems',
             'quotation.quotationRequest.customer.user',
         ])->findOrFail($purchaseRequestId);
+
+        $this->authorize('view', $purchaseRequest);
 
         $pdf = Pdf::loadView('reports.purchase-request', [
             'purchaseRequest' => $purchaseRequest,

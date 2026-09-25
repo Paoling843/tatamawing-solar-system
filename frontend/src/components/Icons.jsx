@@ -212,6 +212,27 @@ export function UserIcon({ size = 18, color = 'currentColor' }) {
     );
 }
 
+export function ShieldIcon({ size = 18, color = 'currentColor' }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l7 3v6c0 4.6-3.1 8.7-7 10-3.9-1.3-7-5.4-7-10V6l7-3z" />
+            <path d="M9.5 12.5l1.6 1.6 3.4-4.1" />
+        </svg>
+    );
+}
+
+export function FileTextIcon({ size = 18, color = 'currentColor' }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+            <path d="M16 13H8" />
+            <path d="M16 17H8" />
+            <path d="M10 9h.01" />
+        </svg>
+    );
+}
+
 export function CartIcon({ size = 18, color = 'currentColor' }) {
     return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

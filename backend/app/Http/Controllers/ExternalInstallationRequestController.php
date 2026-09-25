@@ -9,6 +9,7 @@ use App\Mail\ExternalInstallationRequestSubmitted;
 use App\Mail\ExternalInstallationRequestStatusUpdated;
 use App\Models\ExternalInstallationRequest;
 use App\Models\InstallationSchedule;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -61,6 +62,8 @@ class ExternalInstallationRequestController extends Controller
 
     public function adminIndex()
     {
+        $this->authorize('viewAny', ExternalInstallationRequest::class);
+
         return response()->json(
             ExternalInstallationRequest::with('installationSchedule')
                 ->latest()
@@ -70,6 +73,8 @@ class ExternalInstallationRequestController extends Controller
 
     public function downloadQuotation(ExternalInstallationRequest $externalInstallationRequest)
     {
+        $this->authorize('view', $externalInstallationRequest);
+
         if (!Storage::exists($externalInstallationRequest->quotation_file_path)) {
             return response()->json(['message' => 'Quotation file not found.'], 404);
         }
@@ -79,13 +84,21 @@ class ExternalInstallationRequestController extends Controller
 
     public function confirm(ConfirmExternalInstallationRequest $request, ExternalInstallationRequest $externalInstallationRequest)
     {
+        $this->authorize('confirm', $externalInstallationRequest);
+
         if ($externalInstallationRequest->status !== 'pending_review') {
             return response()->json([
                 'message' => 'Only pending external installation requests can be confirmed.',
             ], 422);
         }
 
-        $schedule = DB::transaction(function () use ($request, $externalInstallationRequest) {
+        $admin = $request->user()->admin()->firstOrCreate([
+            'user_id' => $request->user()->id,
+        ], [
+            'department' => 'Operations',
+        ]);
+
+        $schedule = DB::transaction(function () use ($request, $externalInstallationRequest, $admin) {
             $schedule = InstallationSchedule::create([
                 'scheduled_date' => $request->scheduled_date ?: $externalInstallationRequest->preferred_installation_date,
                 'scheduled_time' => $request->scheduled_time,
@@ -95,7 +108,7 @@ class ExternalInstallationRequestController extends Controller
 
             $externalInstallationRequest->update([
                 'status' => 'confirmed',
-                'reviewed_by_admin_id' => $request->user()->admin->id,
+                'reviewed_by_admin_id' => $admin->id,
                 'reviewed_at' => now(),
                 'installation_schedule_id' => $schedule->id,
             ]);
@@ -104,6 +117,14 @@ class ExternalInstallationRequestController extends Controller
         });
 
         $updatedRequest = $externalInstallationRequest->fresh()->load('installationSchedule');
+        AuditLogger::log(
+            'external_installation_confirmed',
+            'Confirmed external installation request.',
+            ExternalInstallationRequest::class,
+            $updatedRequest->id,
+            'External Installation Request #' . $updatedRequest->id,
+            ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
+        );
         Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
 
         return response()->json([
@@ -115,20 +136,36 @@ class ExternalInstallationRequestController extends Controller
 
     public function reject(RejectExternalInstallationRequest $request, ExternalInstallationRequest $externalInstallationRequest)
     {
+        $this->authorize('reject', $externalInstallationRequest);
+
         if ($externalInstallationRequest->status !== 'pending_review') {
             return response()->json([
                 'message' => 'Only pending external installation requests can be rejected.',
             ], 422);
         }
 
+        $admin = $request->user()->admin()->firstOrCreate([
+            'user_id' => $request->user()->id,
+        ], [
+            'department' => 'Operations',
+        ]);
+
         $externalInstallationRequest->update([
             'status' => 'rejected',
-            'reviewed_by_admin_id' => $request->user()->admin->id,
+            'reviewed_by_admin_id' => $admin->id,
             'reviewed_at' => now(),
             'rejection_reason' => $request->rejection_reason,
         ]);
 
         $updatedRequest = $externalInstallationRequest->fresh();
+        AuditLogger::log(
+            'external_installation_rejected',
+            'Rejected external installation request.',
+            ExternalInstallationRequest::class,
+            $updatedRequest->id,
+            'External Installation Request #' . $updatedRequest->id,
+            ['rejection_reason' => $updatedRequest->rejection_reason]
+        );
         Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
 
         return response()->json([

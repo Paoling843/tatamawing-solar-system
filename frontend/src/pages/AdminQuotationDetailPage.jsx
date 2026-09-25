@@ -690,13 +690,14 @@ export default function AdminQuotationDetailPage() {
                             )}
 
                             {showApproveForm && (
-                                <div>
+                                <div style={styles.decisionModalOverlay} onClick={() => setShowApproveForm(false)}>
+                                    <div style={styles.decisionModal} onClick={(e) => e.stopPropagation()}>
                                     <p style={styles.cardDesc}>
                                         Review and adjust the costs before approving.
                                         The total amount is computed automatically.
                                     </p>
 
-                                    <form onSubmit={handleApprove}>
+                                    <form onSubmit={handleApprove} style={styles.decisionForm}>
                                         <div style={styles.field}>
                                             <label style={styles.label}>Adjusted Base Cost (₱)</label>
                                             <input
@@ -708,7 +709,7 @@ export default function AdminQuotationDetailPage() {
                                                     adjusted_cost: e.target.value
                                                 })}
                                                 className="input-field"
-                                                style={styles.input}
+                                                style={styles.decisionInput}
                                                 required
                                             />
                                         </div>
@@ -724,7 +725,7 @@ export default function AdminQuotationDetailPage() {
                                                     labor_fee: e.target.value
                                                 })}
                                                 className="input-field"
-                                                style={styles.input}
+                                                style={styles.decisionInput}
                                                 placeholder="e.g. 15000"
                                             />
                                         </div>
@@ -740,7 +741,7 @@ export default function AdminQuotationDetailPage() {
                                                     transportation_fee: e.target.value
                                                 })}
                                                 className="input-field"
-                                                style={styles.input}
+                                                style={styles.decisionInput}
                                                 placeholder="e.g. 5000"
                                             />
                                         </div>
@@ -780,17 +781,19 @@ export default function AdminQuotationDetailPage() {
                                             </button>
                                         </div>
                                     </form>
+                                    </div>
                                 </div>
                             )}
 
                             {showRejectForm && (
-                                <div>
+                                <div style={styles.decisionModalOverlay} onClick={() => setShowRejectForm(false)}>
+                                    <div style={styles.decisionModal} onClick={(e) => e.stopPropagation()}>
                                     <p style={styles.cardDesc}>
                                         Please provide a reason for rejection so the
                                         customer knows what to fix.
                                     </p>
 
-                                    <form onSubmit={handleReject}>
+                                    <form onSubmit={handleReject} style={styles.decisionForm}>
                                         <div style={styles.field}>
                                             <label style={styles.label}>Rejection Reason</label>
                                             <textarea
@@ -799,11 +802,7 @@ export default function AdminQuotationDetailPage() {
                                                     rejection_reason: e.target.value
                                                 })}
                                                 className="input-field"
-                                                style={{
-                                                    ...styles.input,
-                                                    height: '100px',
-                                                    resize: 'vertical',
-                                                }}
+                                                style={styles.decisionTextarea}
                                                 placeholder="e.g. Incomplete appliance information..."
                                                 required
                                             />
@@ -833,6 +832,7 @@ export default function AdminQuotationDetailPage() {
                                             </button>
                                         </div>
                                     </form>
+                                    </div>
                                 </div>
                             )}
                         </section>
@@ -1179,17 +1179,21 @@ export default function AdminQuotationDetailPage() {
                                 <div style={styles.modalFormRow}>
                                     <div style={styles.field}>
                                         <label style={styles.label}>Start Time</label>
-                                        <input
-                                            type="time"
-                                            value={scheduleForm.scheduled_time}
-                                            onChange={(e) => setScheduleForm({
-                                                ...scheduleForm,
-                                                scheduled_time: e.target.value,
-                                            })}
-                                            className="input-field"
-                                            style={styles.input}
-                                            required
-                                        />
+                                        <div style={styles.timeInputShell}>
+                                            <ClockIcon size={16} color={colors.primary} />
+                                            <input
+                                                type="time"
+                                                value={scheduleForm.scheduled_time}
+                                                onChange={(e) => setScheduleForm({
+                                                    ...scheduleForm,
+                                                    scheduled_time: e.target.value,
+                                                })}
+                                                className="input-field"
+                                                style={styles.timeInput}
+                                                required
+                                            />
+                                        </div>
+                                        <span style={styles.fieldHint}>Choose the installation start time</span>
                                     </div>
 
                                     <div style={styles.field}>
@@ -1630,6 +1634,86 @@ const styles = {
         borderRadius: '9px',
         fontSize: '0.9375rem',
         boxSizing: 'border-box',
+    },
+    decisionForm: {
+        padding: '1rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '12px',
+        backgroundColor: colors.bgSubtle,
+    },
+    decisionModalOverlay: {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 400,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        backgroundColor: 'rgba(15, 31, 24, 0.48)',
+    },
+    decisionModal: {
+        width: '100%',
+        maxWidth: '500px',
+        maxHeight: 'calc(100vh - 2rem)',
+        overflowY: 'auto',
+        padding: '1.25rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '16px',
+        backgroundColor: colors.bgCard,
+        boxShadow: '0 24px 70px rgba(17,24,39,0.22)',
+    },
+    decisionInput: {
+        width: '100%',
+        padding: '0.7rem 0.75rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '9px',
+        backgroundColor: colors.bgCard,
+        color: colors.textDark,
+        fontSize: '0.9375rem',
+        fontWeight: '600',
+        boxSizing: 'border-box',
+        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
+    },
+    decisionTextarea: {
+        width: '100%',
+        minHeight: '122px',
+        padding: '0.75rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '10px',
+        backgroundColor: colors.bgCard,
+        color: colors.textDark,
+        fontSize: '0.875rem',
+        lineHeight: 1.55,
+        boxSizing: 'border-box',
+        resize: 'vertical',
+        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
+    },
+    timeInputShell: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.55rem',
+        padding: '0 0.7rem',
+        border: `1px solid ${colors.border}`,
+        borderRadius: '10px',
+        backgroundColor: colors.bgCard,
+        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
+    },
+    timeInput: {
+        width: '100%',
+        minWidth: 0,
+        padding: '0.7rem 0',
+        border: 'none',
+        outline: 'none',
+        backgroundColor: 'transparent',
+        color: colors.textDark,
+        fontSize: '0.9375rem',
+        fontWeight: '600',
+    },
+    fieldHint: {
+        display: 'block',
+        marginTop: '0.35rem',
+        fontSize: '0.72rem',
+        color: colors.textMuted,
     },
     formActions: {
         display: 'flex',

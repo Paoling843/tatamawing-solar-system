@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faq;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -30,6 +31,8 @@ class FaqController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Faq::class);
+
         $validator = Validator::make($request->all(), [
             'question' => ['required', 'string', 'min:10', 'max:500'],
             'answer' => ['required', 'string', 'min:10'],
@@ -40,7 +43,11 @@ class FaqController extends Controller
             return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
-        $admin = $request->user()->admin;
+        $admin = $request->user()->admin()->firstOrCreate([
+            'user_id' => $request->user()->id,
+        ], [
+            'department' => 'Operations',
+        ]);
 
         $faq = Faq::create([
             'question' => trim($request->question),
@@ -48,6 +55,14 @@ class FaqController extends Controller
             'keywords' => $request->keywords ? trim($request->keywords) : null,
             'created_by' => $admin->id,
         ]);
+
+        AuditLogger::log(
+            'faq_created',
+            'Created an FAQ.',
+            Faq::class,
+            $faq->id,
+            'FAQ #' . $faq->id
+        );
 
         return response()->json([
             'message' => 'FAQ created successfully.',
@@ -57,6 +72,8 @@ class FaqController extends Controller
 
     public function update (Request $request, Faq $faq)
     {
+        $this->authorize('update', $faq);
+
         $validator = Validator::make($request->all(), [
             'question' => ['required', 'string', 'min:10', 'max:500'],
             'answer' => ['required', 'string', 'min:10'],
@@ -73,6 +90,14 @@ class FaqController extends Controller
             'keywords' => $request->keywords ? trim($request->keywords) : null,
         ]);
 
+        AuditLogger::log(
+            'faq_updated',
+            'Updated an FAQ.',
+            Faq::class,
+            $faq->id,
+            'FAQ #' . $faq->id
+        );
+
         return response()->json([
             'message' => 'FAQ updated successfully',
             'faq' => $faq,
@@ -81,7 +106,19 @@ class FaqController extends Controller
 
     public function destroy(Faq $faq)
     {
+        $this->authorize('delete', $faq);
+
+        $faqId = $faq->id;
+
         $faq->delete();
+
+        AuditLogger::log(
+            'faq_deleted',
+            'Deleted an FAQ.',
+            Faq::class,
+            $faqId,
+            'FAQ #' . $faqId
+        );
             
         return response()->json([
             'message' => 'FAQ deleted successfully.'

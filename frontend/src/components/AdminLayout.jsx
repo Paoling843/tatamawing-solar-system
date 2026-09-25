@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import {
-    GridIcon, DocumentIcon, MessageIcon, HelpIcon,
+    GridIcon, DocumentIcon, MessageIcon, HelpIcon, ShieldIcon,
     SearchIcon, BellIcon, MenuIcon, LogOutIcon, CalendarIcon,
 } from '../components/Icons';
 import api from '../api/axios';
@@ -152,6 +152,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                 { label: 'Purchase Request', path: '/admin/purchase-requests', icon: <CartIcon />, countKey: 'purchaseRequests' },
                 { label: 'Users', path: '/admin/system', icon: <PersonIcon /> },
                 { label: 'Messages', path: '/admin/inbox', icon: <MessageIcon size={16} />, countKey: 'messages' },
+                { label: 'Audit Log', path: '/admin/audit-logs', icon: <ShieldIcon size={16} /> },
                 { label: 'FAQ Management', path: '/admin/faqs', icon: <HelpIcon size={16} /> },
             ],
         },

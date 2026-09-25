@@ -6,6 +6,7 @@ use App\Models\ApplianceItem;
 use App\Models\ElectricityBill;
 use App\Models\QuotationRequest;
 use App\Services\SolarComputationService;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -26,6 +27,8 @@ class QuotationRequestController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('create', QuotationRequest::class);
+
         $engine = $this->solarComputationService;
         $applianceTypes = implode(',', array_keys(SolarComputationService::APPLIANCES));
         $hpOptions = implode(',', SolarComputationService::HP_OPTIONS);
@@ -179,6 +182,14 @@ class QuotationRequestController extends Controller
             return $quotationRequest;
         });
 
+        AuditLogger::log(
+            'quotation_created',
+            'Created a quotation request for admin review.',
+            QuotationRequest::class,
+            $quotationRequest->id,
+            'Quotation Request #' . $quotationRequest->id
+        );
+
         return response()->json([
             'message' => 'Quotation request submitted for review.',
             'quotation_request' => $quotationRequest->load([
@@ -195,6 +206,8 @@ class QuotationRequestController extends Controller
 
     public function submit(Request $request, QuotationRequest $quotationRequest)
     {
+        $this->authorize('submit', $quotationRequest);
+
         $customer = $request->user()->customer;
 
         if(! $customer || $quotationRequest->customer_id !== $customer->id) {
@@ -206,6 +219,14 @@ class QuotationRequestController extends Controller
         $quotationRequest->update([
             'status' => 'pending',
         ]);
+
+        AuditLogger::log(
+            'quotation_submitted',
+            'Submitted quotation request for admin review.',
+            QuotationRequest::class,
+            $quotationRequest->id,
+            'Quotation Request #' . $quotationRequest->id
+        );
 
         return response()->json([
             'message' => 'Quotation submitted for admin review.',
@@ -219,6 +240,8 @@ class QuotationRequestController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', QuotationRequest::class);
+
         $customer = $request->user()->customer;
 
         $quotations = QuotationRequest::where('customer_id', $customer->id)
@@ -235,6 +258,8 @@ class QuotationRequestController extends Controller
 
     public function show(Request $request, QuotationRequest $quotationRequest)
     {
+        $this->authorize('view', $quotationRequest);
+
         $customer = $request->user()->customer;
 
         if (! $customer || $quotationRequest->customer_id !== $customer->id) {
