@@ -156,4 +156,114 @@ class SolarComputationServiceTest extends TestCase
         $this->expectException(ValidationException::class);
         $this->engine->evaluate($rows, 5, 4, 150);
     }
+
+    public function test_savings_use_the_rate_from_the_bills(): void
+    {
+        // 4 panels → 2.44 kWp × 4.5 h × 0.8 × 30 = 263.52 kWh/month made
+        // 5,000 Wh/day → 150 kWh/month used
+        // Rates: 3,000 ÷ 250 = 12 and 2,200 ÷ 200 = 11 → average 11.5
+        // Savings: 150 × 11.5 = 1,725 (under the 2,600 average bill)
+        $savings = $this->engine->computeSavings(5000, 4, 207000, [
+            ['amount' => 3000, 'kwh' => 250],
+            ['amount' => 2200, 'kwh' => 200],
+        ]);
+
+        $this->assertEqualsWithDelta(263.52, $savings['production_kwh'], 0.0001);
+        $this->assertEqualsWithDelta(150, $savings['usage_kwh'], 0.0001);
+        $this->assertEqualsWithDelta(11.5, $savings['rate'], 0.0001);
+        $this->assertSame('bill', $savings['rate_source']);
+        $this->assertEqualsWithDelta(2600, $savings['monthly_bill'], 0.0001);
+        $this->assertEqualsWithDelta(1725, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(875, $savings['new_monthly_bill'], 0.0001);
+        $this->assertEqualsWithDelta(20700, $savings['annual_savings'], 0.0001);
+        $this->assertEqualsWithDelta(10, $savings['payback_years'], 0.0001); // 207,000 ÷ 20,700
+    }
+
+    public function test_savings_fall_back_to_the_default_rate_without_kwh(): void
+    {
+        // Bill amount only → default ₱12/kWh. 150 kWh × 12 = 1,800, under the 2,000 bill.
+        $savings = $this->engine->computeSavings(5000, 4, 100000, [
+            ['amount' => 2000, 'kwh' => null],
+            ['amount' => '', 'kwh' => ''],
+        ]);
+
+        $this->assertEqualsWithDelta(SolarComputationService::DEFAULT_RATE_PER_KWH, $savings['rate'], 0.0001);
+        $this->assertSame('default', $savings['rate_source']);
+        $this->assertEqualsWithDelta(2000, $savings['monthly_bill'], 0.0001);
+        $this->assertEqualsWithDelta(1800, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(200, $savings['new_monthly_bill'], 0.0001);
+    }
+
+    public function test_savings_never_exceed_the_bill(): void
+    {
+        // 20,000 Wh/day → 600 kWh; 10 panels make 658.8 kWh → 600 × 12 = 7,200,
+        // but the bill is only 5,000, so savings stop at 5,000 and the new bill is 0.
+        $savings = $this->engine->computeSavings(20000, 10, 100000, [['amount' => 5000, 'kwh' => null]]);
+
+        $this->assertEqualsWithDelta(5000, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(0, $savings['new_monthly_bill'], 0.0001);
+    }
+
+    public function test_savings_are_limited_by_what_the_panels_make(): void
+    {
+        // 600 kWh used but 4 panels only make 263.52 kWh → 263.52 × 12 = 3,162.24.
+        // No bills → no bill cap and no new bill.
+        $savings = $this->engine->computeSavings(20000, 4, 100000);
+
+        $this->assertEqualsWithDelta(3162.24, $savings['monthly_savings'], 0.0001);
+        $this->assertNull($savings['monthly_bill']);
+        $this->assertNull($savings['new_monthly_bill']);
+    }
+
+    public function test_no_payback_when_there_are_no_savings(): void
+    {
+        $savings = $this->engine->computeSavings(0, 4, 100000);
+
+        $this->assertEqualsWithDelta(0, $savings['monthly_savings'], 0.0001);
+        $this->assertNull($savings['payback_years']);
+    }
+
+    public function test_return_on_asset_and_lifetime_gain(): void
+    {
+        // ₱20,700 a year on a ₱207,000 system → ROA 10% a year
+        // 25 years × 20,700 = 517,500 → net gain 310,500 → 150% lifetime ROI
+        $return = $this->engine->computeReturn(20700, 207000);
+
+        $this->assertEqualsWithDelta(10, $return['roa_percent'], 0.0001);
+        $this->assertEqualsWithDelta(517500, $return['lifetime_savings'], 0.0001);
+        $this->assertEqualsWithDelta(310500, $return['net_gain'], 0.0001);
+        $this->assertEqualsWithDelta(150, $return['lifetime_roi_percent'], 0.0001);
+    }
+
+    public function test_net_gain_can_be_negative(): void
+    {
+        // ₱10,000 a year on a ₱400,000 system → 25 years saves only 250,000
+        $return = $this->engine->computeReturn(10000, 400000);
+
+        $this->assertEqualsWithDelta(2.5, $return['roa_percent'], 0.0001);
+        $this->assertEqualsWithDelta(-150000, $return['net_gain'], 0.0001);
+    }
+
+    public function test_savings_include_the_return(): void
+    {
+        // Same inputs as test_savings_use_the_rate_from_the_bills: 20,700 a year on 207,000
+        $savings = $this->engine->computeSavings(5000, 4, 207000, [['amount' => 3000, 'kwh' => 250], ['amount' => 2200, 'kwh' => 200]]);
+
+        $this->assertEqualsWithDelta(10, $savings['roa_percent'], 0.0001);
+        $this->assertEqualsWithDelta(310500, $savings['net_gain'], 0.0001);
+    }
+
+    public function test_evaluate_includes_savings(): void
+    {
+        $rows = [['appliance_type' => 'freezer', 'watts' => 1500, 'qty' => 1, 'night_from' => 16, 'night_to' => 19]];
+        $result = $this->engine->evaluate($rows, 8, 10, 205, [['amount' => 3000, 'kwh' => 250]]);
+
+        // 4,500 Wh/day → 135 kWh × ₱12 = 1,620
+        $this->assertEqualsWithDelta(1620, $result['savings']['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(
+            $result['quote']['total'] / (1620 * 12),
+            $result['savings']['payback_years'],
+            0.0001
+        );
+    }
 }

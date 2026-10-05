@@ -32,6 +32,17 @@ class SolarComputation extends Model
         'battery_wh',
         'battery_sku',
         'line_items',
+
+        // Savings estimate
+        'electricity_rate',
+        'rate_source',
+        'monthly_production_kwh',
+        'monthly_usage_kwh',
+        'monthly_bill',
+        'monthly_savings',
+        'new_monthly_bill',
+        'annual_savings',
+        'payback_years',
     ];
 
     protected function casts()

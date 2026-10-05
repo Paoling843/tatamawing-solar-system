@@ -23,8 +23,9 @@ use Illuminate\Validation\ValidationException;
  *   2. computeLoad()     → daytime, nighttime, grand and adjusted totals
  *   3. recommend...()    → smallest inverter package and battery that fit
  *   4. buildQuote()      → itemized price for the customer's selection
- *   5. evaluate()        → runs 1–4 and checks the selection is allowed
- *   6. save()            → stores the result on the quotation request
+ *   5. computeSavings()  → estimated monthly/annual savings and payback
+ *   6. evaluate()        → runs 1–5 and checks the selection is allowed
+ *   7. save()            → stores the result on the quotation request
  */
 class SolarComputationService
 {
@@ -96,6 +97,17 @@ class SolarComputationService
     // Usable Wh per Ah. 40.96 = 51.2 V × 0.8, i.e. 80% of the stored energy
     // is counted as usable.
     public const BATTERY_WH_PER_AH = 40.96;
+
+    // Savings estimate.
+    // Rate used when the customer's bills don't give both amount and kWh (₱/kWh)
+    public const DEFAULT_RATE_PER_KWH = 12;
+    // Average full-sun hours per day in the Philippines
+    public const PEAK_SUN_HOURS = 4.5;
+    // Share of the panels' rating that reaches the outlets (wiring, heat, inverter losses)
+    public const SYSTEM_DERATE = 0.8;
+    public const DAYS_PER_MONTH = 30;
+    // Years the system is expected to keep saving (typical panel warranty)
+    public const SYSTEM_LIFE_YEARS = 25;
 
     // ===================================================================
     // STEP 1–2: LOAD
@@ -343,6 +355,94 @@ class SolarComputationService
     }
 
     // ===================================================================
+    // STEP 4: SAVINGS
+    // ===================================================================
+
+    /**
+     * Estimated savings for the chosen system.
+     *   production  = panels × 610 W ÷ 1000 × 4.5 sun hours × 0.8 × 30 days (kWh/month)
+     *   usage       = grand total Wh ÷ 1000 × 30 days (kWh/month)
+     *   rate        = average amount ÷ kWh of the bills that have both, else ₱12
+     *   savings     = min(usage, production) × rate, never more than the bill
+     *   payback     = total price ÷ annual savings
+     *   ROA         = annual savings ÷ total price × 100 (the system is the asset,
+     *                 its yearly savings are the return)
+     *   net gain    = savings over 25 years − total price
+     *
+     * kWh is optional on a bill: a bill with only an amount still caps the
+     * savings and gives the estimated new bill, but the default rate is used.
+     */
+    public function computeSavings(float $grandTotalWh, int $panels, float $total, array $bills = []): array
+    {
+        $productionKwh = $panels * self::PANEL_WATTS / 1000
+            * self::PEAK_SUN_HOURS * self::SYSTEM_DERATE * self::DAYS_PER_MONTH;
+        $usageKwh = $grandTotalWh / 1000 * self::DAYS_PER_MONTH;
+
+        $rates = [];
+        $amounts = [];
+
+        foreach ($bills as $bill) {
+            $amount = $bill['amount'] ?? null;
+            $kwh = $bill['kwh'] ?? null;
+
+            if (is_numeric($amount) && $amount > 0) {
+                $amounts[] = (float) $amount;
+
+                if (is_numeric($kwh) && $kwh > 0) {
+                    $rates[] = $amount / $kwh;
+                }
+            }
+        }
+
+        $rate = $rates ? array_sum($rates) / count($rates) : self::DEFAULT_RATE_PER_KWH;
+        $monthlyBill = $amounts ? array_sum($amounts) / count($amounts) : null;
+
+        $monthlySavings = min($usageKwh, $productionKwh) * $rate;
+
+        if ($monthlyBill !== null) {
+            $monthlySavings = min($monthlySavings, $monthlyBill);
+        }
+
+        $annualSavings = $monthlySavings * 12;
+
+        return [
+            'rate' => $rate,
+            'rate_source' => $rates ? 'bill' : 'default',
+            'production_kwh' => $productionKwh,
+            'usage_kwh' => $usageKwh,
+            'monthly_bill' => $monthlyBill,
+            // How many bill amounts went into monthly_bill (2 means it's an average)
+            'bill_count' => count($amounts),
+            'monthly_savings' => $monthlySavings,
+            'new_monthly_bill' => $monthlyBill !== null ? max(0, $monthlyBill - $monthlySavings) : null,
+            'annual_savings' => $annualSavings,
+            'payback_years' => $annualSavings > 0 ? $total / $annualSavings : null,
+        ] + $this->computeReturn($annualSavings, $total);
+    }
+
+    /**
+     * Return on the system, from its annual savings and price. Kept separate
+     * from computeSavings() so pages can recompute it with the admin's
+     * approved total instead of the engine's price.
+     *   roa_percent          = annual savings ÷ total × 100
+     *   lifetime_savings     = annual savings × 25 years
+     *   net_gain             = lifetime savings − total
+     *   lifetime_roi_percent = net gain ÷ total × 100
+     */
+    public function computeReturn(float $annualSavings, float $total): array
+    {
+        $lifetimeSavings = $annualSavings * self::SYSTEM_LIFE_YEARS;
+        $netGain = $lifetimeSavings - $total;
+
+        return [
+            'roa_percent' => $total > 0 ? $annualSavings / $total * 100 : null,
+            'lifetime_savings' => $lifetimeSavings,
+            'net_gain' => $netGain,
+            'lifetime_roi_percent' => $total > 0 ? $netGain / $total * 100 : null,
+        ];
+    }
+
+    // ===================================================================
     // PUTTING IT TOGETHER
     // ===================================================================
 
@@ -353,11 +453,14 @@ class SolarComputationService
      *   - panel count outside the chosen package's range
      *   - a battery that doesn't exist
      *
+     * $bills (optional) are the customer's electricity bills, used only for
+     * the savings estimate.
+     *
      * Pure function (no database) so it is easy to unit test.
      *
      * @throws ValidationException
      */
-    public function evaluate(array $rows, int $packageKw, int $panelCount, int $batteryAh): array
+    public function evaluate(array $rows, int $packageKw, int $panelCount, int $batteryAh, array $bills = []): array
     {
         $load = $this->computeLoad($rows);
 
@@ -397,6 +500,7 @@ class SolarComputationService
 
         $battery = self::BATTERIES[$batteryIndex];
         $recommendedBattery = self::BATTERIES[$this->recommendBatteryIndex($load['total_night_wh'])];
+        $quote = $this->buildQuote($package, $panelCount, $battery);
 
         return [
             'load' => $load,
@@ -408,7 +512,8 @@ class SolarComputationService
             'recommended_battery' => $recommendedBattery,
             'battery' => $battery,
             'battery_wh' => $this->batteryWh($battery['ah']),
-            'quote' => $this->buildQuote($package, $panelCount, $battery),
+            'quote' => $quote,
+            'savings' => $this->computeSavings($load['grand_total_wh'], $panelCount, $quote['total'], $bills),
         ];
     }
 
@@ -420,6 +525,8 @@ class SolarComputationService
         $load = $result['load'];
         $package = $result['package'];
         $battery = $result['battery'];
+        $savings = $result['savings'];
+        $roundOrNull = fn ($value) => $value === null ? null : round($value, 2);
 
         return SolarComputation::updateOrCreate(
             ['quotation_request_id' => $quotationRequest->id],
@@ -447,6 +554,17 @@ class SolarComputationService
                 'battery_wh' => $result['battery_wh'],
                 'battery_sku' => $battery['sku'],
                 'line_items' => $result['quote']['items'],
+
+                // Savings estimate
+                'electricity_rate' => round($savings['rate'], 2),
+                'rate_source' => $savings['rate_source'],
+                'monthly_production_kwh' => round($savings['production_kwh'], 2),
+                'monthly_usage_kwh' => round($savings['usage_kwh'], 2),
+                'monthly_bill' => $roundOrNull($savings['monthly_bill']),
+                'monthly_savings' => round($savings['monthly_savings'], 2),
+                'new_monthly_bill' => $roundOrNull($savings['new_monthly_bill']),
+                'annual_savings' => round($savings['annual_savings'], 2),
+                'payback_years' => $roundOrNull($savings['payback_years']),
             ]
         );
     }

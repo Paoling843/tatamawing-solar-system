@@ -5,6 +5,7 @@ import LoadingState from '../components/LoadingState';
 import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, ClockIcon, CalendarIcon, ChevronDownIcon, MailIcon } from '../components/Icons';
 import api from '../api/axios';
 import { colors, typography, statusColors} from '../styles/theme';
+import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
 // Installations can only be booked from tomorrow onwards. Computing this at
 // module scope keeps the render pure (react-hooks/purity).
@@ -599,6 +600,50 @@ export default function AdminQuotationDetailPage() {
                                 {formatCurrency(quotation?.solar_computation?.estimated_cost)}
                             </span>
                         </div>
+
+                        {/* Savings estimate — quotations made before this feature don't have one */}
+                        {quotation?.solar_computation?.monthly_savings != null && (() => {
+                            const computation = quotation.solar_computation;
+                            // Once approved, payback uses the approved total instead of the engine's price
+                            const total = quotation.quotation?.total_amount ?? computation.estimated_cost;
+                            const annual = parseFloat(computation.annual_savings);
+                            const payback = annual > 0 ? (parseFloat(total) / annual).toFixed(1) : null;
+                            const ret = computeReturn(annual, parseFloat(total));
+
+                            return (
+                                <div className="responsive-grid-2" style={{ ...styles.resultGrid, marginTop: '1rem' }}>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>Monthly Savings</span>
+                                        <span style={styles.resultValue}>{formatCurrency(computation.monthly_savings)}</span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>Annual Savings</span>
+                                        <span style={styles.resultValue}>{formatCurrency(computation.annual_savings)}</span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>Payback Period</span>
+                                        <span style={styles.resultValue}>{payback !== null ? `${payback} years` : '—'}</span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>Electricity Rate</span>
+                                        <span style={styles.resultValue}>
+                                            {formatCurrency(computation.electricity_rate)}/kWh
+                                            {computation.rate_source === 'bill' ? ' (from bill)' : ' (default)'}
+                                        </span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>Annual ROA</span>
+                                        <span style={styles.resultValue}>
+                                            {ret.roaPercent !== null ? `${ret.roaPercent.toFixed(1)}%` : '—'}
+                                        </span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Net Gain</span>
+                                        <span style={styles.resultValue}>{signedPeso(ret.netGain)}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </section>
 
                     {/* ---- Finalized quotation ---- */}

@@ -114,16 +114,18 @@ class QuotationRequestController extends Controller
             ], 403);
         }
 
+        $bills = array_values((array) $request->input('bills', []));
+
         // Run the engine. If the selection isn't allowed (e.g. a package below
         // the recommended one), this throws and Laravel returns a 422.
+        // The bills are only used for the savings estimate.
         $result = $engine->evaluate(
             $request->appliances,
             (int) $request->package_kw,
             (int) $request->panel_count,
             (int) $request->battery_ah,
+            $bills,
         );
-
-        $bills = array_values((array) $request->input('bills', []));
 
         $quotationRequest = DB::transaction(function () use ($request, $customer, $engine, $result, $bills) {
             $quotationRequest = QuotationRequest::create([

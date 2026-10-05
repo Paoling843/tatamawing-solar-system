@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import {
-    computeLoad, resolveSelection, buildQuote, isRowComplete, prevMonth, buildSubmitPayload,
+    computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
 } from '../services/solarEngine';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
@@ -118,6 +118,7 @@ export default function QuotationFormPage() {
     const load = useMemo(() => computeLoad(rows), [rows]);
     const selection = resolveSelection(load, choice);
     const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
+    const savings = computeSavings(load.grand, selection.panels, quote.total, bills);
     const loadReady = rows.length > 0 && rows.every(isRowComplete);
 
     // Logged-in customers use the engine inside their sidebar layout
@@ -308,6 +309,7 @@ export default function QuotationFormPage() {
                     load={load}
                     selection={selection}
                     quote={quote}
+                    savings={savings}
                     selectedCost={selectedCost}
                     submitting={submitting}
                     submitError={submitError}
