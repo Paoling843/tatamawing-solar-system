@@ -7,25 +7,16 @@ import { adminTokens } from '../styles/adminTheme';
 
 import LoadingState from '../components/LoadingState';
 
+import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
 
-import { CalendarIcon, CheckIcon, ChevronDownIcon, ClockIcon, DownloadIcon, XIcon } from '../components/Icons';
+import { CalendarIcon, DownloadIcon, XIcon } from '../components/Icons';
 
 const TABLE_COLUMNS = '126px minmax(0,1.5fr) 96px 124px 78px 108px 40px';
 
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 const NOW_MS = Date.now();
-const MIN_SCHEDULE_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-function toDateKey(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 export default function AdminDashboardPage() {
     const navigate = useNavigate();
@@ -42,15 +33,11 @@ export default function AdminDashboardPage() {
     const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
     const [selectedQuotation, setSelectedQuotation] = useState(null);
     const [approvingQuotationId, setApprovingQuotationId] = useState(null);
+    // External request being confirmed; date, time, technician and notes are
+    // picked inside the shared ScheduleModal
     const [confirmingExternal, setConfirmingExternal] = useState(null);
-    const [confirmForm, setConfirmForm] = useState({
-        scheduled_date: '',
-        scheduled_time: '',
-        assigned_technician: '',
-    });
-    const [confirmViewYear, setConfirmViewYear] = useState(TODAY.getFullYear());
-    const [confirmViewMonth, setConfirmViewMonth] = useState(TODAY.getMonth());
     const [confirmLoading, setConfirmLoading] = useState(false);
+    const [confirmError, setConfirmError] = useState('');
     const [rejectingExternal, setRejectingExternal] = useState(null);
     const [rejectingQuotation, setRejectingQuotation] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
@@ -99,16 +86,7 @@ export default function AdminDashboardPage() {
     }, [fetchQuotations, fetchSchedules, fetchExternalRequests]);
 
     const openConfirmExternal = (requestRecord) => {
-        const preferredDate = requestRecord.preferred_installation_date?.split('T')[0] || '';
-        const initialDate = preferredDate >= MIN_SCHEDULE_DATE ? preferredDate : '';
-        const initialDateObject = initialDate ? new Date(`${initialDate}T00:00:00`) : new Date(`${MIN_SCHEDULE_DATE}T00:00:00`);
-        setConfirmForm({
-            scheduled_date: initialDate,
-            scheduled_time: '',
-            assigned_technician: '',
-        });
-        setConfirmViewYear(initialDateObject.getFullYear());
-        setConfirmViewMonth(initialDateObject.getMonth());
+        setConfirmError('');
         setConfirmingExternal(requestRecord);
         setError('');
     };
@@ -117,59 +95,23 @@ export default function AdminDashboardPage() {
         if (!confirmLoading) setConfirmingExternal(null);
     };
 
-    const shiftConfirmMonth = (delta) => {
-        let month = confirmViewMonth + delta;
-        let year = confirmViewYear;
-        if (month < 0) { month = 11; year -= 1; }
-        if (month > 11) { month = 0; year += 1; }
-        setConfirmViewMonth(month);
-        setConfirmViewYear(year);
-    };
-
-    const confirmFirstOfMonth = new Date(confirmViewYear, confirmViewMonth, 1);
-    const confirmStartOffset = confirmFirstOfMonth.getDay();
-    const confirmDaysInMonth = new Date(confirmViewYear, confirmViewMonth + 1, 0).getDate();
-    const confirmRowCount = Math.ceil((confirmStartOffset + confirmDaysInMonth) / 7);
-    const confirmCells = [];
-    for (let index = 0; index < confirmRowCount * 7; index++) {
-        const dayNumber = index - confirmStartOffset + 1;
-        const cellDate = new Date(confirmViewYear, confirmViewMonth, dayNumber);
-        const key = toDateKey(cellDate);
-        const inMonth = dayNumber >= 1 && dayNumber <= confirmDaysInMonth;
-        const daySchedules = schedules.filter((schedule) => schedule.scheduled_date?.split('T')[0] === key);
-        confirmCells.push({
-            key,
-            day: cellDate.getDate(),
-            inMonth,
-            isToday: key === toDateKey(TODAY),
-            isPicked: key === confirmForm.scheduled_date,
-            isBookable: key >= MIN_SCHEDULE_DATE,
-            bookedCount: daySchedules.length,
-        });
-    }
-
-    const confirmFormValid = Boolean(
-        confirmForm.scheduled_date &&
-        confirmForm.scheduled_time &&
-        confirmForm.assigned_technician.trim()
-    );
-
-    const handleConfirmExternal = async (event) => {
-        event.preventDefault();
+    // values comes from ScheduleModal: { scheduled_date, scheduled_time, assigned_technician, notes }
+    const handleConfirmExternal = async (values) => {
         if (!confirmingExternal) return;
         setConfirmLoading(true);
-        setError('');
+        setConfirmError('');
         try {
             await api.post(`/admin/external-installation-requests/${confirmingExternal.id}/confirm`, {
-                scheduled_date: confirmForm.scheduled_date,
-                scheduled_time: confirmForm.scheduled_time,
-                assigned_technician: confirmForm.assigned_technician,
+                scheduled_date: values.scheduled_date,
+                scheduled_time: values.scheduled_time,
+                assigned_technician: values.assigned_technician,
+                notes: values.notes || undefined,
             });
             setConfirmingExternal(null);
             fetchExternalRequests();
             fetchSchedules();
         } catch (requestError) {
-            setError(requestError.response?.data?.message || 'Failed to confirm external installation request.');
+            setConfirmError(requestError.response?.data?.message || 'Failed to confirm external installation request.');
         } finally {
             setConfirmLoading(false);
         }
@@ -881,96 +823,26 @@ export default function AdminDashboardPage() {
             )}
 
             {confirmingExternal && (
-                <div style={styles.modalOverlay} onClick={closeConfirmExternal}>
-                    <div style={styles.confirmModalCard} onClick={(event) => event.stopPropagation()}>
-                        <div style={styles.confirmModalHeader}>
-                            <div>
-                                <div style={styles.modalEyebrow}>Confirm external installation</div>
-                                <h2 style={styles.confirmModalTitle}>Choose a schedule</h2>
-                                <p style={styles.confirmModalSubtitle}>
-                                    {confirmingExternal.name} · #{String(confirmingExternal.id).padStart(3, '0')}
-                                </p>
-                            </div>
-                            <button onClick={closeConfirmExternal} aria-label="Close" style={styles.modalCloseBtn}>
-                                <XIcon size={16} color={adminTokens.muted} />
-                            </button>
+                <ScheduleModal
+                    title="Confirm external installation"
+                    contextLabel={confirmingExternal.name}
+                    badge={`#${String(confirmingExternal.id).padStart(3, '0')}`}
+                    schedules={schedules}
+                    initial={{ scheduled_date: confirmingExternal.preferred_installation_date?.split('T')[0] }}
+                    intro={
+                        <div style={styles.confirmPreferredNote}>
+                            <CalendarIcon size={15} color={adminTokens.green} />
+                            <span>
+                                Preferred date: <strong>{new Date(confirmingExternal.preferred_installation_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
+                            </span>
                         </div>
-
-                        <form onSubmit={handleConfirmExternal}>
-                            <div style={styles.confirmModalBody}>
-                                {error && <div style={styles.error}>{error}</div>}
-
-                                <div style={styles.confirmPreferredNote}>
-                                    <CalendarIcon size={15} color={adminTokens.green} />
-                                    <span>
-                                        Preferred date: <strong>{new Date(confirmingExternal.preferred_installation_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
-                                    </span>
-                                </div>
-
-                                <div style={styles.confirmCalendarHeader}>
-                                    <strong>{MONTHS[confirmViewMonth]} {confirmViewYear}</strong>
-                                    <div style={styles.confirmMonthNav}>
-                                        <button type="button" onClick={() => shiftConfirmMonth(-1)} style={styles.confirmNavBtn} aria-label="Previous month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><ChevronDownIcon size={14} color={adminTokens.green} /></span>
-                                        </button>
-                                        <button type="button" onClick={() => shiftConfirmMonth(1)} style={styles.confirmNavBtn} aria-label="Next month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}><ChevronDownIcon size={14} color={adminTokens.green} /></span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style={styles.confirmWeekdayRow}>
-                                    {WEEKDAYS.map((weekday) => <div key={weekday} style={styles.confirmWeekday}>{weekday}</div>)}
-                                </div>
-                                <div style={styles.confirmCellGrid}>
-                                    {confirmCells.map((cell) => (
-                                        <button
-                                            type="button"
-                                            key={cell.key}
-                                            onClick={() => cell.isBookable && setConfirmForm({ ...confirmForm, scheduled_date: cell.key })}
-                                            disabled={!cell.isBookable}
-                                            style={{
-                                                ...styles.confirmDayCell,
-                                                backgroundColor: cell.isPicked ? adminTokens.greenTint : adminTokens.surface,
-                                                boxShadow: cell.isPicked
-                                                    ? `inset 0 0 0 2px ${adminTokens.green}`
-                                                    : `inset 0 0 0 1px ${adminTokens.border}`,
-                                                opacity: !cell.inMonth ? 0.38 : !cell.isBookable ? 0.45 : 1,
-                                            }}
-                                        >
-                                            <span style={{ ...styles.confirmDayNumber, ...(cell.isToday ? styles.confirmToday : {}) }}>{cell.day}</span>
-                                            {cell.bookedCount > 0 && <span style={styles.confirmBookedDot} title={`${cell.bookedCount} existing booking${cell.bookedCount === 1 ? '' : 's'}`} />}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div style={styles.confirmPickedDate}>
-                                    {confirmForm.scheduled_date
-                                        ? new Date(`${confirmForm.scheduled_date}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                                        : 'Select an available date above'}
-                                </div>
-
-                                <div style={styles.confirmFields}>
-                                    <label style={styles.confirmField}>
-                                        <span style={styles.confirmLabel}><ClockIcon size={14} color={adminTokens.muted} /> Start time</span>
-                                        <input type="time" value={confirmForm.scheduled_time} onChange={(event) => setConfirmForm({ ...confirmForm, scheduled_time: event.target.value })} className="input-field" style={styles.confirmInput} required />
-                                    </label>
-                                    <label style={styles.confirmField}>
-                                        <span style={styles.confirmLabel}><span style={styles.technicianMark}>T</span> Assigned technician</span>
-                                        <input type="text" value={confirmForm.assigned_technician} onChange={(event) => setConfirmForm({ ...confirmForm, assigned_technician: event.target.value })} className="input-field" style={styles.confirmInput} placeholder="Technician name" required />
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div style={styles.confirmModalFooter}>
-                                <button type="button" className="btn-secondary" onClick={closeConfirmExternal} style={styles.modalSecondaryBtn}>Cancel</button>
-                                <button type="submit" className="btn-primary" style={styles.modalPrimaryBtn} disabled={confirmLoading || !confirmFormValid}>
-                                    <CheckIcon size={15} color="white" />
-                                    {confirmLoading ? 'Confirming...' : 'Confirm installation'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    }
+                    confirmLabel="Confirm installation"
+                    submitting={confirmLoading}
+                    error={confirmError}
+                    onSubmit={handleConfirmExternal}
+                    onClose={closeConfirmExternal}
+                />
             )}
 
             {selectedQuotation && (
@@ -1401,14 +1273,6 @@ const styles = {
         padding: '20px',
         backgroundColor: 'rgba(16,33,26,.42)',
     },
-    confirmModalCard: {
-        width: 'min(760px, 100%)',
-        maxHeight: 'calc(100vh - 40px)',
-        overflowY: 'auto',
-        borderRadius: '16px',
-        backgroundColor: adminTokens.surface,
-        boxShadow: '0 20px 60px rgba(16,33,26,.22)',
-    },
     rejectModalCard: {
         width: 'min(520px, 100%)',
         maxHeight: 'calc(100vh - 40px)',
@@ -1447,15 +1311,6 @@ const styles = {
     quotationPreviewImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 270px)', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 18px rgba(16,33,26,.14)' },
     quotationPreviewFrame: { display: 'block', width: '100%', height: 'min(620px, calc(100vh - 270px))', border: 'none', borderRadius: '8px', backgroundColor: 'white' },
     quotationUnsupported: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', color: adminTokens.muted, textAlign: 'center' },
-    confirmModalHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: '20px',
-        padding: '24px 28px 20px',
-        backgroundColor: adminTokens.greenTint,
-        borderBottom: `1px solid ${adminTokens.border}`,
-    },
     modalEyebrow: {
         fontFamily: adminTokens.fontMono,
         fontSize: '10px',
@@ -1480,7 +1335,6 @@ const styles = {
         cursor: 'pointer',
         flexShrink: 0,
     },
-    confirmModalBody: { padding: '24px 28px' },
     rejectModalBody: { padding: '24px 28px 12px' },
     rejectIntro: { margin: '0 0 18px', color: adminTokens.body, fontSize: '13px', lineHeight: 1.55 },
     rejectTextarea: { width: '100%', boxSizing: 'border-box', minHeight: '126px', padding: '10px 11px', resize: 'vertical', fontFamily: adminTokens.fontUI, lineHeight: 1.5 },
@@ -1496,40 +1350,8 @@ const styles = {
         color: '#725b16',
         fontSize: '12.5px',
     },
-    confirmCalendarHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', color: adminTokens.ink, fontSize: '15px' },
-    confirmMonthNav: { display: 'flex', gap: '5px' },
-    confirmNavBtn: {
-        display: 'grid',
-        placeItems: 'center',
-        width: '28px',
-        height: '28px',
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '7px',
-        backgroundColor: adminTokens.surface,
-        cursor: 'pointer',
-    },
-    confirmWeekdayRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px', marginBottom: '5px' },
-    confirmWeekday: { textAlign: 'center', fontFamily: adminTokens.fontMono, fontSize: '9px', color: adminTokens.faint, textTransform: 'uppercase' },
-    confirmCellGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '5px' },
-    confirmDayCell: {
-        position: 'relative',
-        minHeight: '48px',
-        padding: '8px',
-        border: 'none',
-        borderRadius: '7px',
-        color: adminTokens.ink,
-        textAlign: 'left',
-        cursor: 'pointer',
-    },
-    confirmDayNumber: { fontSize: '12px', fontWeight: 600 },
-    confirmToday: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: adminTokens.gold },
-    confirmBookedDot: { position: 'absolute', right: '8px', bottom: '8px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#c58d1b' },
-    confirmPickedDate: { margin: '12px 0 20px', padding: '10px 12px', borderRadius: '8px', backgroundColor: adminTokens.page, color: adminTokens.green, fontSize: '13px', fontWeight: 600, textAlign: 'center' },
-    confirmFields: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' },
     confirmField: { display: 'flex', flexDirection: 'column', gap: '7px' },
     confirmLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: adminTokens.body },
-    technicianMark: { display: 'inline-grid', placeItems: 'center', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: adminTokens.green, color: 'white', fontSize: '9px' },
-    confirmInput: { width: '100%', boxSizing: 'border-box', padding: '10px 11px' },
     confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', padding: '16px 28px 22px', borderTop: `1px solid ${adminTokens.hairline}` },
     modalSecondaryBtn: { minWidth: '92px', minHeight: '40px', padding: '10px 16px', borderRadius: '9px', fontWeight: 600 },
     modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '9px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },

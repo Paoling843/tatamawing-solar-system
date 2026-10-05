@@ -2,24 +2,11 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState from '../components/LoadingState';
-import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, ClockIcon, CalendarIcon, ChevronDownIcon, MailIcon } from '../components/Icons';
+import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIcon, MailIcon } from '../components/Icons';
+import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
-import { colors, typography, statusColors} from '../styles/theme';
+import { colors, typography } from '../styles/theme';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
-
-// Installations can only be booked from tomorrow onwards. Computing this at
-// module scope keeps the render pure (react-hooks/purity).
-const MIN_SCHEDULE_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-function toDateKey(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function formatTime(time) {
     if (!time) return '';
@@ -29,16 +16,6 @@ function formatTime(time) {
     const displayHour = hour % 12 === 0 ? 12 : hour % 12;
     return `${displayHour}:${m} ${period}`;
 }
-
-function formatDateLong(dateKey) {
-    const [y, m, d] = dateKey.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-PH', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
-}
-
-const TODAY = new Date();
-const TODAY_KEY = toDateKey(TODAY);
 
 export default function AdminQuotationDetailPage() {
     const { id } = useParams();
@@ -58,15 +35,9 @@ export default function AdminQuotationDetailPage() {
     const [rejectForm, setRejectForm] = useState({
         rejection_reason: '',
     });
-    const [scheduleForm, setScheduleForm] = useState({
-        scheduled_date: '',
-        scheduled_time: '',
-        assigned_technician: '',
-    });
+    // Date, time, technician and notes are picked inside the shared ScheduleModal
     const [showScheduleModal, setShowScheduleModal] = useState(false);
-
-    const [viewYear, setViewYear] = useState(TODAY.getFullYear());
-    const [viewMonth, setViewMonth] = useState(TODAY.getMonth());
+    const [scheduleError, setScheduleError] = useState('');
 
     const [bookedSchedules, setBookedSchedules] = useState([]);
     const [scheduleSuccess, setScheduleSuccess] = useState(false);
@@ -214,50 +185,26 @@ export default function AdminQuotationDetailPage() {
     };
 
     const openScheduleModal = () => {
-        const [y, m] = MIN_SCHEDULE_DATE.split('-').map(Number);
-        setViewYear(y);
-        setViewMonth(m -1);
-
-        setScheduleForm({ scheduled_date: '', scheduled_time: '', assigned_technician: '' });
-        setError('');
+        setScheduleError('');
         setShowScheduleModal(true);
         fetchBookedSchedules();
     };
 
     const closeScheduleModal = () => setShowScheduleModal(false);
 
-    const shiftMonth = (delta) => {
-        let m = viewMonth + delta;
-        let y = viewYear;
-        if (m < 0) { m =11; y -= 1; }
-        if (m > 11) { m = 0; y += 1; }
-        setViewMonth(m);
-        setViewYear(y);
-    };
-
-    const goToToday = () => {
-        const now = new Date();
-        setViewYear(now.getFullYear());
-        setViewMonth(now.getMonth());
-    };
-
-    const getScheduleCustomer = (schedule) => 
-        schedule.quotation?.quotation_request?.customer?.user?.name || 'Booked';
-
-    const handleCreateSchedule = async (e) => {
-        e.preventDefault();
-
+    // values comes from ScheduleModal: { scheduled_date, scheduled_time, assigned_technician, notes }
+    const handleCreateSchedule = async (values) => {
         setScheduleLoading(true);
-
-        setError('');
+        setScheduleError('');
         setActionSuccess('');
 
         try {
             await api.post('/admin/schedules', {
-                'quotation_id': quotation?.quotation?.id,
-                'scheduled_date': scheduleForm.scheduled_date,
-                'scheduled_time' : scheduleForm.scheduled_time,
-                'assigned_technician': scheduleForm.assigned_technician,
+                quotation_id: quotation?.quotation?.id,
+                scheduled_date: values.scheduled_date,
+                scheduled_time: values.scheduled_time,
+                assigned_technician: values.assigned_technician,
+                notes: values.notes || undefined,
             });
 
             setActionSuccess('Installation schedule created successfully.');
@@ -269,7 +216,7 @@ export default function AdminQuotationDetailPage() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err) {
-            setError (err.response?.data?.message || 'Failed to create installation schedule.');
+            setScheduleError(err.response?.data?.message || 'Failed to create installation schedule.');
         } finally {
             setScheduleLoading(false);
         }
@@ -299,34 +246,6 @@ export default function AdminQuotationDetailPage() {
         };
         return statusStyles[status] || statusStyles.draft;
     };
-
-    const firstOfMonth = new Date(viewYear, viewMonth, 1);
-    const startOffset = firstOfMonth.getDay();
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const rowCount = Math.ceil((startOffset + daysInMonth) / 7);
-
-    const calendarCells = [];
-    for (let i = 0; i <rowCount * 7; i++) {
-        const dayNum = i -startOffset + 1;
-        const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
-        const cellDate = new Date(viewYear, viewMonth, dayNum);
-        const key = toDateKey(cellDate);
-
-        const daySchedules = bookedSchedules
-            .filter((s) => s.scheduled_date.split('T')[0] === key)
-            .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
-        const shown = daySchedules.slice(0,2);
-
-        calendarCells.push({
-            key, day: cellDate.getDate(),
-            inMonth,
-            isToday: key === TODAY_KEY,
-            isSelected: key === scheduleForm.scheduled_date,
-            isBookable: key >= MIN_SCHEDULE_DATE,
-            shown,
-            moreCount: daySchedules.length = shown.length,
-        });
-    }
 
     if (loading) {
         return (
@@ -1106,196 +1025,22 @@ export default function AdminQuotationDetailPage() {
             </div>
 
             {showScheduleModal && (
-                <div style={styles.modalOverlay} onClick={closeScheduleModal}>
-                    <div style={styles.scheduleModalCard} onClick={(e) => e.stopPropagation()}>
-
-                        <div style={styles.modalHeader}>
-                            <div style={{ flex: 1, minWidth: 0}}>
-                                <div style={styles.modalEyebrow}>Installation</div>
-                                <h2 style={styles.modalTitle}>Set installation schedule</h2>
-                                <p style={styles.modalSubtitle}>
-                                    Pick a day for {quotation?.customer?.user?.name || 'this customer'}.
-                                    Days already booked are shown on the calendar.
-                                </p>
-                            </div>
-                            <button onClick={closeScheduleModal} aria-label="Close" style={styles.modalCloseBtn}>
-                                <XIcon size={16} color={colors.textMuted} />
-                            </button>
+                <ScheduleModal
+                    contextLabel="For quotation"
+                    badge={`#Q-${new Date(quotation.created_at).getFullYear()}-${String(quotation.id).padStart(3, '0')}`}
+                    schedules={bookedSchedules}
+                    intro={
+                        <div style={{ fontSize: '14px', color: colors.textBody }}>
+                            Installing for <strong>{quotation?.customer?.user?.name || 'this customer'}</strong>
+                            {quotation?.customer?.install_location ? ` · ${quotation.customer.install_location}` : ''}
                         </div>
-
-                        <form onSubmit={handleCreateSchedule} style={styles.modalForm}>
-                            <div style={styles.modalBody}>
-
-                                <div style={styles.calendarHeader}>
-                                    <h3 style={styles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</h3>
-                                    <div style={styles.monthNav}>
-                                        <button type="button" onClick={() => shiftMonth(-1)} style={styles.navBtn} aria-label="Previous month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
-                                                <ChevronDownIcon size={14} color={colors.primary} />
-                                            </span>
-                                        </button> 
-                                        <button type="button" onClick={goToToday} style={styles.todayBtn}>Today</button>
-                                        <button type="button" onClick={() => shiftMonth(1)} style={styles.navBtn} aria-label="Next month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
-                                                <ChevronDownIcon size={14} color={colors.primary} />
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style={styles.weekdayRow}>
-                                    {WEEKDAYS.map((w) => (
-                                        <div key={w} style={styles.weekdayLabel}>{w}</div>
-                                    ))}
-                                </div>
-
-                                <div style={styles.cellGrid}>
-                                    {calendarCells.map((cell) => (
-                                        <div
-                                            key={cell.key}
-                                            onClick={() => {
-                                                if (!cell.isBookable) return;
-                                                setScheduleForm({ ...scheduleForm, scheduled_date: cell.key });
-                                            }}
-                                            style={{
-                                                ...styles.dayCell,
-                                                backgroundColor: cell.isSelected ? colors.primaryTint : 'white',
-                                                boxShadow: cell.isSelected
-                                                    ? `inset 0 0 0 1.5px ${colors.primary}`
-                                                    : `inset 0 0 0 1px ${colors.borderLight}`,
-                                                opacity: !cell.inMonth ? 0.4 : cell.isBookable ? 1 : 0.45,
-                                                cursor: cell.isBookable ? 'pointer' : 'not-allowed',
-                                            }}
-                                        >
-                                            <div style={styles.dayCellHeader}>
-                                                <span style={{ ...styles.dayNumber, ...(cell.isToday ? styles.dayNumberToday : {}) }}>
-                                                    {cell.day}
-                                                </span>
-                                                {cell.moreCount > 0 && (
-                                                    <span style={styles.moreLabel}>+{cell.moreCount}</span>
-                                                )}
-                                            </div>
-
-                                            <div style={styles.chipList}>
-                                                {cell.isSelected && (
-                                                    <div style={styles.pendingChip}>
-                                                        <span style={styles.chipTime}>
-                                                            {scheduleForm.scheduled_time
-                                                                ? formatTime(scheduleForm.scheduled_time)
-                                                                : 'Time'}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                {cell.shown.map((s) => (
-                                                    <div
-                                                        key={s.id}
-                                                        style={{
-                                                            ...styles.chip,
-                                                            backgroundColor: statusColors[s.status]?.bg || colors.borderLight,
-                                                            color: statusColors[s.status]?.text || colors.textMuted,
-                                                        }}
-                                                    >
-                                                        {s.scheduled_time && (
-                                                            <span style={styles.chipTime}>{formatTime(s.scheduled_time)}</span>
-                                                        )}
-                                                        <span style={styles.chipName}>{getScheduleCustomer(s)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div style={styles.pickedBanner}>
-                                    <CalendarIcon size={15} color={colors.primary} />
-                                    <span style={styles.pickedText}>
-                                        {scheduleForm.scheduled_date
-                                            ? formatDateLong(scheduleForm.scheduled_date)
-                                            : 'No date selected yet'}
-                                    </span>
-                                    {scheduleForm.scheduled_time && (
-                                        <span style={styles.pickedTime}>
-                                            <ClockIcon size={12} color={colors.textMuted} />
-                                            {formatTime(scheduleForm.scheduled_time)}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div style={styles.modalFormRow}>
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Start Time</label>
-                                        <div style={styles.timeInputShell}>
-                                            <ClockIcon size={16} color={colors.primary} />
-                                            <input
-                                                type="time"
-                                                value={scheduleForm.scheduled_time}
-                                                onChange={(e) => setScheduleForm({
-                                                    ...scheduleForm,
-                                                    scheduled_time: e.target.value,
-                                                })}
-                                                className="input-field"
-                                                style={styles.timeInput}
-                                                required
-                                            />
-                                        </div>
-                                        <span style={styles.fieldHint}>Choose the installation start time</span>
-                                    </div>
-
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Assigned Technician</label>
-                                        <input
-                                            type="text"
-                                            value={scheduleForm.assigned_technician}
-                                            onChange={(e) => setScheduleForm({
-                                                ...scheduleForm,
-                                                assigned_technician: e.target.value,
-                                            })}
-                                            className="input-field"
-                                            style={styles.input}
-                                            placeholder="e.g Juan Santos"
-                                            required
-                                        />
-                                </div>
-                            </div>
-                            </div>
-
-                            {error && (
-                                <div style={styles.modalError}>{error}</div>
-                            )}
-
-                            <div style={styles.modalFooter}>
-                                <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={() => setScheduleForm({ ...scheduleForm, scheduled_date: '' })}
-                                    style={{
-                                        ...styles.cancelBtn,
-                                        opacity: scheduleForm.scheduled_date ? 1 : 0.5,
-                                        cursor: scheduleForm.scheduled_date ? 'pointer' : 'not-allowed',
-                                    }}
-                                    disabled={!scheduleForm.scheduled_date}
-                                >
-                                    Cancel
-                                </button>
-
-                                <button
-                                    type="submit"
-                                    className="btn-primary"
-                                    style={{
-                                        ...styles.approveBtn,
-                                        opacity: scheduleLoading || !scheduleForm.scheduled_date ? 0.7 : 1,
-                                        cursor: scheduleLoading || !scheduleForm.scheduled_date ? 'not-allowed' : 'pointer',
-                                    }}
-                                    disabled={scheduleLoading || !scheduleForm.scheduled_date}
-                                >
-                                    <CheckIcon size={15} color="white" />
-                                    <span>{scheduleLoading ? 'Saving...' : 'Confirm Schedule'}</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )} 
+                    }
+                    submitting={scheduleLoading}
+                    error={scheduleError}
+                    onSubmit={handleCreateSchedule}
+                    onClose={closeScheduleModal}
+                />
+            )}
         </AdminLayout>
     );
 }
@@ -1733,33 +1478,6 @@ const styles = {
         resize: 'vertical',
         boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
     },
-    timeInputShell: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.55rem',
-        padding: '0 0.7rem',
-        border: `1px solid ${colors.border}`,
-        borderRadius: '10px',
-        backgroundColor: colors.bgCard,
-        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
-    },
-    timeInput: {
-        width: '100%',
-        minWidth: 0,
-        padding: '0.7rem 0',
-        border: 'none',
-        outline: 'none',
-        backgroundColor: 'transparent',
-        color: colors.textDark,
-        fontSize: '0.9375rem',
-        fontWeight: '600',
-    },
-    fieldHint: {
-        display: 'block',
-        marginTop: '0.35rem',
-        fontSize: '0.72rem',
-        color: colors.textMuted,
-    },
     formActions: {
         display: 'flex',
         gap: '0.75rem',
@@ -1825,247 +1543,6 @@ const styles = {
     },
 
     /* ---------- Schedule modal ---------- */
-    modalOverlay: {
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 300,
-        padding: '1rem',
-    },
-    scheduleModalCard: {
-        backgroundColor: colors.bgCard,
-        borderRadius: '20px',
-        maxWidth: '760px',
-        width: '100%',
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-    },
-    modalHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '1rem',
-        padding: '1.5rem 1.5rem 1.25rem',
-        backgroundColor: colors.primaryTint,
-    },
-    modalEyebrow: {
-        fontSize: '0.65625rem',
-        fontWeight: '600',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: colors.primary,
-        marginBottom: '0.5rem',
-    },
-    modalTitle: {
-        fontSize: '1.3rem',
-        fontWeight: '700',
-        color: colors.textDark,
-        margin: '0 0 0.3rem 0',
-    },
-    modalSubtitle: {
-        fontSize: '0.85rem',
-        color: colors.textBody,
-        margin: 0,
-    },
-    modalCloseBtn: {
-        width: '32px',
-        height: '32px',
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 'none',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        cursor: 'pointer',
-    },
-    modalForm: {
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-    },
-    modalBody: {
-        padding: '1.25rem 1.5rem 0.5rem',
-        overflowY: 'auto',
-        flex: 1,
-        minHeight: 0,
-    },
-    modalFormRow: {
-        display: 'flex',
-        gap: '1rem',
-        flexWrap: 'wrap',
-    },
-    modalError: {
-        flexShrink: 0,
-        margin: '0 1.5rem 0.25rem',
-        padding: '0.75rem',
-        borderRadius: '9px',
-        backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        fontSize: '0.8rem',
-    },
-    modalFooter: {
-        display: 'flex',
-        flexShrink: 0,
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: '0.75rem',
-        padding: '1.25rem 1.5rem',
-        borderTop: `1px solid ${colors.borderLight}`,
-        flexWrap: 'wrap',
-    },
 
     /* ---------- Calendar inside the modal ---------- */
-    calendarHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '1rem',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-    },
-    monthLabel: {
-        fontSize: '1.05rem',
-        fontWeight: '700',
-        color: colors.textDark,
-        margin: 0,
-    },
-    monthNav: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '2px',
-        padding: '3px',
-        borderRadius: '10px',
-        backgroundColor: colors.borderLight,
-    },
-    navBtn: {
-        width: '30px',
-        height: '30px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
-        cursor: 'pointer',
-    },
-    todayBtn: {
-        padding: '0.4rem 0.75rem',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
-        color: colors.primary,
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-    },
-    weekdayRow: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gap: '6px',
-        marginBottom: '4px',
-    },
-    weekdayLabel: {
-        fontSize: '0.65625rem',
-        fontWeight: '500',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: colors.textMuted,
-        padding: '0 2px 4px',
-    },
-    cellGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gap: '6px',
-    },
-    dayCell: {
-        minHeight: '76px',
-        borderRadius: '10px',
-        padding: '6px 7px',
-        overflow: 'hidden',
-    },
-    dayCellHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '4px',
-    },
-    dayNumber: {
-        fontSize: '0.75rem',
-        color: colors.textBody,
-        width: '20px',
-        height: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    dayNumberToday: {
-        backgroundColor: colors.primary,
-        color: 'white',
-        borderRadius: '50%',
-        fontWeight: '600',
-    },
-    moreLabel: {
-        fontSize: '0.65rem',
-        color: colors.textMuted,
-    },
-    chipList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '3px',
-    },
-    pendingChip: {
-        padding: '3px 5px',
-        borderRadius: '5px',
-        fontSize: '0.65rem',
-        lineHeight: 1.3,
-        overflow: 'hidden',
-        backgroundColor: colors.primary,
-        color: 'white',
-        fontWeight: '600',
-    },
-    chip: {
-        padding: '3px 5px',
-        borderRadius: '5px',
-        fontSize: '0.65rem',
-        lineHeight: 1.3,
-        overflow: 'hidden',
-    },
-    chipTime: {
-        fontWeight: '600',
-        marginRight: '4px',
-    },
-    chipName: {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-    },
-    pickedBanner: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        margin: '1.25rem 0 1rem',
-        padding: '0.75rem 1rem',
-        borderRadius: '11px',
-        backgroundColor: colors.primaryTint,
-        flexWrap: 'wrap',
-    },
-    pickedText: {
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        color: colors.primary,
-    },
-    pickedTime: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.3rem',
-        fontSize: '0.8rem',
-        color: colors.textMuted,
-    },
 };

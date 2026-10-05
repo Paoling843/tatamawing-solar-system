@@ -14,12 +14,9 @@ import {
     XIcon,
     PlusIcon,
 } from '../components/Icons';
+import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
 import { colors, typography, statusColors } from '../styles/theme';
-
-// Installations can only be booked from tomorrow onwards. Computing this at
-// module scope keeps the render pure (react-hooks/purity).
-const MIN_SCHEDULE_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
@@ -71,26 +68,19 @@ export default function AdminSchedulePage() {
     const [modalSchedule, setModalSchedule] = useState(null);
     const [statusUpdating, setStatusUpdating] = useState(false);
 
+    // Reschedule: the schedule being moved, shown in the shared ScheduleModal
     const [editingSchedule, setEditingSchedule] = useState(null);
-    const [editForm, setEditForm] = useState({
-        scheduled_date: '',
-        scheduled_time: '',
-        assigned_technician: '',
-    });
     const [editLoading, setEditLoading] = useState(false);
+    const [editError, setEditError] = useState('');
 
+    // New booking: who it's for. Date, time, technician and notes are picked
+    // inside the shared ScheduleModal.
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createForm, setCreateForm] = useState({
         customer_id: '',
         quotation_id: '',
-        scheduled_date: '',
-        scheduled_time: '',
-        assigned_technician: '',
-        notes: '',
     });
     const [linkedQuotation, setLinkedQuotation] = useState(null);
-    const [createViewYear, setCreateViewYear] = useState(TODAY.getFullYear());
-    const [createViewMonth, setCreateViewMonth] = useState(TODAY.getMonth());
     const [customers, setCustomers] = useState([]);
     const [customersLoading, setCustomersLoading] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
@@ -160,9 +150,6 @@ export default function AdminSchedulePage() {
         .filter((s) => getDateKey(s) === selectedDate)
         .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
 
-    // While a reschedule is in progress the calendar picks the new date
-    const rescheduling = Boolean(editingSchedule);
-
     const firstOfMonth = new Date(viewYear, viewMonth, 1);
     const startOffset = firstOfMonth.getDay();
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -185,9 +172,6 @@ export default function AdminSchedulePage() {
             inMonth,
             isToday: key === TODAY_KEY,
             isSelected: key === selectedDate,
-            // The API rejects a reschedule that is not after today
-            isBookable: key >= MIN_SCHEDULE_DATE,
-            isPicked: rescheduling && key === editForm.scheduled_date,
             shown,
             moreCount: daySchedules.length - shown.length,
         });
@@ -200,41 +184,6 @@ export default function AdminSchedulePage() {
         if (m > 11) { m = 0; y += 1; }
         setViewMonth(m);
         setViewYear(y);
-    };
-
-    // Mini calendar used inside the "New Schedule" modal — reads the same
-    // already-loaded `schedules` state, so no extra fetch is needed.
-    const createFirstOfMonth = new Date(createViewYear, createViewMonth, 1);
-    const createStartOffset = createFirstOfMonth.getDay();
-    const createDaysInMonth = new Date(createViewYear, createViewMonth + 1, 0).getDate();
-    const createRowCount = Math.ceil((createStartOffset + createDaysInMonth) / 7);
-
-    const createCells = [];
-    for (let i = 0; i < createRowCount * 7; i++) {
-        const dayNum = i - createStartOffset + 1;
-        const inMonth = dayNum >= 1 && dayNum <= createDaysInMonth;
-        const cellDate = new Date(createViewYear, createViewMonth, dayNum);
-        const key = toDateKey(cellDate);
-        const bookedCount = schedules.filter((s) => getDateKey(s) === key).length;
-
-        createCells.push({
-            key,
-            day: cellDate.getDate(),
-            inMonth,
-            isToday: key === TODAY_KEY,
-            isPicked: key === createForm.scheduled_date,
-            isBookable: key >= MIN_SCHEDULE_DATE,
-            bookedCount,
-        });
-    }
-
-    const shiftCreateMonth = (delta) => {
-        let m = createViewMonth + delta;
-        let y = createViewYear;
-        if (m < 0) { m = 11; y -= 1; }
-        if (m > 11) { m = 0; y += 1; }
-        setCreateViewMonth(m);
-        setCreateViewYear(y);
     };
 
     const fetchCustomers = async () => {
@@ -250,17 +199,7 @@ export default function AdminSchedulePage() {
     };
 
     const openCreateModal = () => {
-        const [y, m] = MIN_SCHEDULE_DATE.split('-').map(Number);
-        setCreateViewYear(y);
-        setCreateViewMonth(m - 1);
-        setCreateForm({
-            customer_id: '',
-            quotation_id: '',
-            scheduled_date: '',
-            scheduled_time: '',
-            assigned_technician: '',
-            notes: '',
-        });
+        setCreateForm({ customer_id: '', quotation_id: '' });
         setLinkedQuotation(null);
         setCreateError('');
         setShowCreateModal(true);
@@ -270,17 +209,7 @@ export default function AdminSchedulePage() {
     // Landed here from a quotation's "Schedule" button — open the modal pre-filled
     // and locked to that quotation instead of the free-form customer picker.
     const openCreateModalForQuotation = (info) => {
-        const [y, m] = MIN_SCHEDULE_DATE.split('-').map(Number);
-        setCreateViewYear(y);
-        setCreateViewMonth(m - 1);
-        setCreateForm({
-            customer_id: '',
-            quotation_id: info.id,
-            scheduled_date: '',
-            scheduled_time: '',
-            assigned_technician: '',
-            notes: '',
-        });
+        setCreateForm({ customer_id: '', quotation_id: info.id });
         setLinkedQuotation(info);
         setCreateError('');
         setShowCreateModal(true);
@@ -312,8 +241,8 @@ export default function AdminSchedulePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleCreateManualSchedule = async (e) => {
-        e.preventDefault();
+    // values comes from ScheduleModal: { scheduled_date, scheduled_time, assigned_technician, notes }
+    const handleCreateManualSchedule = async (values) => {
         setCreateLoading(true);
         setCreateError('');
 
@@ -322,10 +251,10 @@ export default function AdminSchedulePage() {
                 ...(createForm.quotation_id
                     ? { quotation_id: createForm.quotation_id }
                     : { customer_id: createForm.customer_id }),
-                scheduled_date: createForm.scheduled_date,
-                scheduled_time: createForm.scheduled_time,
-                assigned_technician: createForm.assigned_technician,
-                notes: createForm.notes || undefined,
+                scheduled_date: values.scheduled_date,
+                scheduled_time: values.scheduled_time,
+                assigned_technician: values.assigned_technician,
+                notes: values.notes || undefined,
             });
             setShowCreateModal(false);
             setLinkedQuotation(null);
@@ -338,8 +267,6 @@ export default function AdminSchedulePage() {
         }
     };
 
-    const createFormValid = (createForm.quotation_id || createForm.customer_id) &&
-        createForm.scheduled_date && createForm.scheduled_time && createForm.assigned_technician;
 
     const goToToday = () => {
         const now = new Date();
@@ -375,33 +302,30 @@ export default function AdminSchedulePage() {
     };
 
     const openEdit = (schedule) => {
-        setEditForm({
-            scheduled_date: getDateKey(schedule),
-            scheduled_time: schedule.scheduled_time ? schedule.scheduled_time.slice(0, 5) : '',
-            assigned_technician: schedule.assigned_technician || '',
-        });
         setEditingSchedule(schedule);
+        setEditError('');
         setModalSchedule(null);
         setError('');
         setSuccess('');
-
-        // The card renders above the calendar, so make sure it is on screen
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleUpdate = async (e) => {
-        e.preventDefault();
+    // values comes from ScheduleModal. The update endpoint doesn't take notes.
+    const handleUpdate = async (values) => {
         setEditLoading(true);
-        setError('');
+        setEditError('');
         setSuccess('');
 
         try {
-            await api.put(`/admin/schedules/${editingSchedule.id}`, editForm);
+            await api.put(`/admin/schedules/${editingSchedule.id}`, {
+                scheduled_date: values.scheduled_date,
+                scheduled_time: values.scheduled_time,
+                assigned_technician: values.assigned_technician,
+            });
             setSuccess('Schedule updated successfully.');
             setEditingSchedule(null);
             fetchSchedules();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update schedule.');
+            setEditError(err.response?.data?.message || 'Failed to update schedule.');
         } finally {
             setEditLoading(false);
         }
@@ -495,25 +419,15 @@ export default function AdminSchedulePage() {
                             {cells.map((cell) => (
                                 <div
                                     key={cell.key}
-                                    onClick={() => {
-                                        if (rescheduling) {
-                                            if (cell.isBookable) {
-                                                setEditForm({ ...editForm, scheduled_date: cell.key });
-                                            }
-                                            return;
-                                        }
-                                        setSelectedDate(cell.key);
-                                    }}
+                                    onClick={() => setSelectedDate(cell.key)}
                                     style={{
                                         ...styles.dayCell,
-                                        backgroundColor: cell.isPicked || cell.isSelected ? colors.primaryTint : 'white',
-                                        boxShadow: cell.isPicked
-                                            ? `inset 0 0 0 2px ${colors.primary}`
-                                            : cell.isSelected
-                                                ? `inset 0 0 0 1.5px ${colors.primary}`
-                                                : `inset 0 0 0 1px ${colors.borderLight}`,
-                                        opacity: !cell.inMonth ? 0.4 : rescheduling && !cell.isBookable ? 0.45 : 1,
-                                        cursor: rescheduling && !cell.isBookable ? 'not-allowed' : 'pointer',
+                                        backgroundColor: cell.isSelected ? colors.primaryTint : 'white',
+                                        boxShadow: cell.isSelected
+                                            ? `inset 0 0 0 1.5px ${colors.primary}`
+                                            : `inset 0 0 0 1px ${colors.borderLight}`,
+                                        opacity: !cell.inMonth ? 0.4 : 1,
+                                        cursor: 'pointer',
                                     }}
                                 >
                                     <div style={styles.dayCellHeader}>
@@ -526,27 +440,11 @@ export default function AdminSchedulePage() {
                                     </div>
 
                                     <div style={styles.chipList}>
-                                        {cell.isPicked && (
-                                            <div style={styles.pickedChip}>
-                                                <span style={styles.chipTime}>
-                                                    {editForm.scheduled_time ? formatTime(editForm.scheduled_time) : 'New'}
-                                                </span>
-                                                <span style={styles.chipName}>Moving here</span>
-                                            </div>
-                                        )}
                                         {cell.shown.map((s) => (
                                             <div
                                                 key={s.id}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    // Mid-reschedule a chip click picks the day rather
-                                                    // than opening a different schedule
-                                                    if (rescheduling) {
-                                                        if (cell.isBookable) {
-                                                            setEditForm({ ...editForm, scheduled_date: cell.key });
-                                                        }
-                                                        return;
-                                                    }
                                                     openModal(s);
                                                 }}
                                                 style={{
@@ -569,69 +467,6 @@ export default function AdminSchedulePage() {
 
                     <div style={styles.sideColumn}>
 
-                        {rescheduling ? (
-                        <div style={styles.sidePanel}>
-                            <div style={styles.sidePanelEyebrow}>Rescheduling</div>
-                            <div style={styles.selectedDateLabel}>
-                                {getCustomerName(editingSchedule)}
-                            </div>
-                            <div style={styles.selectedCountLabel}>
-                                {editForm.scheduled_date
-                                    ? formatDateLong(editForm.scheduled_date)
-                                    : 'Pick a day on the calendar'}
-                            </div>
-
-                            <form onSubmit={handleUpdate}>
-                                <div style={styles.field}>
-                                    <label style={styles.label}>Start Time</label>
-                                    <input
-                                        type="time"
-                                        value={editForm.scheduled_time}
-                                        onChange={(e) => setEditForm({ ...editForm, scheduled_time: e.target.value })}
-                                        className="input-field"
-                                        style={styles.input}
-                                        required
-                                    />
-                                </div>
-
-                                <div style={styles.field}>
-                                    <label style={styles.label}>Assigned Technician</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.assigned_technician}
-                                        onChange={(e) => setEditForm({ ...editForm, assigned_technician: e.target.value })}
-                                        className="input-field"
-                                        style={styles.input}
-                                        placeholder="Technician name"
-                                        required
-                                    />
-                                </div>
-
-                                <div style={styles.formActions}>
-                                    <button
-                                        type="button"
-                                        className="btn-secondary"
-                                        onClick={() => setEditingSchedule(null)}
-                                        style={styles.cancelBtn}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="btn-primary"
-                                        style={{
-                                            ...styles.saveBtn,
-                                            opacity: editLoading || !editForm.scheduled_date ? 0.7 : 1,
-                                            cursor: editLoading || !editForm.scheduled_date ? 'not-allowed' : 'pointer',
-                                        }}
-                                        disabled={editLoading || !editForm.scheduled_date}
-                                    >
-                                        {editLoading ? 'Saving...' : 'Confirm'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                        ) : (
                         <div style={styles.sidePanel}>
                             <div style={styles.sidePanelEyebrow}>Selected day</div>
                             <div style={styles.selectedDateLabel}>{formatDateLong(selectedDate)}</div>
@@ -681,25 +516,6 @@ export default function AdminSchedulePage() {
                                     ))}
                                 </div>
                             )}
-                        </div>
-                        )}
-
-                        <div style={styles.sidePanel}>
-                            <div style={styles.sidePanelEyebrow}>This month</div>
-                            <div style={styles.statsList}>
-                                <div style={styles.statRow}>
-                                    <span style={styles.statLabel}>Installations</span>
-                                    <span style={styles.statValue}>{monthSchedules.length}</span>
-                                </div>
-                                <div style={styles.statRow}>
-                                    <span style={styles.statLabel}>Capacity installed</span>
-                                    <span style={styles.statValue}>{monthCapacityKw.toFixed(1)} kW</span>
-                                </div>
-                                <div style={{ ...styles.statRow, borderBottom: 'none' }}>
-                                    <span style={styles.statLabel}>Delayed jobs</span>
-                                    <span style={styles.statValue}>{monthDelayed}</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -796,175 +612,68 @@ export default function AdminSchedulePage() {
             )}
 
             {showCreateModal && (
-                <div style={styles.modalOverlay} onClick={closeCreateModal}>
-                    <div style={styles.createModalCard} onClick={(e) => e.stopPropagation()}>
-
-                        <div style={styles.createModalHeader}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={styles.modalEyebrow}>{linkedQuotation ? 'From Quotation' : 'New Booking'}</div>
-                                <h2 style={styles.modalTitle}>Schedule an Installation</h2>
-                                <p style={styles.modalSubtitle}>
-                                    {linkedQuotation
-                                        ? `Linked to ${linkedQuotation.reference || 'this quotation'} — the installation will be tied to it.`
-                                        : 'For a customer who already has their own materials/quotation.'}
-                                </p>
-                            </div>
-                            <button onClick={closeCreateModal} aria-label="Close" style={styles.modalCloseBtn}>
-                                <XIcon size={16} color={colors.textMuted} />
-                            </button>
+                <ScheduleModal
+                    contextLabel={linkedQuotation ? 'For quotation' : 'New booking'}
+                    badge={linkedQuotation ? (linkedQuotation.reference || `#${linkedQuotation.id}`) : null}
+                    schedules={schedules}
+                    intro={linkedQuotation ? (
+                        <div style={styles.linkedQuotationBox}>
+                            {linkedQuotation.reference && (
+                                <div style={styles.linkedQuotationRef}>{linkedQuotation.reference}</div>
+                            )}
+                            <div style={styles.linkedQuotationName}>{linkedQuotation.customerName}</div>
+                            {linkedQuotation.location && (
+                                <div style={styles.linkedQuotationLocation}>{linkedQuotation.location}</div>
+                            )}
                         </div>
+                    ) : (
+                        <div style={styles.field}>
+                            <label htmlFor="schedule-customer" style={styles.label}>Customer</label>
+                            <select
+                                id="schedule-customer"
+                                value={createForm.customer_id}
+                                onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}
+                                className="input-field"
+                                style={styles.input}
+                            >
+                                <option value="">
+                                    {customersLoading ? 'Loading customers...' : '— Select a customer —'}
+                                </option>
+                                {customers.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.user?.name} — {c.contact_number}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    extraValid={Boolean(createForm.quotation_id || createForm.customer_id)}
+                    submitting={createLoading}
+                    error={createError}
+                    onSubmit={handleCreateManualSchedule}
+                    onClose={closeCreateModal}
+                />
+            )}
 
-                        <form onSubmit={handleCreateManualSchedule} style={styles.createModalForm}>
-                            <div style={styles.createModalBody}>
-                                {createError && <div style={styles.modalError}>{createError}</div>}
-
-                                <div style={styles.field}>
-                                    <label style={styles.label}>Customer</label>
-                                    {linkedQuotation ? (
-                                        <div style={styles.linkedQuotationBox}>
-                                            {linkedQuotation.reference && (
-                                                <div style={styles.linkedQuotationRef}>{linkedQuotation.reference}</div>
-                                            )}
-                                            <div style={styles.linkedQuotationName}>{linkedQuotation.customerName}</div>
-                                            {linkedQuotation.location && (
-                                                <div style={styles.linkedQuotationLocation}>{linkedQuotation.location}</div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <select
-                                            value={createForm.customer_id}
-                                            onChange={(e) => setCreateForm({ ...createForm, customer_id: e.target.value })}
-                                            className="input-field"
-                                            style={styles.input}
-                                            required
-                                        >
-                                            <option value="">
-                                                {customersLoading ? 'Loading customers...' : '— Select a customer —'}
-                                            </option>
-                                            {customers.map((c) => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.user?.name} — {c.contact_number}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                </div>
-
-                                <div style={styles.miniCalendarHeader}>
-                                    <span style={styles.miniMonthLabel}>{MONTHS[createViewMonth]} {createViewYear}</span>
-                                    <div style={styles.monthNav}>
-                                        <button type="button" onClick={() => shiftCreateMonth(-1)} style={styles.navBtn} aria-label="Previous month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
-                                                <ChevronDownIcon size={14} color={colors.primary} />
-                                            </span>
-                                        </button>
-                                        <button type="button" onClick={() => shiftCreateMonth(1)} style={styles.navBtn} aria-label="Next month">
-                                            <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
-                                                <ChevronDownIcon size={14} color={colors.primary} />
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style={styles.weekdayRow}>
-                                    {WEEKDAYS.map((w) => (
-                                        <div key={w} style={styles.weekdayLabel}>{w}</div>
-                                    ))}
-                                </div>
-
-                                <div style={styles.cellGrid}>
-                                    {createCells.map((cell) => (
-                                        <div
-                                            key={cell.key}
-                                            onClick={() => cell.isBookable && setCreateForm({ ...createForm, scheduled_date: cell.key })}
-                                            style={{
-                                                ...styles.createDayCell,
-                                                backgroundColor: cell.isPicked ? colors.primaryTint : 'white',
-                                                boxShadow: cell.isPicked
-                                                    ? `inset 0 0 0 2px ${colors.primary}`
-                                                    : `inset 0 0 0 1px ${colors.borderLight}`,
-                                                opacity: !cell.inMonth ? 0.4 : !cell.isBookable ? 0.45 : 1,
-                                                cursor: cell.isBookable ? 'pointer' : 'not-allowed',
-                                            }}
-                                        >
-                                            <span style={{ ...styles.dayNumber, ...(cell.isToday ? styles.dayNumberToday : {}) }}>
-                                                {cell.day}
-                                            </span>
-                                            {cell.bookedCount > 0 && <span style={styles.miniBookedDot} />}
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div style={styles.pickedBanner}>
-                                    {createForm.scheduled_date
-                                        ? formatDateLong(createForm.scheduled_date)
-                                        : 'Pick a day on the calendar above'}
-                                </div>
-
-                                <div style={styles.modalFormRow}>
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Start Time</label>
-                                        <div style={styles.timeInputShell}>
-                                            <ClockIcon size={16} color={colors.primary} />
-                                            <input
-                                                type="time"
-                                                value={createForm.scheduled_time}
-                                                onChange={(e) => setCreateForm({ ...createForm, scheduled_time: e.target.value })}
-                                                className="input-field"
-                                                style={styles.timeInput}
-                                                required
-                                            />
-                                        </div>
-                                        <span style={styles.fieldHint}>Choose the installation start time</span>
-                                    </div>
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Assigned Technician</label>
-                                        <input
-                                            type="text"
-                                            value={createForm.assigned_technician}
-                                            onChange={(e) => setCreateForm({ ...createForm, assigned_technician: e.target.value })}
-                                            className="input-field"
-                                            style={styles.input}
-                                            placeholder="Technician name"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={styles.field}>
-                                    <label style={styles.label}>
-                                        Notes <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span>
-                                    </label>
-                                    <textarea
-                                        value={createForm.notes}
-                                        onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })}
-                                        className="input-field"
-                                        style={{ ...styles.input, height: '70px', resize: 'vertical' }}
-                                        placeholder="e.g. Customer already has panels and inverter installed by another supplier."
-                                    />
-                                </div>
-                            </div>
-
-                            <div style={styles.createModalFooter}>
-                                <button type="button" className="btn-secondary" onClick={closeCreateModal} style={styles.cancelBtn}>
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn-primary"
-                                    style={{
-                                        ...styles.saveBtn,
-                                        opacity: createLoading || !createFormValid ? 0.7 : 1,
-                                        cursor: createLoading || !createFormValid ? 'not-allowed' : 'pointer',
-                                    }}
-                                    disabled={createLoading || !createFormValid}
-                                >
-                                    {createLoading ? 'Saving...' : 'Confirm Schedule'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {editingSchedule && (
+                <ScheduleModal
+                    title="Reschedule installation"
+                    contextLabel="For"
+                    badge={getCustomerName(editingSchedule)}
+                    schedules={schedules}
+                    excludeScheduleId={editingSchedule.id}
+                    initial={{
+                        scheduled_date: getDateKey(editingSchedule),
+                        scheduled_time: editingSchedule.scheduled_time,
+                        assigned_technician: editingSchedule.assigned_technician,
+                    }}
+                    showNotes={false}
+                    confirmLabel="Save new schedule"
+                    submitting={editLoading}
+                    error={editError}
+                    onSubmit={handleUpdate}
+                    onClose={() => setEditingSchedule(null)}
+                />
             )}
         </AdminLayout>
     );
@@ -1058,69 +767,6 @@ const styles = {
         borderRadius: '8px',
         fontSize: '1rem',
         boxSizing: 'border-box',
-    },
-    timeInputShell: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.55rem',
-        padding: '0 0.7rem',
-        border: `1px solid ${colors.border}`,
-        borderRadius: '10px',
-        backgroundColor: 'white',
-        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
-    },
-    timeInput: {
-        width: '100%',
-        minWidth: 0,
-        padding: '0.7rem 0',
-        border: 'none',
-        outline: 'none',
-        backgroundColor: 'transparent',
-        color: colors.textDark,
-        fontSize: '0.9375rem',
-        fontWeight: '600',
-    },
-    fieldHint: {
-        display: 'block',
-        marginTop: '0.35rem',
-        fontSize: '0.72rem',
-        color: colors.textMuted,
-    },
-    formActions: {
-        display: 'flex',
-        gap: '1rem',
-        justifyContent: 'flex-end',
-    },
-    pickedChip: {
-        padding: '3px 5px',
-        borderRadius: '5px',
-        fontSize: '0.65rem',
-        lineHeight: 1.3,
-        overflow: 'hidden',
-        backgroundColor: colors.primary,
-        color: 'white',
-        fontWeight: '600',
-    },
-    cancelBtn: {
-        backgroundColor: 'white',
-        color: '#374151',
-        border: '1px solid #d1d5db',
-        minHeight: '40px',
-        padding: '0.625rem 1.25rem',
-        borderRadius: '9px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-    },
-    saveBtn: {
-        backgroundColor: colors.primary,
-        color: 'white',
-        border: 'none',
-        minHeight: '40px',
-        padding: '0.625rem 1.25rem',
-        borderRadius: '9px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        boxShadow: '0 2px 6px rgba(15,59,44,.14)',
     },
     contentGrid: {
         display: 'grid',
@@ -1423,95 +1069,6 @@ const styles = {
         zIndex: 300,
         padding: '1rem',
         overflowY: 'auto',
-    },
-    createModalCard: {
-        backgroundColor: 'white',
-        borderRadius: '20px',
-        maxWidth: '480px',
-        width: '100%',
-        height: 'min(90vh, 760px)',
-        maxHeight: 'calc(100vh - 2rem)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-    },
-    createModalHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '1rem',
-        padding: '1.5rem 1.5rem 1.25rem',
-        backgroundColor: colors.primaryTint,
-    },
-    createModalForm: {
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-    },
-    createModalBody: {
-        padding: '1rem 1.5rem',
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-    },
-    createModalFooter: {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: '1rem',
-        padding: '1.25rem 1.5rem',
-        borderTop: '1px solid #f3f4f6',
-        flexShrink: 0,
-    },
-    modalError: {
-        backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
-    modalFormRow: {
-        display: 'flex',
-        gap: '1rem',
-    },
-    miniCalendarHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: '0.5rem',
-    },
-    miniMonthLabel: {
-        fontSize: '0.9rem',
-        fontWeight: '700',
-        color: '#111827',
-    },
-    createDayCell: {
-        minHeight: '40px',
-        borderRadius: '8px',
-        padding: '4px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '2px',
-        cursor: 'pointer',
-    },
-    miniBookedDot: {
-        width: '5px',
-        height: '5px',
-        borderRadius: '50%',
-        backgroundColor: colors.primary,
-    },
-    pickedBanner: {
-        textAlign: 'center',
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        color: colors.primary,
-        backgroundColor: colors.primaryTint,
-        borderRadius: '8px',
-        padding: '0.6rem',
-        margin: '0.75rem 0 1rem',
     },
     modalCard: {
         backgroundColor: 'white',
