@@ -1032,7 +1032,7 @@ export default function AdminDashboardPage() {
                                 </button>
                                 <button
                                     style={styles.drawerRejectBtn}
-                                    onClick={() => handleReject(selectedQuotation)}
+                                    onClick={() => openRejectQuotation(selectedQuotation)}
                                 >
                                     Reject
                                 </button>

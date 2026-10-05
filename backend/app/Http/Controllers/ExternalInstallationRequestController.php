@@ -30,21 +30,24 @@ class ExternalInstallationRequestController extends Controller
             'quotation_file_path' => $request->file('quotation_file')->store('external-installation-quotations'),
             'status' => 'pending_review',
         ]);
-
-        Mail::to($requestRecord->email)->send(new ExternalInstallationRequestSubmitted($requestRecord));
-
-        return response()->json([
-            'message' => 'Your installation request was submitted and is pending review.',
-            'request' => [
-                'id' => $requestRecord->id,
-                'status' => $requestRecord->status,
-                'status_url' => URL::temporarySignedRoute(
-                    'external-installation-requests.status',
-                    now()->addDays(30),
-                    ['externalInstallationRequest' => $requestRecord->id]
-                ),
-            ],
-        ], 201);
+    
+        try{
+             Mail::to($requestRecord->email)->send(new ExternalInstallationRequestSubmitted($requestRecord));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+            return response()->json([
+                'message' => 'Your installation request was submitted and is pending review.',
+                'request' => [
+                    'id' => $requestRecord->id,
+                    'status' => $requestRecord->status,
+                    'status_url' => URL::temporarySignedRoute(
+                        'external-installation-requests.status',
+                        now()->addDays(30),
+                        ['externalInstallationRequest' => $requestRecord->id]
+                    ),
+                ],
+            ], 201);
     }
 
     public function status(Request $request, ExternalInstallationRequest $externalInstallationRequest)
@@ -125,7 +128,12 @@ class ExternalInstallationRequestController extends Controller
             'External Installation Request #' . $updatedRequest->id,
             ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
         );
-        Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
+        try{
+            Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        
 
         return response()->json([
             'message' => 'External installation request confirmed.',

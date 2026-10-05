@@ -116,8 +116,14 @@ class AdminQuotationController extends Controller
 
         $quotationRequest->refresh();
         $quotation->load('quotationRequest.customer.user');
-        Mail::to($quotation->quotationRequest->customer->user->email)
-            ->send(new QuotationApproved($quotation));
+            try {
+                Mail::to($quotation->quotationRequest->customer->user->email)
+                    ->send(new QuotationApproved($quotation));
+            } catch (\Throwable $e) {
+                // The approval is already saved — log the mail failure instead of returning a 500
+                report($e);
+            }
+
 
         AuditLogger::log(
             'quotation_approved',
