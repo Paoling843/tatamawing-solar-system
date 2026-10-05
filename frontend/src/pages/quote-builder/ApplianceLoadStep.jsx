@@ -132,7 +132,8 @@ export default function ApplianceLoadStep({
                 <div style={{ padding: '18px 26px', borderBottom: `1px solid ${C.borderSoft}` }}>
                     <div style={s.cardTitle}>Recent electricity bills</div>
                     <div style={s.cardNote}>
-                        Filed with the quotation for reference. Nothing here changes the computation above.
+                        Used to estimate your savings in Step 3. Enter the bill amount; the kWh is optional but
+                        lets us use your actual rate. Nothing here changes the computation above.
                     </div>
                 </div>
                 <div style={styles.billGrid}>

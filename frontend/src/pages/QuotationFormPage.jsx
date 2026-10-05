@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
+import { trackStep, trackRequested, getQuoteSessionId, endQuoteSession } from '../services/quoteTracker';
 import {
-    computeLoad, resolveSelection, buildQuote, isRowComplete, prevMonth, buildSubmitPayload,
+    computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
 } from '../services/solarEngine';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
@@ -38,6 +39,9 @@ import './quote-builder/engine.css';
 const DRAFT_KEY = 'tatamawing.solarEngineDraft';
 
 const EMPTY_BILL = { period: '', amount: '', kwh: '' };
+
+// Screen → step number reported to the anonymous analytics tracker
+const STEP_NUMBERS = { load: 1, compute: 2, package: 3 };
 const NO_CHOICE = { pkg: null, panels: null, battery: null };
 
 // Reads the saved draft. Returns null if there is none or storage is blocked.
@@ -118,6 +122,7 @@ export default function QuotationFormPage() {
     const load = useMemo(() => computeLoad(rows), [rows]);
     const selection = resolveSelection(load, choice);
     const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
+    const savings = computeSavings(load.grand, selection.panels, quote.total, bills);
     const loadReady = rows.length > 0 && rows.every(isRowComplete);
 
     // Logged-in customers use the engine inside their sidebar layout
@@ -136,6 +141,13 @@ export default function QuotationFormPage() {
     useEffect(() => {
         saveDraft({ screen, timeFormat, rows, bills, choice, awaitingLogin });
     }, [screen, timeFormat, rows, bills, choice, awaitingLogin]);
+
+    // Anonymous analytics: report how far this visit got (see quoteTracker.js).
+    // Admins trying the calculator aren't counted.
+    useEffect(() => {
+        if (authLoading || (user && user.role !== 'customer')) return;
+        trackStep(STEP_NUMBERS[activeScreen] ?? 1, Boolean(user));
+    }, [activeScreen, user, authLoading]);
 
     const goTo = (next) => {
         setScreen(next);
@@ -225,6 +237,8 @@ export default function QuotationFormPage() {
         setSubmitError('');
         if (authLoading) return;
 
+        if (!user || user.role === 'customer') trackRequested(Boolean(user));
+
         // Guests must log in first — their inputs stay saved
         if (!user) {
             setAuthPromptOpen(true);
@@ -239,8 +253,13 @@ export default function QuotationFormPage() {
         setSubmitting(true);
         try {
             // Only raw inputs and choices are sent; the server recomputes all totals
-            await api.post('/quotation-requests', buildSubmitPayload(rows, bills, selection));
+            // The session ID links this request to the anonymous quote-builder visit
+            await api.post('/quotation-requests', {
+                ...buildSubmitPayload(rows, bills, selection),
+                quote_session_id: getQuoteSessionId(),
+            });
             clearDraft();
+            endQuoteSession();
             navigate('/customer/my-quotations');
         } catch (err) {
             setSubmitError(err.response?.data?.message || 'Could not send the quotation request. Please try again.');
@@ -308,6 +327,7 @@ export default function QuotationFormPage() {
                     load={load}
                     selection={selection}
                     quote={quote}
+                    savings={savings}
                     selectedCost={selectedCost}
                     submitting={submitting}
                     submitError={submitError}

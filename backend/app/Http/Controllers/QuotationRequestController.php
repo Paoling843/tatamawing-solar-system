@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ApplianceItem;
 use App\Models\ElectricityBill;
+use App\Models\QuoteSession;
 use App\Models\QuotationRequest;
 use App\Services\SolarComputationService;
 use App\Services\AuditLogger;
@@ -60,6 +61,9 @@ class QuotationRequestController extends Controller
             'package_kw' => 'required|integer',
             'panel_count' => 'required|integer',
             'battery_ah' => 'required|integer',
+
+            // ----- Anonymous quote-builder session, for analytics -----
+            'quote_session_id' => 'nullable|uuid',
         ], [
             'appliances.*.watts.required_unless' => 'Wattage is required for appliance #:position.',
             'appliances.*.qty.required' => 'Quantity is required for appliance #:position.',
@@ -114,16 +118,18 @@ class QuotationRequestController extends Controller
             ], 403);
         }
 
+        $bills = array_values((array) $request->input('bills', []));
+
         // Run the engine. If the selection isn't allowed (e.g. a package below
         // the recommended one), this throws and Laravel returns a 422.
+        // The bills are only used for the savings estimate.
         $result = $engine->evaluate(
             $request->appliances,
             (int) $request->package_kw,
             (int) $request->panel_count,
             (int) $request->battery_ah,
+            $bills,
         );
-
-        $bills = array_values((array) $request->input('bills', []));
 
         $quotationRequest = DB::transaction(function () use ($request, $customer, $engine, $result, $bills) {
             $quotationRequest = QuotationRequest::create([
@@ -181,6 +187,9 @@ class QuotationRequestController extends Controller
 
             return $quotationRequest;
         });
+
+        // Link the anonymous quote-builder session (analytics) to this request
+        QuoteSession::markConverted($request->input('quote_session_id'), $request->user(), $quotationRequest);
 
         AuditLogger::log(
             'quotation_created',

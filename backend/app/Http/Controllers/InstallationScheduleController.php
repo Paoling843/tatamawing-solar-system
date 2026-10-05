@@ -126,7 +126,7 @@ class InstallationScheduleController extends Controller
         );
 
         return response()->json([
-            'message' => 'Installation schedule created successfully.',
+            'message' => 'Installation schedule updated successfully.',
             'schedule' => $installationSchedule->load([
                 'quotation.quotationRequest.customer.user',
                 'quotation.quotationRequest.solarComputation',

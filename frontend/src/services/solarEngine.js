@@ -83,6 +83,17 @@ export const BATTERIES = [
 // counted as usable.
 export const BATTERY_WH_PER_AH = 40.96;
 
+// Savings estimate.
+// Rate used when the customer's bills don't give both amount and kWh (₱/kWh)
+export const DEFAULT_RATE_PER_KWH = 12;
+// Average full-sun hours per day in the Philippines
+export const PEAK_SUN_HOURS = 4.5;
+// Share of the panels' rating that reaches the outlets (wiring, heat, inverter losses)
+export const SYSTEM_DERATE = 0.8;
+export const DAYS_PER_MONTH = 30;
+// Years the system is expected to keep saving (typical panel warranty)
+export const SYSTEM_LIFE_YEARS = 25;
+
 // ---------------------------------------------------------------------
 // SMALL HELPERS
 // ---------------------------------------------------------------------
@@ -340,6 +351,86 @@ export function buildQuote(pkg, panels, battery) {
     ];
 
     return { items, total: items.reduce((sum, item) => sum + item.amount, 0) };
+}
+
+// ---------------------------------------------------------------------
+// STEP 3: SAVINGS ESTIMATE
+// ---------------------------------------------------------------------
+
+// Estimated savings for the chosen system:
+//   production = panels × 610 W ÷ 1000 × 4.5 sun hours × 0.8 × 30 days (kWh/month)
+//   usage      = grand total Wh ÷ 1000 × 30 days (kWh/month)
+//   rate       = average amount ÷ kWh of the bills that have both, else ₱12
+//   savings    = min(usage, production) × rate, never more than the bill
+//   payback    = total price ÷ annual savings
+//   ROA        = annual savings ÷ total price × 100 (the system is the asset,
+//                its yearly savings are the return)
+//   net gain   = savings over 25 years − total price
+// kWh is optional on a bill: a bill with only an amount still caps the
+// savings and gives the estimated new bill, but the default rate is used.
+export function computeSavings(grandWh, panels, total, bills) {
+    const productionKwh = arrayKwp(panels) * PEAK_SUN_HOURS * SYSTEM_DERATE * DAYS_PER_MONTH;
+    const usageKwh = (grandWh / 1000) * DAYS_PER_MONTH;
+
+    const rates = [];
+    const amounts = [];
+
+    bills.forEach((bill) => {
+        const amount = Number(bill.amount);
+        const kwh = Number(bill.kwh);
+
+        if (bill.amount !== '' && amount > 0) {
+            amounts.push(amount);
+            if (bill.kwh !== '' && kwh > 0) rates.push(amount / kwh);
+        }
+    });
+
+    const average = (list) => list.reduce((sum, n) => sum + n, 0) / list.length;
+    const rate = rates.length ? average(rates) : DEFAULT_RATE_PER_KWH;
+    const monthlyBill = amounts.length ? average(amounts) : null;
+
+    let monthlySavings = Math.min(usageKwh, productionKwh) * rate;
+    if (monthlyBill !== null) monthlySavings = Math.min(monthlySavings, monthlyBill);
+
+    const annualSavings = monthlySavings * 12;
+
+    return {
+        rate,
+        rateSource: rates.length ? 'bill' : 'default',
+        productionKwh,
+        usageKwh,
+        monthlyBill,
+        // How many bill amounts went into monthlyBill (2 means it's an average)
+        billCount: amounts.length,
+        monthlySavings,
+        newMonthlyBill: monthlyBill !== null ? Math.max(0, monthlyBill - monthlySavings) : null,
+        annualSavings,
+        paybackYears: annualSavings > 0 ? total / annualSavings : null,
+        ...computeReturn(annualSavings, total),
+    };
+}
+
+// Return on the system, from its annual savings and price. Pages showing an
+// approved quotation call this with the admin's approved total.
+//   roaPercent         = annual savings ÷ total × 100
+//   lifetimeSavings    = annual savings × 25 years
+//   netGain            = lifetime savings − total
+//   lifetimeRoiPercent = net gain ÷ total × 100
+export function computeReturn(annualSavings, total) {
+    const lifetimeSavings = annualSavings * SYSTEM_LIFE_YEARS;
+    const netGain = lifetimeSavings - total;
+
+    return {
+        roaPercent: total > 0 ? (annualSavings / total) * 100 : null,
+        lifetimeSavings,
+        netGain,
+        lifetimeRoiPercent: total > 0 ? (netGain / total) * 100 : null,
+    };
+}
+
+// Signed peso amount: -5000 → "−₱5,000", 5000 → "₱5,000"
+export function signedPeso(n) {
+    return n < 0 ? `−${peso(-n)}` : peso(n);
 }
 
 // ---------------------------------------------------------------------

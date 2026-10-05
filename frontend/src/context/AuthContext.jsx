@@ -83,18 +83,21 @@ export function AuthProvider({ children }) {
 
     // logout function — invalidates the token and clears local state
     const logout = async () => {
-        // Tell the server to delete this token
-        await api.post('/logout');
+        try {
+            // Tell the server to delete this token
+            await api.post('/logout');
+        } catch {
+            // Token already expired or server unreachable — still sign out locally
+        } finally {
+            // Remove token from browser storage
+            clearToken();
 
-        // Remove token from browser storage
-        clearToken();
-
-        // Clear token from state
-        setToken(null);
-
-        // Clear user from state — app now treats this as logged out
-        setUser(null);
+            // Clear token and user from state — app now treats this as logged out
+            setToken(null);
+            setUser(null);
+        }
     };
+
 
     // Provide auth values and functions to all child components
     return (

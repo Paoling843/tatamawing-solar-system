@@ -213,6 +213,83 @@
             </table>
         </div>
 
+        {{-- Estimated Savings (quotations made before this feature have none) --}}
+        @php
+            $computation = $quotation->quotationRequest->solarComputation;
+            // Payback uses the approved total, since the admin may have adjusted the price
+            $paybackYears = $computation && $computation->annual_savings > 0
+                ? $quotation->total_amount / $computation->annual_savings
+                : null;
+            $return = $computation && $computation->annual_savings !== null
+                ? app(\App\Services\SolarComputationService::class)
+                    ->computeReturn((float) $computation->annual_savings, (float) $quotation->total_amount)
+                : null;
+            $lifeYears = \App\Services\SolarComputationService::SYSTEM_LIFE_YEARS;
+        @endphp
+        @if($computation && $computation->monthly_savings !== null)
+        <div class="section-title">Estimated Savings</div>
+        <table class="info-grid">
+            <tr>
+                <td>
+                    <div class="label">Electricity Rate</div>
+                    <div class="value">
+                        PHP{{ number_format($computation->electricity_rate, 2) }}/kWh
+                        ({{ $computation->rate_source === 'bill' ? 'from your bill' : 'default rate' }})
+                    </div>
+                </td>
+                <td>
+                    <div class="label">Monthly Solar Production</div>
+                    <div class="value">{{ number_format($computation->monthly_production_kwh) }} kWh</div>
+                </td>
+                <td>
+                    <div class="label">Monthly Savings</div>
+                    <div class="value">PHP{{ number_format($computation->monthly_savings, 2) }}</div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="label">Annual Savings</div>
+                    <div class="value">PHP{{ number_format($computation->annual_savings, 2) }}</div>
+                </td>
+                <td>
+                    <div class="label">Payback Period</div>
+                    <div class="value">{{ $paybackYears !== null ? number_format($paybackYears, 1) . ' years' : '—' }}</div>
+                </td>
+                @if($computation->new_monthly_bill !== null)
+                <td>
+                    <div class="label">Estimated New Monthly Bill</div>
+                    <div class="value">PHP{{ number_format($computation->new_monthly_bill, 2) }}</div>
+                </td>
+                @endif
+            </tr>
+            <tr>
+                <td>
+                    <div class="label">Return on Asset (ROA)</div>
+                    <div class="value">{{ $return['roa_percent'] !== null ? number_format($return['roa_percent'], 1) . '% per year' : '—' }}</div>
+                </td>
+                <td>
+                    <div class="label">{{ $lifeYears }}-Year Savings</div>
+                    <div class="value">PHP{{ number_format($return['lifetime_savings'], 2) }}</div>
+                </td>
+                <td>
+                    <div class="label">{{ $lifeYears }}-Year Net Gain</div>
+                    <div class="value">
+                        {{ $return['net_gain'] < 0 ? '-' : '' }}PHP{{ number_format(abs($return['net_gain']), 2) }}
+                        @if($return['lifetime_roi_percent'] !== null)
+                            ({{ number_format($return['lifetime_roi_percent'], 1) }}% ROI)
+                        @endif
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <div style="font-size: 10px; color: #6b7280;">
+            ROA is the share of the system price that comes back as savings each year.
+            The {{ $lifeYears }}-year figures assume the system keeps saving at today's rate for its expected life.
+            Savings are an estimate based on {{ \App\Services\SolarComputationService::PEAK_SUN_HOURS }} average sun hours a day
+            and your appliance list. Actual savings depend on weather, usage and your utility's rates.
+        </div>
+        @endif
+
         {{-- Note --}}
         <div class="note">
             <strong>Note:</strong> This quotation is valid for 30 days from the approval date.

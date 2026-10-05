@@ -3,6 +3,7 @@ import {
     arrayKwp, batteryWh, panelOptions, formatWhole, formatDecimal, peso, recommendationReason,
 } from '../../services/solarEngine';
 import { C, MONO, SANS, COST_RAMP, s } from './engineStyles';
+import SavingsCard from './SavingsCard';
 
 // STEP 3 — the recommended package. The customer can:
 //   - move the inverter UP from the recommended package (never below)
@@ -10,7 +11,7 @@ import { C, MONO, SANS, COST_RAMP, s } from './engineStyles';
 //   - pick any battery (up or down)
 // Every change updates the itemized quote immediately.
 export default function PackageStep({
-    load, selection, quote, selectedCost, submitting, submitError, resumeNotice,
+    load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice,
     onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onRequestQuote,
 }) {
     const { pkg, pkgIndex, recommendedPkgIndex, panels, battery, batteryIndex, recommendedBatteryIndex } = selection;
@@ -42,6 +43,8 @@ export default function PackageStep({
         { k: 'Usable storage', v: `${formatDecimal(usableWh)} Wh` },
         { k: 'Adjusted load', v: `${formatWhole(load.adjusted)} Wh` },
         { k: 'Estimated total', v: peso(quote.total) },
+        { k: 'Monthly savings', v: peso(savings.monthlySavings) },
+        { k: 'Annual ROA', v: savings.roaPercent !== null ? `${formatDecimal(Math.round(savings.roaPercent * 10) / 10)}%` : '—' },
     ];
 
     const checks = [
@@ -239,6 +242,9 @@ export default function PackageStep({
                     <div style={{ fontFamily: MONO, color: C.ink, fontSize: '18px', whiteSpace: 'nowrap' }}>{peso(quote.total)}</div>
                 </div>
             </div>
+
+            {/* ================= Estimated savings ================= */}
+            <SavingsCard savings={savings} total={quote.total} />
 
             {/* ================= Summary + coverage check ================= */}
             <div style={{ ...s.card, marginTop: '20px', display: 'flex', flexWrap: 'wrap', overflow: 'hidden' }}>

@@ -14,6 +14,29 @@ class ApiValidationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_user_can_log_in_with_a_valid_local_email(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'local@example.com',
+            'password' => bcrypt('password123'),
+            'role' => 'customer',
+        ]);
+
+        $response = $this->postJson('/api/login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['token', 'user'])
+            ->assertJsonPath('user.email', $user->email);
+
+        $this->withToken($response->json('token'))
+            ->getJson('/api/me')
+            ->assertStatus(200)
+            ->assertJsonPath('email', $user->email);
+    }
+
     public function test_registration_rejects_blank_names_and_malformed_phone(): void
     {
         $response = $this->postJson('/api/register', [
@@ -103,5 +126,6 @@ class ApiValidationTest extends TestCase
             ->get('/api/customer/reports/quotation/' . $quotation->id);
 
         $response->assertStatus(403);
+
     }
 }

@@ -4,6 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { typography } from '../styles/theme';
+import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
 export default function CustomerMyQuotationsPage() {
     const navigate = useNavigate();
@@ -255,6 +256,53 @@ export default function CustomerMyQuotationsPage() {
                                                     </span>
                                                 </div>
                                             </div>
+
+                                            {/* Savings estimate — older quotations don't have one */}
+                                            {qr.solar_computation?.monthly_savings != null && (() => {
+                                                const computation = qr.solar_computation;
+                                                // Once approved, payback uses the approved total
+                                                const total = qr.quotation?.total_amount ?? computation.estimated_cost;
+                                                const annual = parseFloat(computation.annual_savings);
+                                                const payback = annual > 0 ? (parseFloat(total) / annual).toFixed(1) : null;
+                                                const ret = computeReturn(annual, parseFloat(total));
+
+                                                return (
+                                                    <div className="responsive-grid-4" style={{ ...styles.detailsGrid, marginTop: '12px' }}>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>Est. Monthly Savings</span>
+                                                            <span style={styles.detailValue}>{formatCurrency(computation.monthly_savings)}</span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>Est. Annual Savings</span>
+                                                            <span style={styles.detailValue}>{formatCurrency(computation.annual_savings)}</span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>Payback Period</span>
+                                                            <span style={styles.detailValue}>{payback !== null ? `${payback} years` : '—'}</span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>Est. New Monthly Bill</span>
+                                                            <span style={styles.detailValue}>
+                                                                {computation.new_monthly_bill != null ? formatCurrency(computation.new_monthly_bill) : '—'}
+                                                            </span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>Annual ROA</span>
+                                                            <span style={styles.detailValue}>
+                                                                {ret.roaPercent !== null ? `${ret.roaPercent.toFixed(1)}%` : '—'}
+                                                            </span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>{SYSTEM_LIFE_YEARS}-Year Savings</span>
+                                                            <span style={styles.detailValue}>{formatCurrency(ret.lifetimeSavings)}</span>
+                                                        </div>
+                                                        <div style={styles.detailItem}>
+                                                            <span style={styles.detailLabel}>{SYSTEM_LIFE_YEARS}-Year Net Gain</span>
+                                                            <span style={styles.detailValue}>{signedPeso(ret.netGain)}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {qr.quotation && (
                                                 <div style={styles.costBreakdown}>
