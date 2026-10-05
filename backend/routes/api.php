@@ -8,6 +8,7 @@ use App\Http\Controllers\InstallationScheduleController;
 use App\Http\Controllers\ExternalInstallationRequestController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\FaqController;
+use App\Http\Controllers\QuoteSessionController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,14 @@ Route::middleware('auth:sanctum')->group(function () {
 // ============================================================
 
 Route::get('/faqs', [FaqController::class, 'index']);
+
+
+// ============================================================
+// Quote builder usage (anonymous, for analytics)
+// ============================================================
+
+Route::post('/quote-sessions/track', [QuoteSessionController::class, 'track'])
+    ->middleware('throttle:60,1');
 
 
 // ============================================================
@@ -143,6 +152,13 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // ----------------------------
 
         Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index']);
+
+
+        // ----------------------------
+        // Analytics
+        // ----------------------------
+
+        Route::get('/analytics/quote-sessions', [QuoteSessionController::class, 'analytics']);
     });
 
 
