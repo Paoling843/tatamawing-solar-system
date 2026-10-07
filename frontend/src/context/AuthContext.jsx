@@ -7,6 +7,9 @@ import api from '../api/axios';
 // Reads/saves the token in localStorage or sessionStorage (see tokenStorage.js)
 import { getToken, saveToken, clearToken } from '../api/tokenStorage';
 
+// Clears the quote builder's saved inputs on logout
+import { startNewQuoteSession } from '../services/quoteDraft';
+
 // The context object lives in its own module (auth-context.js) so this file
 // only exports components, which keeps Vite's fast refresh working
 import { AuthContext } from './auth-context';
@@ -91,6 +94,10 @@ export function AuthProvider({ children }) {
         } finally {
             // Remove token from browser storage
             clearToken();
+
+            // Forget any unfinished quotation, so the next person on this
+            // browser starts the calculator empty
+            startNewQuoteSession();
 
             // Clear token and user from state — app now treats this as logged out
             setToken(null);

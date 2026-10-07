@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Philippine time: the business, its customers and its reports are all in
+    // Bulan, Sorsogon. Dates like "today" and month boundaries follow this.
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

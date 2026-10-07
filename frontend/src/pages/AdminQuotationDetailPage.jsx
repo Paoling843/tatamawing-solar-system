@@ -265,7 +265,7 @@ export default function AdminQuotationDetailPage() {
 
     const purchaseRequest = quotation?.quotation?.purchase_request;
     const installSchedule = quotation?.quotation?.installation_schedule;
-    const procurementConfirmed = purchaseRequest?.procurement_status === 'confirmed';
+    const isApproved = quotation?.status === 'approved';
     const cycleComplete = Boolean(installSchedule);
 
     // The four milestones in the header stepper, each resolved from the data
@@ -279,17 +279,18 @@ export default function AdminQuotationDetailPage() {
                     ? 'rejected'
                     : 'current',
         },
+        // Materials are arranged with the supplier over Messenger, so this step
+        // is done once a materials list exists (or the job is scheduled) and
+        // never blocks installation
         {
             label: 'Procurement',
-            state: procurementConfirmed
-                ? 'done'
-                : quotation?.status === 'approved' ? 'current' : 'todo',
+            state: purchaseRequest || installSchedule ? 'done' : 'todo',
         },
         {
             label: 'Installation',
             state: installSchedule
                 ? 'done'
-                : procurementConfirmed ? 'current' : 'todo',
+                : isApproved ? 'current' : 'todo',
         },
     ];
 
@@ -953,11 +954,7 @@ export default function AdminQuotationDetailPage() {
                     {quotation?.status === 'approved' && (
                         <section
                             id="installation"
-                            style={{
-                                ...styles.card,
-                                // The design dims this card until procurement is settled
-                                opacity: installSchedule || scheduleSuccess || procurementConfirmed ? 1 : 0.6,
-                            }}
+                            style={styles.card}
                         >
                             <h3 style={styles.cardTitle}>Installation Schedule</h3>
 
@@ -999,20 +996,13 @@ export default function AdminQuotationDetailPage() {
                             ) : (
                                 <div>
                                     <p style={styles.cardDesc}>
-                                        {procurementConfirmed
-                                            ? 'Pick a day, time and technician for this installation.'
-                                            : 'Available once material availability has been confirmed.'}
+                                        Pick a day, time and technician for this installation.
                                     </p>
 
                                     <button
                                         className="btn-primary"
                                         onClick={openScheduleModal}
-                                        style={{
-                                            ...styles.approveBtn,
-                                            opacity: procurementConfirmed ? 1 : 0.55,
-                                            cursor: procurementConfirmed ? 'pointer' : 'not-allowed',
-                                        }}
-                                        disabled={!procurementConfirmed}
+                                        style={styles.approveBtn}
                                     >
                                         <CalendarIcon size={15} color="white" />
                                         <span>Set installation schedule</span>

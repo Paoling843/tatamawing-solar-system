@@ -174,7 +174,13 @@ class ExternalInstallationRequestController extends Controller
             'External Installation Request #' . $updatedRequest->id,
             ['rejection_reason' => $updatedRequest->rejection_reason]
         );
-        Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
+
+        try {
+            Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));
+        } catch (\Throwable $e) {
+            // The rejection is already saved — log the mail failure instead of returning a 500
+            report($e);
+        }
 
         return response()->json([
             'message' => 'External installation request rejected.',

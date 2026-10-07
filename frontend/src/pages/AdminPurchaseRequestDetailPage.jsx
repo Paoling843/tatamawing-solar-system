@@ -42,7 +42,7 @@ export default function AdminPurchaseRequestDetailPage() {
             })));
 
             setConfirmStatus(res.data.procurement_status);
-        } catch (err) {
+        } catch {
             setError('Failed to load purchase request details.');
         } finally {
             setLoading(false);
@@ -119,7 +119,7 @@ export default function AdminPurchaseRequestDetailPage() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
-        } catch (err) {
+        } catch {
             setError('Failed to download the PDF.');
         } finally {
             setDownloading(false);

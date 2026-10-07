@@ -10,7 +10,6 @@ import { colors, typography } from '../styles/theme';
 export default function AdminSystemPage() {
     const navigate = useNavigate();
 
-    const [activeTab, setActiveTab] = useState('User Management');
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');

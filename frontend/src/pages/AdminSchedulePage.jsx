@@ -139,13 +139,6 @@ export default function AdminSchedulePage() {
         return acc;
     }, {});
 
-    const monthKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-    const monthSchedules = schedules.filter((s) => getDateKey(s).startsWith(monthKey));
-    const monthCapacityKw = monthSchedules.reduce(
-        (sum, s) => sum + (parseFloat(getCapacityKw(s)) || 0), 0
-    );
-    const monthDelayed = monthSchedules.filter((s) => s.status === 'delayed').length;
-
     const selectedDaySchedules = filteredSchedules
         .filter((s) => getDateKey(s) === selectedDate)
         .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
@@ -1038,26 +1031,6 @@ const styles = {
         padding: '0.2rem 0.5rem',
         borderRadius: '999px',
         fontSize: '0.7rem',
-    },
-    statsList: {
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    statRow: {
-        display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        padding: '0.7rem 0',
-        borderBottom: `1px solid ${colors.borderLight}`,
-    },
-    statLabel: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
-    },
-    statValue: {
-        fontSize: '0.95rem',
-        fontWeight: '600',
-        color: '#111827',
     },
     modalOverlay: {
         position: 'fixed',
