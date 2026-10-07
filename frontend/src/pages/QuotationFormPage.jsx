@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { trackStep, trackRequested, getQuoteSessionId, endQuoteSession } from '../services/quoteTracker';
+import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
 } from '../services/solarEngine';
@@ -30,13 +31,12 @@ import './quote-builder/engine.css';
 // Guests see the steps full width with the engine header.
 // Logged-in customers see the steps inside CustomerLayout (sidebar).
 //
-// Guests can use the whole flow. Their inputs are saved in sessionStorage,
-// so when they log in or register to request the quotation, they come back
-// to Step 3 with everything still filled in.
+// Every visit starts empty — a refresh, going home or logging out starts a
+// new session. The exception: a guest who presses "Request quotation" is
+// sent to log in or register, and comes back to Step 3 with everything still
+// filled in (see quoteDraft.js).
 // =====================================================================
 
-// Where the unfinished inputs are saved in the browser tab
-const DRAFT_KEY = 'tatamawing.solarEngineDraft';
 
 const EMPTY_BILL = { period: '', amount: '', kwh: '' };
 
@@ -44,32 +44,6 @@ const EMPTY_BILL = { period: '', amount: '', kwh: '' };
 const STEP_NUMBERS = { load: 1, compute: 2, package: 3 };
 const NO_CHOICE = { pkg: null, panels: null, battery: null };
 
-// Reads the saved draft. Returns null if there is none or storage is blocked.
-function loadDraft() {
-    try {
-        const raw = sessionStorage.getItem(DRAFT_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch {
-        return null;
-    }
-}
-
-function saveDraft(draft) {
-    try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    } catch {
-        // Storage can be blocked (e.g. private mode). The page still works,
-        // the inputs just won't survive a reload.
-    }
-}
-
-function clearDraft() {
-    try {
-        sessionStorage.removeItem(DRAFT_KEY);
-    } catch {
-        // Nothing to clear
-    }
-}
 
 // A new, empty appliance row. The id only exists so React can tell rows apart.
 function newRow() {
@@ -91,8 +65,13 @@ export default function QuotationFormPage() {
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
 
-    // Read the saved draft once, when the page first opens
-    const [draft] = useState(loadDraft);
+    // Every visit is a new session: saved inputs only come back when this
+    // visit is the guest's return from the login/register page. (Read only —
+    // React may call this twice in development, so nothing is changed here.)
+    const [draft] = useState(() => {
+        const saved = loadDraft();
+        return saved?.awaitingLogin ? saved : null;
+    });
 
     // ----- State -----
     const [screen, setScreen] = useState(draft?.screen ?? 'load');   // load | compute | package
@@ -104,9 +83,18 @@ export default function QuotationFormPage() {
     // pkg and battery are indexes into PACKAGES / BATTERIES.
     const [choice, setChoice] = useState(draft?.choice ?? NO_CHOICE);
 
-    // True after a guest was sent to log in, so we can welcome them back.
-    // It's set in sendToAuth() and cleared with the draft after submitting.
+    // True when this visit is a guest's return from logging in, so we can
+    // welcome them back. Only kept in memory — see the save effect below.
     const [awaitingLogin] = useState(draft?.awaitingLogin ?? false);
+
+    // A fresh visit also starts a fresh anonymous analytics session. The ref
+    // keeps React's development double-run from starting two of them.
+    const sessionStarted = useRef(false);
+    useEffect(() => {
+        if (sessionStarted.current) return;
+        sessionStarted.current = true;
+        if (!draft) endQuoteSession();
+    }, [draft]);
 
     // Validation display: which fields were visited, and whether Continue was pressed
     const [touched, setTouched] = useState({});
@@ -137,10 +125,12 @@ export default function QuotationFormPage() {
     if (activeScreen === 'landing') activeScreen = 'load';
     if ((activeScreen === 'compute' || activeScreen === 'package') && !loadReady) activeScreen = 'load';
 
-    // Save the inputs after every change so a refresh or a login doesn't lose them
+    // Keep the saved inputs current. awaitingLogin is always saved as false:
+    // the login hand-off is used up once the guest is back here, so a later
+    // refresh starts a new session. Only sendToAuth() saves it as true.
     useEffect(() => {
-        saveDraft({ screen, timeFormat, rows, bills, choice, awaitingLogin });
-    }, [screen, timeFormat, rows, bills, choice, awaitingLogin]);
+        saveDraft({ screen, timeFormat, rows, bills, choice, awaitingLogin: false });
+    }, [screen, timeFormat, rows, bills, choice]);
 
     // Anonymous analytics: report how far this visit got (see quoteTracker.js).
     // Admins trying the calculator aren't counted.

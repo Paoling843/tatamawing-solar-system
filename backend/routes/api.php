@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminQuotationController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\QuotationRequestController;
@@ -158,7 +159,11 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // Analytics
         // ----------------------------
 
+        Route::get('/analytics', [AnalyticsController::class, 'overview']);
         Route::get('/analytics/quote-sessions', [QuoteSessionController::class, 'analytics']);
+        Route::get('/reports/analytics-summary', [ReportController::class, 'analyticsSummaryReport']);
+        Route::get('/reports/quote-sessions', [ReportController::class, 'quoteSessionsReport']);
+        Route::get('/reports/external-requests', [ReportController::class, 'externalRequestsReport']);
     });
 
 

@@ -8,9 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\InstallationSchedule;
 use App\Models\Quotation;
 use App\Models\Customer;
-use App\Models\PurchaseRequest;
 use App\Services\AuditLogger;
-use Illuminate\Support\Facades\Validator;
 
 class InstallationScheduleController extends Controller
 {
@@ -34,19 +32,8 @@ class InstallationScheduleController extends Controller
                 ], 422);
             }
 
-            $purchaseRequest = PurchaseRequest::where('quotation_id', $request->quotation_id)->first();
-
-            if (!$purchaseRequest) {
-                return response()->json([
-                    'message' => 'A purchase request must be generated before scheduling an installation.'
-                ], 422);
-            }
-
-            if ($purchaseRequest->procurement_status !== 'confirmed') {
-                return response()->json([
-                    'message' => 'Installation can only be scheduled after the supplier has confirmed the availability of all materials.'
-                ], 422);
-            }
+            // No purchase-request step is required: materials are arranged with
+            // the supplier over Messenger, outside the system
 
             if (InstallationSchedule::where('quotation_id', $request->quotation_id)->exists()) {
                 return response()->json([
@@ -138,15 +125,12 @@ class InstallationScheduleController extends Controller
     {
         $this->authorize('updateStatus', $installationSchedule);
 
-        $validator = Validator::make($request->all(), [
+        // Returns a 422 with both "message" (shown by the admin page) and "errors"
+        $request->validate([
             'status' => 'required|in:scheduled,in_progress,completed,delayed',
+        ], [
+            'status.in' => 'Choose a valid status: scheduled, in progress, completed or delayed.',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors()
-            ], 422);
-        }
 
         $installationSchedule->update([
             'status' => $request->status,

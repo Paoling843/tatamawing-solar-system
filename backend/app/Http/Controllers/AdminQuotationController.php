@@ -67,13 +67,23 @@ class AdminQuotationController extends Controller
             ], 422);
         }
 
+        // Requests made before the Solar Computation Engine have no computed
+        // cost, so the admin has to enter one
+        $computedCost = $quotationRequest->solarComputation?->estimated_cost;
+
+        if ($request->adjusted_cost === null && $computedCost === null) {
+            return response()->json([
+                'message' => 'This request has no computed system cost. Enter an adjusted cost to approve it.',
+                'errors' => ['adjusted_cost' => ['Enter the system cost for this request.']],
+            ], 422);
+        }
+
         $admin = $request->user()->admin()->firstOrCreate([
             'user_id' => $request->user()->id,
         ], [
             'department' => 'Operations',
         ]);
 
-        $computedCost = $quotationRequest->solarComputation->estimated_cost;
         $adjustedCost = $request->adjusted_cost ?? $computedCost;
         $laborFee = $request->labor_fee ?? 0;
         $transportationFee = $request->transportation_fee ?? 0;

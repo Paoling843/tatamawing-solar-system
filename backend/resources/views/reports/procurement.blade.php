@@ -26,7 +26,7 @@
 <body>
     <div class="header">
         <h1>Procurement Report</h1>
-        <p>TataMawing Solar Power Installation Service &bull; Generated: {{ $generatedAt }}</p>
+        <p>TataMawing Solar Power Installation Service &bull; Generated: {{ $generatedAt }} &bull; {{ $periodLabel ?? 'All time' }}</p>
     </div>
 
     <div class="content">

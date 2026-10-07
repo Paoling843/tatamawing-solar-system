@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { startNewQuoteSession } from '../services/quoteDraft';
 import { useAuth } from '../context/auth-context';
 import EngineHeader from './quote-builder/EngineHeader';
 import EngineLanding from './quote-builder/EngineLanding';
@@ -12,6 +14,12 @@ import './quote-builder/engine.css';
 export default function LandingPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
+
+    // Coming back to the home page (e.g. the logo) ends the quote-builder
+    // session, so "Get Started" always opens an empty calculator
+    useEffect(() => {
+        startNewQuoteSession();
+    }, []);
 
     const start = () => navigate('/quotation/new');
     const setInstallation = () => {

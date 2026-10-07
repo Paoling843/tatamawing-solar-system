@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import { useAuth } from '../context/auth-context';
-import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
 import {
     DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
@@ -16,7 +15,6 @@ const SORT_OPTIONS = ['Newest first', 'Oldest first', 'Highest value', 'Lowest v
 export default function CustomerDashboardPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { openPanel } = useMessagePanel();
 
     const [quotationRequests, setQuotationRequests] = useState([]);
     const [schedule, setSchedule] = useState(null);
