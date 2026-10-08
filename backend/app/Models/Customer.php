@@ -23,6 +23,12 @@ class Customer extends Model
         return $this->hasMany(QuotationRequest::class);
     }
 
+    // The newest request — the one the admin inbox links a conversation to
+    public function latestQuotationRequest()
+    {
+        return $this->hasOne(QuotationRequest::class)->latestOfMany();
+    }
+
     public function installationSchedules()
     {
         return $this->hasMany(InstallationSchedule::class);
