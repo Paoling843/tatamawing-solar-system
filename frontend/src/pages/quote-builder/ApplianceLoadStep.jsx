@@ -32,6 +32,14 @@ export default function ApplianceLoadStep({
                 Daytime hours are use between 08:00 and 16:00, when the array is generating. Nighttime
                 hours are 16:00 to 08:00 and are what the battery has to carry.
             </p>
+            {/* Privacy notice for the anonymous calculator tracking (quoteTracker.js) */}
+            <p style={styles.privacyNote}>
+                We count how far visitors get in this calculator, without names, to improve it. Nothing that
+                identifies you is saved until you send a request.{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontWeight: 600 }}>
+                    Privacy Policy
+                </a>
+            </p>
 
             {/* ================= Installation location ================= */}
             <LocationCard
@@ -399,6 +407,7 @@ function BillCard({ index, bill, mostRecentPeriod, onChange }) {
 }
 
 const styles = {
+    privacyNote: { margin: '10px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: C.sub, maxWidth: '660px' },
     layout: { display: 'flex', flexWrap: 'wrap', gap: '28px', alignItems: 'flex-start', marginTop: '36px' },
     listCard: { ...s.card, flex: '1 1 760px', minWidth: 0, overflow: 'hidden' },
     listHead: {

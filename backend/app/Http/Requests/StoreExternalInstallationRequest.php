@@ -30,6 +30,8 @@ class StoreExternalInstallationRequest extends FormRequest
             'preferred_installation_date' => ['required', 'date', 'after_or_equal:today'],
             'other_company_name' => ['required', 'string', 'min:2', 'max:255'],
             'quotation_file' => ['required', 'file', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:10240'],
+            // These visitors never register, so they agree to the Privacy Policy here
+            'privacy_consent' => ['accepted'],
         ];
     }
 
@@ -40,6 +42,7 @@ class StoreExternalInstallationRequest extends FormRequest
             'barangay.required' => 'Enter the barangay where the system will be installed.',
             'site_description.max' => 'Keep the description of your house under 1,000 characters.',
             'quotation_file.mimetypes' => 'Upload a PDF, JPG, JPEG, or PNG quotation file.',
+            'privacy_consent.accepted' => 'Please agree to the Privacy Policy to send your request.',
         ];
     }
 

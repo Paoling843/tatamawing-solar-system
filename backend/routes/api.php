@@ -59,6 +59,9 @@ Route::get('/external-installation-requests/{externalInstallationRequest}/status
     ->middleware('signed')
     ->name('external-installation-requests.status');
 
+// How to reach the business owner (shown on the Privacy Policy / Terms pages)
+Route::get('/contact', [InboxSettingsController::class, 'contact'])->middleware('throttle:60,1');
+
 
 // ============================================================
 // Messages

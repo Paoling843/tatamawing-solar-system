@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import { useAuth } from '../context/auth-context';
@@ -523,11 +523,11 @@ export default function CustomerDashboardPage() {
                     <div style={styles.footer}>
                         <div style={styles.footerLeft}>
                             <span style={styles.footerText}>
-                                © 2024 TataMawing Solar. All rights reserved.
+                                © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
                             </span>
                             <div style={styles.footerLinks}>
-                                <span style={styles.footerLink}>Privacy Policy</span>
-                                <span style={styles.footerLink}>Terms of Service</span>
+                                <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
+                                <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
                                 <span style={styles.footerLink}>Sustainability Report</span>
                             </div>
                         </div>
@@ -1125,6 +1125,7 @@ const styles = {
         fontSize: '0.75rem',
         color: colors.textMuted,
         cursor: 'pointer',
+        textDecoration: 'none',
     },
     systemStatus: {
         display: 'flex',

@@ -22,6 +22,8 @@ const EMPTY_FORM = {
     preferred_installation_date: '',
     other_company_name: '',
     quotation_file: null,
+    // Visitors here never register, so they agree to the Privacy Policy on this form
+    privacy_consent: false,
 };
 
 export default function ExternalInstallationRequestPage() {
@@ -48,12 +50,21 @@ export default function ExternalInstallationRequestPage() {
             document.getElementById('ext-barangay')?.focus();
             return;
         }
+        if (!form.privacy_consent) {
+            setFieldErrors((previous) => ({ ...previous, privacy_consent: 'Please agree to the Privacy Policy to send your request.' }));
+            return;
+        }
         setSubmitting(true);
         setError('');
         setFieldErrors({});
 
         const payload = new FormData();
-        Object.entries({ ...form, barangay: officialBarangay(form.barangay), site_description: form.site_description.trim() })
+        Object.entries({
+            ...form,
+            barangay: officialBarangay(form.barangay),
+            site_description: form.site_description.trim(),
+            privacy_consent: form.privacy_consent ? '1' : '',
+        })
             .forEach(([key, value]) => {
                 if (value !== null && value !== '') payload.append(key, value);
             });
@@ -173,8 +184,31 @@ export default function ExternalInstallationRequestPage() {
                         </Field>
                     </div>
 
+                    <div>
+                        <label style={styles.consent}>
+                            <input
+                                type="checkbox"
+                                checked={form.privacy_consent}
+                                onChange={(event) => updateField('privacy_consent', event.target.checked)}
+                                style={styles.consentBox}
+                            />
+                            <span>
+                                I agree that TataMawing Solar may use the details and file I send to review and schedule
+                                my installation, as explained in the{' '}
+                                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={styles.inlineLink}>Privacy Policy</a>
+                                {' '}and{' '}
+                                <a href="/terms" target="_blank" rel="noopener noreferrer" style={styles.inlineLink}>Terms of Service</a>.
+                            </span>
+                        </label>
+                        {fieldErrors.privacy_consent && (
+                            <span style={styles.fieldError}>
+                                {Array.isArray(fieldErrors.privacy_consent) ? fieldErrors.privacy_consent[0] : fieldErrors.privacy_consent}
+                            </span>
+                        )}
+                    </div>
+
                     <div style={styles.formFooter}>
-                        <p style={styles.privacyNote}>Your quotation is stored privately and reviewed only by our staff.</p>
+                        <p style={styles.privacyNote}>Your quotation is stored privately and seen only by the business owner.</p>
                         <button type="submit" disabled={submitting} style={{ ...styles.submitButton, opacity: submitting ? 0.7 : 1 }}>
                             {submitting ? 'Submitting...' : 'Submit installation request'}
                         </button>
@@ -229,6 +263,9 @@ const styles = {
     fileInput: { display: 'flex', alignItems: 'center', gap: '8px', minHeight: '43px', boxSizing: 'border-box', border: `1px dashed ${colors.primaryBorder}`, borderRadius: '8px', padding: '0 12px', color: colors.textMuted, fontSize: '13px', cursor: 'pointer' },
     hiddenFileInput: { display: 'none' },
     fieldError: { color: colors.danger, fontSize: '12px' },
+    consent: { display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', lineHeight: 1.5, color: colors.textBody, cursor: 'pointer' },
+    consentBox: { width: '16px', height: '16px', marginTop: '2px', flex: 'none', accentColor: colors.primary, cursor: 'pointer' },
+    inlineLink: { color: colors.primary, fontWeight: 600 },
     error: { background: colors.dangerTint, color: colors.danger, borderRadius: '8px', padding: '12px', marginBottom: '18px', fontSize: '13px' },
     formFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', flexWrap: 'wrap', marginTop: '8px', paddingTop: '20px', borderTop: `1px solid ${colors.borderLight}` },
     privacyNote: { ...typography.small, margin: 0, maxWidth: '340px' },
