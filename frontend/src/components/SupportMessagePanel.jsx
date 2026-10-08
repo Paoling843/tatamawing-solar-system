@@ -201,6 +201,7 @@ export default function SupportMessagePanel() {
                             <span style={styles.cardText}>
                                 Sorry for the wait. You can reach our admin directly on Messenger for a faster reply.
                             </span>
+                            <span style={styles.cardFootnote}>Opens Facebook Messenger. Meta's privacy policy applies there.</span>
                         </div>
                         <div style={styles.cardActions}>
                             {message.meta?.url ? (
@@ -302,6 +303,10 @@ export default function SupportMessagePanel() {
                         </div>
 
                         <div ref={threadRef} style={styles.thread}>
+                            <p style={styles.privacyNote}>
+                                Messages are read by the TataMawing Solar owner. Please don't send passwords or bank details.{' '}
+                                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={styles.privacyLink}>Privacy</a>
+                            </p>
                             {messages.length === 0 ? (
                                 <div style={styles.emptyThread}>
                                     No messages yet. Send a message to start a conversation.
@@ -529,6 +534,9 @@ const styles = {
     },
     cardBody: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px' },
     cardTitle: { fontSize: '14px', fontWeight: 600 },
+    cardFootnote: { fontSize: '11px', lineHeight: 1.4, color: T.faint, marginTop: '2px' },
+    privacyNote: { margin: '0 0 4px', fontSize: '11.5px', lineHeight: 1.45, color: T.faint, textAlign: 'center' },
+    privacyLink: { color: T.muted, fontWeight: 600 },
     cardText: { fontSize: '13px', lineHeight: 1.45, color: T.body },
     cardActions: { display: 'flex', borderTop: `1px solid ${T.line}` },
     messengerBtn: {

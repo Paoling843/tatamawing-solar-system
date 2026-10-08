@@ -27,6 +27,8 @@ import CustomerDownloadsPage from './pages/CustomerDownloadsPage';
 import CustomerMyQuotationsPage from './pages/CustomerMyQuotationsPage';
 import LandingPage from './pages/LandingPage';
 import ExternalInstallationRequestPage from './pages/ExternalInstallationRequestPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
 
 function ProtectedRoute({ children, allowedRoles }) {
     const { user, loading } = useAuth();
@@ -55,6 +57,10 @@ export default function App() {
                 required when they press "Request quotation" */}
             <Route path="/quotation/new" element={<QuotationFormPage />} />
             <Route path="/external-installation-request" element={<ExternalInstallationRequestPage />} />
+
+            {/* Public legal pages (linked from sign-up, footers and the forms) */}
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
 
             <Route path="*" element={<Navigate to="/login" />} />
 

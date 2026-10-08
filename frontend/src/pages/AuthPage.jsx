@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import { safeRedirect } from '../utils/safeRedirect';
 import logo from '../assets/logo.jpg';
@@ -427,7 +427,11 @@ export default function AuthPage({ initialMode = 'login' }) {
                                         describedBy={fieldError('terms') ? 'terms-error' : undefined}
                                         onChange={(checked) => { setValue('terms', checked); touch('terms'); }}
                                     >
-                                        I agree to the Terms of Service and Privacy Policy
+                                        {/* New tab, so the half-filled form isn't lost */}
+                                        I agree to the{' '}
+                                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="auth-link" style={styles.legalLink}>Terms of Service</a>
+                                        {' '}and{' '}
+                                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="auth-link" style={styles.legalLink}>Privacy Policy</a>
                                     </Checkbox>
                                     <FieldError id="terms-error" message={fieldError('terms')} />
                                 </div>
@@ -525,8 +529,8 @@ export default function AuthPage({ initialMode = 'login' }) {
             <footer className="auth-footer" style={styles.footer}>
                 <span>© 2026 TataMawing Solar</span>
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    <span>Terms</span>
-                    <span>Privacy</span>
+                    <Link to="/terms" className="auth-link" style={styles.footerLink}>Terms</Link>
+                    <Link to="/privacy" className="auth-link" style={styles.footerLink}>Privacy</Link>
                     <span>Support</span>
                 </div>
             </footer>
@@ -613,6 +617,8 @@ function StrengthMeter({ score, strength }) {
 // ---------------------------------------------------------------------
 
 const styles = {
+    legalLink: { color: T.green, fontWeight: 600 },
+    footerLink: { color: 'inherit', textDecoration: 'none' },
     page: {
         minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column',
         background: T.page, fontFamily: SANS, color: T.ink, WebkitFontSmoothing: 'antialiased',

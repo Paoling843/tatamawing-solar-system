@@ -31,6 +31,7 @@ class ExternalRequestLocationTest extends TestCase
             'preferred_installation_date' => now()->addWeek()->toDateString(),
             'other_company_name' => 'Other Solar Co.',
             'quotation_file' => UploadedFile::fake()->create('quotation.pdf', 100, 'application/pdf'),
+            'privacy_consent' => true,
         ] + $location;
     }
 
@@ -60,6 +61,22 @@ class ExternalRequestLocationTest extends TestCase
         $this->assertSame('Purok 5', $request->install_purok);
         $this->assertSame('Purok 5, Brgy. J. P. Laurel, Bulan, Sorsogon', $request->address);
         $this->assertSame("Bungalow, concrete roof.\nGate is blue.", $request->site_description);
+    }
+
+    public function test_privacy_consent_is_required(): void
+    {
+        $payload = $this->payload(['barangay' => 'Gate']);
+        unset($payload['privacy_consent']);
+
+        $this->postJson('/api/external-installation-requests', $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.privacy_consent.0', 'Please agree to the Privacy Policy to send your request.');
+
+        $this->postJson('/api/external-installation-requests', ['privacy_consent' => false] + $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('privacy_consent');
+
+        $this->assertSame(0, ExternalInstallationRequest::count());
     }
 
     public function test_external_requests_count_in_top_locations(): void

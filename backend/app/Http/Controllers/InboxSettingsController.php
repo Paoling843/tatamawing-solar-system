@@ -19,6 +19,15 @@ class InboxSettingsController extends Controller
         return response()->json($this->fallback->settings());
     }
 
+    // Public: how to reach the owner, for the Privacy Policy and Terms pages.
+    // Only the Messenger link — it's already shown to customers in the chat.
+    public function contact()
+    {
+        return response()->json([
+            'messenger_url' => $this->fallback->settings()['messenger_url'],
+        ]);
+    }
+
     // Each control saves on its own, so every field is optional
     public function update(Request $request)
     {

@@ -149,6 +149,15 @@ class MessengerFallbackTest extends TestCase
         $this->actingAs($this->customer, 'sanctum')->putJson('/api/admin/inbox-settings', ['fallback_enabled' => false])->assertForbidden();
     }
 
+    public function test_public_contact_shows_only_the_messenger_link(): void
+    {
+        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => null]);
+
+        $this->enable(10);
+
+        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => self::URL]);
+    }
+
     public function test_admin_can_send_the_link_by_hand(): void
     {
         $send = fn (User $from, int $to) => $this->actingAs($from, 'sanctum')
