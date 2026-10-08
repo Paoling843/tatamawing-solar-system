@@ -4,6 +4,7 @@ import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { trackStep, trackRequested, getQuoteSessionId, endQuoteSession } from '../services/quoteTracker';
 import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
+import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
 } from '../services/solarEngine';
@@ -79,6 +80,9 @@ export default function QuotationFormPage() {
     const [rows, setRows] = useState(draft?.rows ?? []);
     const [bills, setBills] = useState(draft?.bills ?? [EMPTY_BILL, EMPTY_BILL]);
 
+    // Where the system will be installed (top of Step 1)
+    const [location, setLocation] = useState(() => ({ ...EMPTY_LOCATION, ...(draft?.location ?? {}) }));
+
     // The customer's Step 3 picks. null means "use the recommended default".
     // pkg and battery are indexes into PACKAGES / BATTERIES.
     const [choice, setChoice] = useState(draft?.choice ?? NO_CHOICE);
@@ -111,7 +115,10 @@ export default function QuotationFormPage() {
     const selection = resolveSelection(load, choice);
     const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
     const savings = computeSavings(load.grand, selection.panels, quote.total, bills);
-    const loadReady = rows.length > 0 && rows.every(isRowComplete);
+    const appliancesReady = rows.length > 0 && rows.every(isRowComplete);
+    const locationReady = isLocationComplete(location);
+    // Step 1 is done when the location and every appliance row are filled in
+    const loadReady = appliancesReady && locationReady;
 
     // Logged-in customers use the engine inside their sidebar layout
     const isCustomer = user?.role === 'customer';
@@ -119,8 +126,8 @@ export default function QuotationFormPage() {
     // Which screen to actually show:
     // - a draft saved before the landing moved to the home page may still
     //   say 'landing'; start those at Step 1
-    // - Steps 2 and 3 need a valid appliance list; if it isn't (e.g. every
-    //   row was removed), fall back to Step 1
+    // - Steps 2 and 3 need a valid location and appliance list; if they
+    //   aren't (e.g. every row was removed), fall back to Step 1
     let activeScreen = screen;
     if (activeScreen === 'landing') activeScreen = 'load';
     if ((activeScreen === 'compute' || activeScreen === 'package') && !loadReady) activeScreen = 'load';
@@ -129,8 +136,8 @@ export default function QuotationFormPage() {
     // the login hand-off is used up once the guest is back here, so a later
     // refresh starts a new session. Only sendToAuth() saves it as true.
     useEffect(() => {
-        saveDraft({ screen, timeFormat, rows, bills, choice, awaitingLogin: false });
-    }, [screen, timeFormat, rows, bills, choice]);
+        saveDraft({ screen, timeFormat, rows, bills, location, choice, awaitingLogin: false });
+    }, [screen, timeFormat, rows, bills, location, choice]);
 
     // Anonymous analytics: report how far this visit got (see quoteTracker.js).
     // Admins trying the calculator aren't counted.
@@ -164,6 +171,9 @@ export default function QuotationFormPage() {
             return next;
         }));
     };
+
+    // ----- Step 1: installation location -----
+    const handleLocationChange = (key, value) => setLocation((prev) => ({ ...prev, [key]: value }));
 
     const handleTouch = (id, key) => {
         setTouched((prev) => ({ ...prev, [`${id}:${key}`]: true }));
@@ -246,6 +256,8 @@ export default function QuotationFormPage() {
             // The session ID links this request to the anonymous quote-builder visit
             await api.post('/quotation-requests', {
                 ...buildSubmitPayload(rows, bills, selection),
+                location: locationPayload(location),
+                site_description: location.description.trim() || null,
                 quote_session_id: getQuoteSessionId(),
             });
             clearDraft();
@@ -260,7 +272,7 @@ export default function QuotationFormPage() {
     // Send the guest to login/register. The draft is written right away
     // (not in the effect above) because the page unmounts immediately.
     const sendToAuth = (path) => {
-        saveDraft({ screen: 'package', timeFormat, rows, bills, choice, awaitingLogin: true });
+        saveDraft({ screen: 'package', timeFormat, rows, bills, location, choice, awaitingLogin: true });
         navigate(`${path}?redirect=${encodeURIComponent('/quotation/new')}`);
     };
 
@@ -299,6 +311,10 @@ export default function QuotationFormPage() {
                     onAddRow={handleAddRow}
                     onRemoveRow={handleRemoveRow}
                     onBillChange={handleBillChange}
+                    location={location}
+                    locationReady={locationReady}
+                    appliancesReady={appliancesReady}
+                    onLocationChange={handleLocationChange}
                     onContinue={handleContinue}
                 />
             )}

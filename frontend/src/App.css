@@ -139,24 +139,53 @@
     }
 }
 
-/* ---------- Fixed-width two-column layouts (Inbox chat, System page) ---------- */
+/* ---------- Admin inbox (conversations | thread | details) ---------- */
+/* The columns are set inline for desktop; on narrow screens they stack —
+   list on top, then the thread, then the details — so !important is needed
+   to win over the inline styles. */
+@media (max-width: 900px) {
+    .inbox-card {
+        grid-template-columns: minmax(0, 1fr) !important;
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .inbox-list {
+        max-height: 300px;
+        border-right: none !important;
+        border-bottom: 1px solid #efefea;
+    }
+    .inbox-thread {
+        height: 70vh;
+        min-height: 460px;
+    }
+    .inbox-details {
+        border-left: none !important;
+        border-top: 1px solid #efefea;
+    }
+}
+
+/* ---------- Customer "Chat with us" button (SupportMessagePanel) ---------- */
+/* Background lives here (not inline) so the hover colour can apply */
+.chat-with-us {
+    background: #1f4d3a;
+    transition: background 0.15s ease;
+}
+.chat-with-us:hover,
+.chat-with-us:focus-visible {
+    background: #163a2b;
+}
+@media (max-width: 640px) {
+    .chat-with-us {
+        right: 16px !important;
+        bottom: 16px !important;
+    }
+}
+
+/* ---------- Fixed-width two-column layouts (System page) ---------- */
 /* These pages set gridTemplateColumns/width inline (e.g. '1fr 280px') for
    desktop layout math, so the mobile override needs !important to win over
    the inline style at this breakpoint. */
 @media (max-width: 640px) {
-    .chat-panel-wrap {
-        flex-direction: column;
-        height: auto !important;
-    }
-    .chat-left-panel {
-        width: 100% !important;
-        max-height: 260px;
-        border-right: none !important;
-        border-bottom: 1px solid #e5e7eb;
-    }
-    .chat-right-panel {
-        min-height: 420px;
-    }
     .content-grid-sidebar {
         grid-template-columns: 1fr !important;
     }

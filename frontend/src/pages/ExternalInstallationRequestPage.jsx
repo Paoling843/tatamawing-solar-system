@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import BarangayInput from '../components/BarangayInput';
 import { CalendarIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
+import {
+    HOME_MUNICIPALITY, HOME_PROVINCE, SITE_DESCRIPTION_MAX,
+    barangayError, officialBarangay,
+} from '../services/installLocation';
 import { colors, typography } from '../styles/theme';
 
 const MIN_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -10,7 +15,10 @@ const EMPTY_FORM = {
     name: '',
     email: '',
     phone: '',
-    address: '',
+    // Same location inputs as the quote builder (Bulan only for now)
+    barangay: '',
+    purok: '',
+    site_description: '',
     preferred_installation_date: '',
     other_company_name: '',
     quotation_file: null,
@@ -23,6 +31,9 @@ export default function ExternalInstallationRequestPage() {
     const [fieldErrors, setFieldErrors] = useState({});
     const [success, setSuccess] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    // Show the barangay's own message once the field was left or Submit pressed
+    const [barangayTouched, setBarangayTouched] = useState(false);
+    const barangayMessage = fieldErrors.barangay || (barangayTouched ? barangayError(form) : null);
 
     const updateField = (field, value) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -32,14 +43,20 @@ export default function ExternalInstallationRequestPage() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        setBarangayTouched(true);
+        if (barangayError(form)) {
+            document.getElementById('ext-barangay')?.focus();
+            return;
+        }
         setSubmitting(true);
         setError('');
         setFieldErrors({});
 
         const payload = new FormData();
-        Object.entries(form).forEach(([key, value]) => {
-            if (value !== null && value !== '') payload.append(key, value);
-        });
+        Object.entries({ ...form, barangay: officialBarangay(form.barangay), site_description: form.site_description.trim() })
+            .forEach(([key, value]) => {
+                if (value !== null && value !== '') payload.append(key, value);
+            });
 
         try {
             const response = await api.post('/external-installation-requests', payload, {
@@ -47,6 +64,7 @@ export default function ExternalInstallationRequestPage() {
             });
             setSuccess(response.data.request);
             setForm(EMPTY_FORM);
+            setBarangayTouched(false);
         } catch (requestError) {
             setError(requestError.response?.data?.message || 'We could not submit your request. Please try again.');
             setFieldErrors(requestError.response?.data?.errors || {});
@@ -103,8 +121,40 @@ export default function ExternalInstallationRequestPage() {
                         </Field>
                     </div>
 
-                    <Field label="Installation address" error={fieldErrors.address}>
-                        <textarea value={form.address} onChange={(event) => updateField('address', event.target.value)} style={styles.textarea} rows={3} required />
+                    <div style={styles.sectionTitle}>Where will the system be installed?</div>
+                    <div style={styles.grid}>
+                        <Field label="Municipality">
+                            {/* Fixed for now: installations are in Bulan only */}
+                            <div style={styles.fixedValue}>{HOME_MUNICIPALITY}, {HOME_PROVINCE}</div>
+                        </Field>
+                        <Field label="Barangay *" htmlFor="ext-barangay" error={barangayMessage}>
+                            <BarangayInput
+                                id="ext-barangay"
+                                value={form.barangay}
+                                onChange={(value) => updateField('barangay', value)}
+                                onDone={() => setBarangayTouched(true)}
+                                inputStyle={{ ...styles.input, ...(barangayMessage ? styles.inputInvalid : {}) }}
+                                colors={{ text: colors.textBody, muted: colors.textMuted, border: colors.border, active: colors.primaryTint }}
+                            />
+                        </Field>
+                        <Field label="Purok / street (optional)" error={fieldErrors.purok}>
+                            <input value={form.purok} onChange={(event) => updateField('purok', event.target.value)} placeholder="e.g. Purok 3" maxLength={255} style={styles.input} />
+                        </Field>
+                    </div>
+
+                    <Field label="About the house or site (optional)" error={fieldErrors.site_description}>
+                        <textarea
+                            value={form.site_description}
+                            onChange={(event) => updateField('site_description', event.target.value)}
+                            maxLength={SITE_DESCRIPTION_MAX}
+                            rows={3}
+                            placeholder="e.g. Two-storey concrete house, GI sheet roof facing south, a mango tree shades part of the roof in the afternoon. Narrow road — only a tricycle can reach the gate."
+                            style={styles.textarea}
+                        />
+                        <span style={styles.hint}>
+                            <span>Roof type, number of floors, shading, how to reach the house — anything that helps us plan.</span>
+                            <span style={{ whiteSpace: 'nowrap' }}>{form.site_description.length} / {SITE_DESCRIPTION_MAX}</span>
+                        </span>
                     </Field>
 
                     <div style={styles.grid}>
@@ -135,12 +185,24 @@ export default function ExternalInstallationRequestPage() {
     );
 }
 
-function Field({ label, error, children }) {
+// With `htmlFor` the label points at the input instead of wrapping it — the
+// barangay box has a suggestion list that shouldn't sit inside a <label>
+function Field({ label, htmlFor, error, children }) {
+    const message = error && <span style={styles.fieldError}>{Array.isArray(error) ? error[0] : error}</span>;
+    if (htmlFor) {
+        return (
+            <div style={styles.field}>
+                <label htmlFor={htmlFor} style={styles.label}>{label}</label>
+                {children}
+                {message}
+            </div>
+        );
+    }
     return (
         <label style={styles.field}>
             <span style={styles.label}>{label}</span>
             {children}
-            {error && <span style={styles.fieldError}>{Array.isArray(error) ? error[0] : error}</span>}
+            {message}
         </label>
     );
 }
@@ -157,6 +219,10 @@ const styles = {
     field: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 },
     label: { fontSize: '12px', fontWeight: 700, color: colors.textBody },
     input: { width: '100%', boxSizing: 'border-box', border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textDark, background: '#fff' },
+    inputInvalid: { borderColor: colors.danger, background: colors.dangerTint },
+    fixedValue: { border: `1px solid ${colors.borderLight}`, background: colors.bgSubtle, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textBody },
+    sectionTitle: { fontSize: '14px', fontWeight: 700, color: colors.textDark, marginTop: '6px', paddingTop: '18px', borderTop: `1px solid ${colors.borderLight}` },
+    hint: { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: colors.textMuted },
     textarea: { width: '100%', boxSizing: 'border-box', resize: 'vertical', border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textDark, fontFamily: 'inherit' },
     inputWithIcon: { display: 'flex', alignItems: 'center', gap: '8px', border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '0 12px' },
     iconInput: { flex: 1, minWidth: 0, border: 'none', outline: 'none', padding: '12px 0', fontSize: '14px', color: colors.textDark },

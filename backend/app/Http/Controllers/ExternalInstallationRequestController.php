@@ -10,6 +10,7 @@ use App\Mail\ExternalInstallationRequestStatusUpdated;
 use App\Models\ExternalInstallationRequest;
 use App\Models\InstallationSchedule;
 use App\Services\AuditLogger;
+use App\Support\BulanBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -20,11 +21,21 @@ class ExternalInstallationRequestController extends Controller
 {
     public function store(StoreExternalInstallationRequest $request)
     {
+        // Same location inputs as the quote builder; the barangay is saved
+        // with its official spelling and `address` is built from the parts
+        $barangay = BulanBarangays::canonical($request->barangay);
+        $purok = $request->purok ?: null;
+
         $requestRecord = ExternalInstallationRequest::create([
             'name' => trim($request->name),
             'email' => strtolower(trim($request->email)),
             'phone' => preg_replace('/\s+/', '', trim($request->phone)),
-            'address' => trim($request->address),
+            'address' => collect([$purok, "Brgy. {$barangay}", BulanBarangays::MUNICIPALITY, BulanBarangays::PROVINCE])->filter()->implode(', '),
+            'install_purok' => $purok,
+            'install_barangay' => $barangay,
+            'install_municipality' => BulanBarangays::MUNICIPALITY,
+            'install_province' => BulanBarangays::PROVINCE,
+            'site_description' => trim((string) $request->site_description) ?: null,
             'preferred_installation_date' => $request->preferred_installation_date,
             'other_company_name' => trim($request->other_company_name),
             'quotation_file_path' => $request->file('quotation_file')->store('external-installation-quotations'),

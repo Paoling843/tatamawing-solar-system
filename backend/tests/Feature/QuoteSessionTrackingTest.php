@@ -32,6 +32,7 @@ class QuoteSessionTrackingTest extends TestCase
                 'night_from' => 16,
                 'night_to' => 19,
             ]],
+            'location' => ['province' => 'Sorsogon', 'municipality' => 'Bulan', 'barangay' => 'Bical', 'purok' => 'Purok 2'],
             'package_kw' => 8,
             'panel_count' => 10,
             'battery_ah' => 205,

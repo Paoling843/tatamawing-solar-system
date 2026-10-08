@@ -274,7 +274,8 @@ export default function CustomerSchedulePage() {
                                                                 Installation Location
                                                             </span>
                                                             <span style={styles.detailValue}>
-                                                                {schedule.quotation?.quotation_request
+                                                                {schedule.quotation?.quotation_request?.installation_address ||
+                                                                    schedule.quotation?.quotation_request
                                                                     ?.customer?.install_location ||
                                                                     schedule.customer?.install_location || '—'}
                                                             </span>

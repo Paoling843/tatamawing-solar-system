@@ -9,6 +9,7 @@ use App\Http\Controllers\InstallationScheduleController;
 use App\Http\Controllers\ExternalInstallationRequestController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\FaqController;
+use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Http\Request;
@@ -173,6 +174,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/conversations', [MessageController::class, 'getConversations']);
+    Route::get('/admin/inbox-settings', [InboxSettingsController::class, 'show']);
+    Route::put('/admin/inbox-settings', [InboxSettingsController::class, 'update']);
 });
 
 

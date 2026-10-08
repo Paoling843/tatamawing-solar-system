@@ -29,7 +29,7 @@ class AnalyticsOverviewTest extends TestCase
             ->assertOk()
             ->assertJsonStructure([
                 'period_days', 'users', 'guest_steps', 'monthly', 'kpis', 'funnel',
-                'step_times', 'sizes' => ['packages', 'average_kw'], 'barangays', 'savings', 'review_queue',
+                'step_times', 'sizes' => ['packages', 'average_kw'], 'locations', 'savings', 'review_queue',
             ])
             ->json();
 
@@ -49,9 +49,10 @@ class AnalyticsOverviewTest extends TestCase
         $this->assertSame(12, $counts[2]); // all 12 seeded requests were submitted through the quote builder
         $this->assertSame(6, $counts[3]);  // 6 approved
 
-        // Barangays are read from "Brgy. X" in the address
-        $this->assertNotContains('Not specified', array_column($data['barangays'], 'name'));
-        $this->assertLessThanOrEqual(5, count($data['barangays']));
+        // Locations come from the installation site on each request
+        $this->assertNotContains('Not specified', array_column($data['locations'], 'name'));
+        $this->assertStringEndsWith(', Bulan', $data['locations'][0]['name']);
+        $this->assertLessThanOrEqual(5, count($data['locations']));
 
         $this->assertSame(12, $data['savings']['count']);
         $this->assertSame(50, (int) $data['savings']['own_rate_percent']); // half entered their kWh

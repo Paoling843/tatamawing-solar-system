@@ -185,7 +185,7 @@ export default function AdminReportPage() {
                         <div style={styles.threeUp}>
                             <StepTimes times={data.step_times} />
                             <SizesCard sizes={data.sizes} />
-                            <BarangaysCard places={data.barangays} />
+                            <LocationsCard places={data.locations} />
                         </div>
 
                         <div style={styles.twoUp}>
@@ -420,16 +420,16 @@ function SizesCard({ sizes }) {
     );
 }
 
-function BarangaysCard({ places }) {
+function LocationsCard({ places }) {
     const max = Math.max(1, ...places.map((p) => p.count));
 
     return (
         <section style={{ ...styles.card, gap: '14px' }}>
-            <SectionTitle title="Top barangays" sub="Where quotations come from" />
+            <SectionTitle title="Top locations" sub="Where the systems will be installed" />
             {places.length === 0 ? (
                 <span style={{ fontSize: '14px', color: '#6B7280' }}>No quotations in this period.</span>
             ) : (
-                places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="120px" />)
+                places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="150px" />)
             )}
         </section>
     );

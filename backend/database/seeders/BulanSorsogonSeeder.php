@@ -40,7 +40,7 @@ class BulanSorsogonSeeder extends Seeder
     // Bulan barangays used for addresses
     private const CUSTOMERS = [
         // name, barangay, purok, mobile, load profile, story
-        ['Maria Luz Gerona',    'Zone 2 (Poblacion)', 3, '+639171234501', 'household',  'installed'],
+        ['Maria Luz Gerona',    'Zone II Poblacion',  3, '+639171234501', 'household',  'installed'],
         ['Ramon Golpeo',        'Bical',              1, '+639171234502', 'aircon',     'scheduled'],
         ['Jocelyn Dioneda',     'Butag',              4, '+639171234503', 'store',      'in_progress'],
         ['Eduardo Grajo',       'Calomagon',          2, '+639171234504', 'pump',       'approved'],
@@ -137,7 +137,7 @@ class BulanSorsogonSeeder extends Seeder
         // The quotation is requested a few days after signing up
         $submitted = $joined->copy()->addDays(1 + $i % 4)->addHours(2);
         $bills = $this->bills($profile, $submitted, withKwh: $i % 2 === 0);
-        $request = $this->createQuotationRequest($customer, $profile, $bills, $submitted);
+        $request = $this->createQuotationRequest($customer, $profile, $bills, $submitted, $barangay, $purok);
 
         // How they reached the quote builder: two out of three started as guests
         $this->seedConvertedSession($user, $request, $submitted, startedAsGuest: $i % 3 !== 2);
@@ -145,7 +145,7 @@ class BulanSorsogonSeeder extends Seeder
         $this->applyStory($i, $request, $story, $submitted);
     }
 
-    private function createQuotationRequest(Customer $customer, string $profile, array $bills, Carbon $submitted): QuotationRequest
+    private function createQuotationRequest(Customer $customer, string $profile, array $bills, Carbon $submitted, string $barangay, int $purok): QuotationRequest
     {
         $rows = $this->applianceRows($profile);
 
@@ -163,6 +163,11 @@ class BulanSorsogonSeeder extends Seeder
             'monthly_bill' => $bills[0]['amount'] ?? null,
             'submission_date' => $submitted->toDateString(),
             'status' => 'pending',
+            // Installation site, as entered at the top of the quote builder
+            'install_purok' => "Purok {$purok}",
+            'install_barangay' => $barangay,
+            'install_municipality' => 'Bulan',
+            'install_province' => 'Sorsogon',
         ]);
         $request->forceFill(['created_at' => $submitted, 'updated_at' => $submitted])->save();
 
@@ -284,6 +289,10 @@ class BulanSorsogonSeeder extends Seeder
                 'email' => $this->email($name),
                 'phone' => $phone,
                 'address' => "Purok {$purok}, Brgy. {$barangay}, Bulan, Sorsogon",
+                'install_purok' => "Purok {$purok}",
+                'install_barangay' => $barangay,
+                'install_municipality' => 'Bulan',
+                'install_province' => 'Sorsogon',
                 'preferred_installation_date' => $preferred->toDateString(),
                 'other_company_name' => $company,
                 'quotation_file_path' => $file,

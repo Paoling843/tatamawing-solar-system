@@ -415,7 +415,7 @@ export default function AdminQuotationDetailPage() {
                             <div style={styles.infoItem}>
                                 <span style={styles.infoLabel}>Installation Location</span>
                                 <span style={styles.infoValue}>
-                                    {quotation?.customer?.install_location}
+                                    {quotation?.installation_address || quotation?.customer?.install_location}
                                 </span>
                             </div>
 
@@ -442,6 +442,16 @@ export default function AdminQuotationDetailPage() {
                                     {formatDate(quotation?.submission_date)}
                                 </span>
                             </div>
+
+                            {/* The customer's own description of the house / site */}
+                            {quotation?.site_description && (
+                                <div style={{ ...styles.infoItem, gridColumn: '1 / -1' }}>
+                                    <span style={styles.infoLabel}>About the site</span>
+                                    <span style={{ ...styles.infoValue, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                                        {quotation.site_description}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </section>
 
@@ -1022,7 +1032,9 @@ export default function AdminQuotationDetailPage() {
                     intro={
                         <div style={{ fontSize: '14px', color: colors.textBody }}>
                             Installing for <strong>{quotation?.customer?.user?.name || 'this customer'}</strong>
-                            {quotation?.customer?.install_location ? ` · ${quotation.customer.install_location}` : ''}
+                            {(quotation?.installation_address || quotation?.customer?.install_location)
+                                ? ` · ${quotation.installation_address || quotation.customer.install_location}`
+                                : ''}
                         </div>
                     }
                     submitting={scheduleLoading}

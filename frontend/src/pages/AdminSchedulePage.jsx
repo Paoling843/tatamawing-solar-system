@@ -123,10 +123,15 @@ export default function AdminSchedulePage() {
         schedule.quotation?.quotation_request?.solar_computation?.panel_capacity_kw;
 
     const getLocation = (schedule) =>
+        schedule.quotation?.quotation_request?.installation_address ||
         schedule.quotation?.quotation_request?.customer?.install_location ||
         schedule.customer?.install_location ||
         schedule.external_installation_request?.address ||
         '—';
+
+    const getSiteDescription = (schedule) =>
+        schedule.quotation?.quotation_request?.site_description ||
+        schedule.external_installation_request?.site_description;
 
     const getDateKey = (schedule) => schedule.scheduled_date.split('T')[0];
 
@@ -563,6 +568,14 @@ export default function AdminSchedulePage() {
                                 <span style={styles.modalFieldLabel}>Location</span>
                                 <span style={styles.modalFieldValue}>{getLocation(modalSchedule)}</span>
                             </div>
+                            {getSiteDescription(modalSchedule) && (
+                                <div style={{ ...styles.modalFieldRow, flexDirection: 'column', alignItems: 'flex-start', gap: '0.3rem' }}>
+                                    <span style={styles.modalFieldLabel}>About the site (from the customer)</span>
+                                    <span style={{ ...styles.modalFieldValue, textAlign: 'left', whiteSpace: 'pre-wrap' }}>
+                                        {getSiteDescription(modalSchedule)}
+                                    </span>
+                                </div>
+                            )}
                             {modalSchedule.notes && (
                                 <div style={{ ...styles.modalFieldRow, borderBottom: 'none', flexDirection: 'column', alignItems: 'flex-start', gap: '0.3rem' }}>
                                     <span style={styles.modalFieldLabel}>Notes</span>
