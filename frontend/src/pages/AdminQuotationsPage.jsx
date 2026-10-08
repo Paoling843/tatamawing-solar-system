@@ -209,7 +209,7 @@ export default function AdminQuotationsPage() {
             if (!search) return true;
             const ref = formatReference(q.id, q.created_at).toLowerCase();
             const name = (q.customer?.user?.name || '').toLowerCase();
-            const location = (q.customer?.install_location || '').toLowerCase();
+            const location = (q.installation_address || q.customer?.install_location || '').toLowerCase();
             return ref.includes(search) || name.includes(search) || location.includes(search);
         })
         .sort(sortFn);
@@ -354,7 +354,7 @@ export default function AdminQuotationsPage() {
                                                     <span style={styles.listRowCapacity}>{getCapacity(q)}</span>
                                                     <span style={styles.listRowDivider} />
                                                     <span style={styles.listRowLocation}>
-                                                        {q.customer?.install_location || ''}
+                                                        {q.installation_address || q.customer?.install_location || ''}
                                                     </span>
                                                 </div>
                                             </div>
@@ -385,7 +385,7 @@ export default function AdminQuotationsPage() {
                                             {selected.customer?.user?.name || 'N/A'}
                                         </h2>
                                         <p style={styles.detailMeta}>
-                                            {selected.customer?.install_location || 'N/A'} &middot; submitted {formatFullDate(selected.created_at)}
+                                            {selected.installation_address || selected.customer?.install_location || 'N/A'} &middot; submitted {formatFullDate(selected.created_at)}
                                         </p>
                                     </div>
                                     <StatusPill status={selected.status} />
@@ -491,7 +491,7 @@ export default function AdminQuotationsPage() {
                                                     state: {
                                                         scheduleQuotationId: selected.quotation?.id,
                                                         scheduleCustomerName: selected.customer?.user?.name || 'Customer',
-                                                        scheduleLocation: selected.customer?.install_location || '',
+                                                        scheduleLocation: selected.installation_address || selected.customer?.install_location || '',
                                                         scheduleReference: formatReference(selected.id, selected.created_at),
                                                     },
                                                 })}

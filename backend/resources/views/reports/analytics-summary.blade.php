@@ -94,7 +94,7 @@
             <tr><td>Customers who entered their own rate (bill + kWh)</td><td class="num">{{ $data['savings']['own_rate_percent'] !== null ? $data['savings']['own_rate_percent'] . '%' : '—' }}</td></tr>
         </table>
 
-        <h2>Quoted system sizes and top barangays</h2>
+        <h2>Quoted system sizes and top locations</h2>
         <table>
             <tr>
                 <td style="width: 50%; vertical-align: top; border: none; padding: 0 8px 0 0;">
@@ -108,8 +108,8 @@
                 </td>
                 <td style="width: 50%; vertical-align: top; border: none; padding: 0 0 0 8px;">
                     <table>
-                        <tr><th>Barangay</th><th class="num">Quotations</th></tr>
-                        @forelse ($data['barangays'] as $b)
+                        <tr><th>Location</th><th class="num">Quotations</th></tr>
+                        @forelse ($data['locations'] as $b)
                             <tr><td>{{ $b['name'] }}</td><td class="num">{{ $b['count'] }}</td></tr>
                         @empty
                             <tr><td colspan="2" class="muted">No quotations in this period.</td></tr>

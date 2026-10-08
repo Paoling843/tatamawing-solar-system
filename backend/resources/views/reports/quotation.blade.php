@@ -124,7 +124,7 @@
                 </td>
                 <td>
                     <div class="label">Installation Location</div>
-                    <div class="value">{{ $quotation->quotationRequest->customer->install_location }}</div>
+                    <div class="value">{{ $quotation->quotationRequest->installation_address ?? $quotation->quotationRequest->customer->install_location }}</div>
                 </td>
                 <td>
                     <div class="label">Solar System Type</div>

@@ -11,6 +11,12 @@ class ExternalInstallationRequest extends Model
         'email',
         'phone',
         'address',
+        // Installation site, asked like the quote builder's location card
+        'install_purok',
+        'install_barangay',
+        'install_municipality',
+        'install_province',
+        'site_description',
         'preferred_installation_date',
         'other_company_name',
         'quotation_file_path',

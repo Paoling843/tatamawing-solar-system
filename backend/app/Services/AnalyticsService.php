@@ -40,7 +40,7 @@ class AnalyticsService
             'funnel' => $this->funnel($since),
             'step_times' => $this->stepTimes($since),
             'sizes' => $this->sizes($since),
-            'barangays' => $this->barangays($since),
+            'locations' => $this->locations($since),
             'savings' => $this->savings($since),
             'review_queue' => $this->reviewQueue($since),
         ];
@@ -256,27 +256,46 @@ class AnalyticsService
     }
 
     /**
-     * Top 5 barangays, read from "Brgy. X" in the install location (or
-     * address). Locations without a barangay are grouped as "Not specified".
+     * Top 5 installation locations ("Bical, Bulan") across quotation
+     * requests and external installation requests, from the location entered
+     * in the quote builder / external request form. Older records fall back
+     * to "Brgy. X" in their address, else "Not specified". Spellings that
+     * differ only in capitals or spacing count together.
      */
-    private function barangays(Carbon $since): array
+    private function locations(Carbon $since): array
     {
-        return QuotationRequest::with('customer')
+        $quotations = QuotationRequest::with('customer')
             ->where('created_at', '>=', $since)
             ->get()
-            ->map(function ($r) {
-                $place = $r->customer?->install_location ?: $r->customer?->address;
-                if ($place && preg_match('/\bBrgy\.?\s*([^,]+)/i', $place, $m)) {
-                    return trim($m[1]);
-                }
-                return 'Not specified';
-            })
-            ->countBy()
-            ->sortDesc()
+            ->map(fn ($r) => $this->locationLabel(
+                $r->install_barangay,
+                $r->install_municipality,
+                $r->customer?->install_location ?: $r->customer?->address
+            ));
+
+        $external = ExternalInstallationRequest::where('created_at', '>=', $since)
+            ->get()
+            ->map(fn ($e) => $this->locationLabel($e->install_barangay, $e->install_municipality, $e->address));
+
+        return $quotations->concat($external)
+            ->groupBy(fn ($label) => mb_strtolower(preg_replace('/\s+/', ' ', trim($label))))
+            ->map(fn ($labels) => ['name' => $labels->first(), 'count' => $labels->count()])
+            ->sortByDesc('count')
             ->take(5)
-            ->map(fn ($count, $name) => ['name' => $name, 'count' => $count])
             ->values()
             ->all();
+    }
+
+    private function locationLabel(?string $barangay, ?string $municipality, ?string $fallbackAddress): string
+    {
+        if ($barangay) {
+            return collect([$barangay, $municipality])->filter()->implode(', ');
+        }
+        if ($fallbackAddress && preg_match('/\bBrgy\.?\s*([^,]+)/i', $fallbackAddress, $m)) {
+            return trim($m[1]);
+        }
+
+        return 'Not specified';
     }
 
     // ------------------------------------------------------------------

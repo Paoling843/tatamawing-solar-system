@@ -8,6 +8,7 @@ use App\Models\QuoteSession;
 use App\Models\QuotationRequest;
 use App\Services\SolarComputationService;
 use App\Services\AuditLogger;
+use App\Support\BulanBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -64,7 +65,20 @@ class QuotationRequestController extends Controller
 
             // ----- Anonymous quote-builder session, for analytics -----
             'quote_session_id' => 'nullable|uuid',
+
+            // ----- Where the system will be installed (top of Step 1) -----
+            'location' => 'required|array',
+            'location.province' => 'required|string|min:2|max:120',
+            'location.municipality' => 'required|string|min:2|max:120',
+            'location.barangay' => 'required|string|min:2|max:120',
+            'location.purok' => 'nullable|string|max:255',
+            'site_description' => 'nullable|string|max:1000',
         ], [
+            'site_description.max' => 'Keep the description of your house under 1,000 characters.',
+            'location.required' => 'Enter where the system will be installed.',
+            'location.barangay.required' => 'Enter the barangay where the system will be installed.',
+            'location.municipality.required' => 'Enter the city or municipality where the system will be installed.',
+            'location.province.required' => 'Enter the province where the system will be installed.',
             'appliances.*.watts.required_unless' => 'Wattage is required for appliance #:position.',
             'appliances.*.qty.required' => 'Quantity is required for appliance #:position.',
             'appliances.*.hp.required_if' => 'Horsepower is required for appliance #:position.',
@@ -77,6 +91,15 @@ class QuotationRequestController extends Controller
 
         // Extra checks that need to compare two fields with each other
         $validator->after(function ($validator) use ($request) {
+            // A Bulan barangay must be one of the 63 official ones
+            if (
+                BulanBarangays::isBulan($request->input('location.municipality'), $request->input('location.province'))
+                && filled($request->input('location.barangay'))
+                && BulanBarangays::canonical($request->input('location.barangay')) === null
+            ) {
+                $validator->errors()->add('location.barangay', 'Choose a barangay of Bulan from the list.');
+            }
+
             foreach ((array) $request->appliances as $i => $row) {
                 foreach (['day', 'night'] as $window) {
                     $from = $row["{$window}_from"] ?? null;
@@ -140,6 +163,16 @@ class QuotationRequestController extends Controller
                 'monthly_bill' => $bills[0]['amount'] ?? null,
                 'submission_date' => now(),
                 'status' => 'pending',
+                // Installation site; extra spaces removed so analytics groups them
+                'install_purok' => $this->cleanText($request->input('location.purok')),
+                // Bulan barangays are saved with their official spelling
+                'install_barangay' => BulanBarangays::isBulan($request->input('location.municipality'), $request->input('location.province'))
+                    ? BulanBarangays::canonical($request->input('location.barangay'))
+                    : $this->cleanText($request->input('location.barangay')),
+                'install_municipality' => $this->cleanText($request->input('location.municipality')),
+                'install_province' => $this->cleanText($request->input('location.province')),
+                // Line breaks are kept; only leading/trailing space is removed
+                'site_description' => trim((string) $request->input('site_description')) ?: null,
             ]);
 
             foreach ($request->appliances as $i => $appliance) {
@@ -280,5 +313,16 @@ class QuotationRequestController extends Controller
         $quotationRequest->load(['applianceItems', 'solarComputation', 'electricityBills', 'quotation']);
 
         return response()->json($quotationRequest);
+    }
+
+    /**
+     * Trims and collapses repeated spaces ("  San  Isidro " → "San Isidro").
+     * Empty text becomes null.
+     */
+    private function cleanText(?string $value): ?string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', (string) $value));
+
+        return $value === '' ? null : $value;
     }
 }

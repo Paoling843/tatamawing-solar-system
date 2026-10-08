@@ -227,7 +227,7 @@ export default function AdminDashboardPage() {
                 state: {
                     scheduleQuotationId: approvedQuotation.quotation?.id,
                     scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
-                    scheduleLocation: approvedQuotation.customer?.install_location || '',
+                    scheduleLocation: approvedQuotation.installation_address || approvedQuotation.customer?.install_location || '',
                     scheduleReference: formatReference(approvedQuotation.id, approvedQuotation.created_at),
                 },
             });
@@ -272,7 +272,7 @@ export default function AdminDashboardPage() {
             state: {
                 scheduleQuotationId: quotation.quotation?.id,
                 scheduleCustomerName: quotation.customer?.user?.name || 'Customer',
-                scheduleLocation: quotation.customer?.install_location || '',
+                scheduleLocation: quotation.installation_address || quotation.customer?.install_location || '',
                 scheduleReference: formatReference(quotation.id, quotation.created_at),
             },
         });
@@ -434,7 +434,7 @@ export default function AdminDashboardPage() {
                                                 </div>
                                                 <div style={styles.queueBottomLine}>
                                                     <span style={styles.queueLocation}>
-                                                        {q.customer?.install_location || ''}
+                                                        {q.installation_address || q.customer?.install_location || ''}
                                                     </span>
                                                     <span style={styles.queueValue}>
                                                         {formatCurrency(getValue(q))}
@@ -500,7 +500,8 @@ export default function AdminDashboardPage() {
                                             || s.customer?.user?.name
                                             || s.external_installation_request?.name
                                             || 'N/A';
-                                        const location = s.quotation?.quotation_request?.customer?.install_location
+                                        const location = s.quotation?.quotation_request?.installation_address
+                                            || s.quotation?.quotation_request?.customer?.install_location
                                             || s.customer?.install_location
                                             || s.external_installation_request?.address
                                             || '';
@@ -551,6 +552,14 @@ export default function AdminDashboardPage() {
                                             <div style={styles.externalMeta}>
                                                 {requestRecord.other_company_name} · Preferred {new Date(requestRecord.preferred_installation_date).toLocaleDateString('en-PH')}
                                             </div>
+                                            {requestRecord.address && (
+                                                <div style={styles.externalMeta}>{requestRecord.address}</div>
+                                            )}
+                                            {requestRecord.site_description && (
+                                                <div style={{ ...styles.externalMeta, whiteSpace: 'pre-wrap' }}>
+                                                    About the site: {requestRecord.site_description}
+                                                </div>
+                                            )}
                                         </div>
                                         <div style={styles.externalActions}>
                                             <button style={styles.queueScheduleBtn} onClick={() => previewExternalQuotation(requestRecord)} disabled={quotationPreviewLoadingId === requestRecord.id}>
@@ -633,7 +642,7 @@ export default function AdminDashboardPage() {
                                                     {q.customer?.user?.name || 'N/A'}
                                                 </div>
                                                 <div style={styles.tdCustomerLocation}>
-                                                    {q.customer?.install_location || ''}
+                                                    {q.installation_address || q.customer?.install_location || ''}
                                                 </div>
                                             </span>
 
@@ -866,7 +875,7 @@ export default function AdminDashboardPage() {
                             {selectedQuotation.customer?.user?.name || 'N/A'}
                         </h2>
                         <p style={styles.drawerLocation}>
-                            {selectedQuotation.customer?.install_location || ''}
+                            {selectedQuotation.installation_address || selectedQuotation.customer?.install_location || ''}
                         </p>
 
                         <div style={styles.drawerRows}>

@@ -32,6 +32,7 @@ class QuotationSavingsTest extends TestCase
             'bills' => [
                 ['billing_month' => '2026-09', 'amount' => 3000, 'kwh' => 250],
             ],
+            'location' => ['province' => 'Sorsogon', 'municipality' => 'Bulan', 'barangay' => 'Bical', 'purok' => 'Purok 2'],
             'package_kw' => 8,
             'panel_count' => 10,
             'battery_ah' => 205,
