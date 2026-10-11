@@ -18,6 +18,17 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // Gmail API (app/Mail/GmailApiTransport.php)
+    'gmail' => [
+        'client_id' => env('GMAIL_CLIENT_ID'),
+        'client_secret' => env('GMAIL_CLIENT_SECRET'),
+        'refresh_token' => env('GMAIL_REFRESH_TOKEN'),
+    ],
+
+    'brevo' => [
+        'key' => env('BREVO_API_KEY'),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

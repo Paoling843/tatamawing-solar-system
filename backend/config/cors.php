@@ -1,4 +1,4 @@
-<?php
+    <?php
 
 return [
 
@@ -19,7 +19,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    // FRONTEND_URL: the deployed frontend's address(es), comma-separated,
+    // e.g. https://tatamawing.vercel.app
+    'allowed_origins' => array_values(array_filter(array_merge(
+        ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        array_map(fn ($url) => rtrim(trim($url), '/'), explode(',', (string) env('FRONTEND_URL', '')))
+    ))),
 
     'allowed_origins_patterns' => [],
 

@@ -79,6 +79,14 @@ return [
             'transport' => 'array',
         ],
 
+        'gmail' => [
+            'transport' => 'gmail',
+        ],
+
+        'brevo' => [
+            'transport' => 'brevo',
+        ],
+
         'failover' => [
             'transport' => 'failover',
             'mailers' => [
