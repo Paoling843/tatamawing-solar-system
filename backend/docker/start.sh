@@ -10,6 +10,12 @@ if [ -z "$DB_CONNECTION" ] || [ "$DB_CONNECTION" = "sqlite" ]; then
     exit 1
 fi
 
+if [ -n "$MYSQL_ATTR_SSL_CA" ] && [ ! -r "$MYSQL_ATTR_SSL_CA" ]; then
+    echo "ERROR: the database CA file $MYSQL_ATTR_SSL_CA is missing. Secret files found:" >&2
+    ls -la /etc/secrets >&2 2>/dev/null || echo "(none — /etc/secrets does not exist)" >&2
+    exit 1
+fi
+
 php artisan migrate --force
 php artisan app:ensure-admin
 php artisan optimize
