@@ -136,7 +136,6 @@ const styles = {
         left: 0,
         top: 0,
         bottom: 0,
-        zIndex: 100,
         padding: '1rem 0',
     },
     sidebarLogo: {

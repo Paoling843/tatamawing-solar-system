@@ -319,7 +319,6 @@ const styles = {
         left: 0,
         top: 0,
         bottom: 0,
-        zIndex: 100,
         padding: '0.5rem 0 0',
     },
     brandBtn: {
