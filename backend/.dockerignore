@@ -12,3 +12,4 @@ storage/framework/views/*
 storage/app/private/*
 storage/app/public/*
 bootstrap/cache/*.php
+database/*.sqlite*
