@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios';
+import { useBusinessContact } from '../services/businessContact';
 
 // Shared page shell for the Privacy Policy and Terms of Service: a simple
 // header back to the site, the document, and links between the two.
@@ -47,16 +47,11 @@ export function Section({ title, children }) {
     );
 }
 
-// How to reach the business owner (who also runs the system). The Messenger
-// link appears once the owner has saved it in the admin inbox.
+// How to reach the business owner (who also runs the system). The email is
+// the address the system sends from; the Messenger link appears once the
+// owner has saved it in the admin inbox.
 export function ContactOwner() {
-    const [messengerUrl, setMessengerUrl] = useState(null);
-
-    useEffect(() => {
-        api.get('/contact')
-            .then((res) => setMessengerUrl(res.data.messenger_url))
-            .catch(() => {});
-    }, []);
+    const { email, messengerUrl } = useBusinessContact();
 
     return (
         <List>
@@ -64,6 +59,13 @@ export function ContactOwner() {
                 <strong>If you have an account:</strong> sign in and use <strong>Chat with us</strong> (bottom-right of
                 your account pages). Your message goes straight to the owner.
             </li>
+            {email && (
+                <li>
+                    <strong>By email:</strong>{' '}
+                    <a href={`mailto:${email}`} style={styles.inlineLink}>{email}</a>
+                    {' '}— or simply reply to any email you received from us.
+                </li>
+            )}
             {messengerUrl && (
                 <li>
                     <strong>On Facebook Messenger:</strong>{' '}

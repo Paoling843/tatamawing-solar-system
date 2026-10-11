@@ -63,7 +63,7 @@ function newRow() {
 }
 
 export default function QuotationFormPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, logout } = useAuth();
     const navigate = useNavigate();
 
     // Every visit is a new session: saved inputs only come back when this
@@ -246,7 +246,7 @@ export default function QuotationFormPage() {
         }
 
         if (user.role !== 'customer') {
-            setSubmitError('Only customer accounts can request a quotation. Log in with a customer account to continue.');
+            setSubmitError(STAFF_SIGNED_IN);
             return;
         }
 
@@ -278,12 +278,20 @@ export default function QuotationFormPage() {
 
     const closeAuthPrompt = useCallback(() => setAuthPromptOpen(false), []);
 
+    // Signed in as the admin: log out (which clears the saved inputs), then
+    // save them again and go to the login page — same hand-off as a guest
+    const signedInAsStaff = Boolean(user) && user.role !== 'customer';
+    const handleSwitchAccount = async () => {
+        await logout();
+        sendToAuth('/login');
+    };
+
     // Message shown on Step 3 when a guest comes back after logging in
     let resumeNotice = null;
     if (awaitingLogin && user && activeScreen === 'package') {
         resumeNotice = user.role === 'customer'
             ? `Welcome back, ${user.name}. Your configuration is just as you left it — press Request quotation below to send it.`
-            : 'You are signed in with a non-customer account. Log in with a customer account to request this quotation.';
+            : STAFF_SIGNED_IN;
     }
 
     // Wait until we know whether someone is logged in, otherwise a customer
@@ -338,6 +346,7 @@ export default function QuotationFormPage() {
                     submitting={submitting}
                     submitError={submitError}
                     resumeNotice={resumeNotice}
+                    onSwitchAccount={signedInAsStaff ? handleSwitchAccount : null}
                     onPickPackage={handlePickPackage}
                     onPanelsChange={handlePanelsChange}
                     onPickBattery={handlePickBattery}
@@ -386,6 +395,9 @@ export default function QuotationFormPage() {
         </div>
     );
 }
+
+// Shown on Step 3 when the admin (not a customer) is signed in
+const STAFF_SIGNED_IN = "You're signed in as the admin. Quotations are requested from customer accounts — log out to send this one as a customer. Your inputs will be kept.";
 
 const styles = {
     // Inside CustomerLayout the layout already provides the page background
