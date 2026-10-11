@@ -11,6 +11,8 @@ RUN apt-get update \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 ENV PORT=10000
+# Send Laravel's errors to the container output so they show in Render's Logs
+ENV LOG_CHANNEL=stderr
 RUN a2enmod rewrite \
     && sed -i 's/^Listen 80$/Listen ${PORT}/' /etc/apache2/ports.conf
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
