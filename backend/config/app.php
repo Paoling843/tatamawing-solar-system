@@ -69,6 +69,11 @@ return [
     // Bulan, Sorsogon. Dates like "today" and month boundaries follow this.
     'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
+    // The business owner's public contact email, shown on the login page and
+    // the Privacy Policy. Empty = not shown. Kept separate from the address
+    // emails are sent from, so a personal sending account isn't published.
+    'contact_email' => env('CONTACT_EMAIL'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

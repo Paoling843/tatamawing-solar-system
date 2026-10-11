@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import { safeRedirect } from '../utils/safeRedirect';
+import { useBusinessContact } from '../services/businessContact';
 import logo from '../assets/logo.jpg';
 import './AuthPage.css';
 
@@ -18,8 +19,6 @@ import './AuthPage.css';
 // user has left the field (blur) or pressed the submit button — never on
 // first paint. Switching modes clears that state again.
 // =====================================================================
-
-const PHONE = '(02) 8123 4567';
 
 // Design tokens
 const T = {
@@ -272,6 +271,9 @@ export default function AuthPage({ initialMode = 'login' }) {
         }
     };
 
+    // Real contact details (the business email from the server), not a placeholder
+    const contact = useBusinessContact();
+
     const showUnavailable = (message) => {
         setFormError('');
         setNotice(message);
@@ -291,7 +293,9 @@ export default function AuthPage({ initialMode = 'login' }) {
                     </div>
                 </div>
                 <div style={styles.headerRight}>
-                    <span className="auth-header-phone" style={styles.phone}>{PHONE}</span>
+                    {contact.email && (
+                        <a href={`mailto:${contact.email}`} className="auth-header-phone auth-link" style={styles.phone}>{contact.email}</a>
+                    )}
                     <span className="auth-header-prompt" style={{ fontSize: '14px', color: T.muted }}>{copy.headerPrompt}</span>
                     <button
                         type="button"
@@ -413,7 +417,9 @@ export default function AuthPage({ initialMode = 'login' }) {
                                     <button
                                         type="button"
                                         className="auth-link"
-                                        onClick={() => showUnavailable(`Password reset isn't available yet. Call us at ${PHONE} and we'll help you get back in.`)}
+                                        onClick={() => showUnavailable(contact.email
+                                            ? `Password reset isn't available yet. Email us at ${contact.email} from the address you signed up with, and we'll help you get back in.`
+                                            : "Password reset isn't available yet. Please contact TataMawing Solar and we'll help you get back in.")}
                                         style={styles.forgot}
                                     >
                                         Forgot password?
@@ -450,31 +456,6 @@ export default function AuthPage({ initialMode = 'login' }) {
 
                             {success && <div role="status" style={styles.success}>{success}</div>}
                         </form>
-
-                        <div style={styles.orRow}>
-                            <span style={styles.hairline} />
-                            <span style={styles.orLabel}>OR</span>
-                            <span style={styles.hairline} />
-                        </div>
-
-                        <div className="auth-social-grid" style={styles.twoCol}>
-                            <button
-                                type="button"
-                                className="auth-btn-secondary"
-                                onClick={() => showUnavailable("Google sign-in isn't available yet. Use your email and password instead.")}
-                                style={styles.secondaryButton}
-                            >
-                                Continue with Google
-                            </button>
-                            <button
-                                type="button"
-                                className="auth-btn-secondary"
-                                onClick={() => showUnavailable("Facebook sign-in isn't available yet. Use your email and password instead.")}
-                                style={styles.secondaryButton}
-                            >
-                                Continue with Facebook
-                            </button>
-                        </div>
 
                         {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
@@ -531,7 +512,9 @@ export default function AuthPage({ initialMode = 'login' }) {
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                     <Link to="/terms" className="auth-link" style={styles.footerLink}>Terms</Link>
                     <Link to="/privacy" className="auth-link" style={styles.footerLink}>Privacy</Link>
-                    <span>Support</span>
+                    {contact.email && (
+                        <a href={`mailto:${contact.email}`} className="auth-link" style={styles.footerLink}>Support</a>
+                    )}
                 </div>
             </footer>
         </div>
@@ -632,7 +615,7 @@ const styles = {
     logo: { height: '52px', width: 'auto', display: 'block', borderRadius: '8px' },
     wordmark: { fontSize: '17px', fontWeight: 700, color: T.ink, whiteSpace: 'nowrap' },
     headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-    phone: { fontFamily: MONO, fontSize: '13px', color: T.muted, whiteSpace: 'nowrap' },
+    phone: { fontFamily: MONO, fontSize: '13px', color: T.muted, whiteSpace: 'nowrap', textDecoration: 'none' },
 
     body: { flex: 1, width: '100%', maxWidth: '1080px', margin: '0 auto', padding: '48px 40px 72px' },
     card: {

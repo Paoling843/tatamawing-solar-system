@@ -4,7 +4,7 @@ import { useAuth } from '../context/auth-context';
 import {
     GridIcon, EditIcon, DocumentIcon, CalendarIcon,
     HelpIcon, DownloadIcon,
-    SearchIcon, BellIcon, PlusIcon, MenuIcon, LogOutIcon,
+    BellIcon, PlusIcon, MenuIcon, LogOutIcon,
 } from './Icons';
 import { colors } from '../styles/theme';
 import SupportMessagePanel from './SupportMessagePanel';
@@ -92,15 +92,6 @@ return (
                     <MenuIcon size={20} color={colors.textBody} />
                 </button>
 
-                <div style={styles.searchWrapper}>
-                    <SearchIcon size={14} color={colors.textFaint} />
-                    <input
-                        type="text"
-                        placeholder="Search Projects..."
-                        className="input-field"
-                        style={styles.searchInput}
-                    />
-                </div>
 
                 <div style={styles.topBarRight}>
                     <SupportMessagePanel />
@@ -242,25 +233,9 @@ const styles = {
         justifyContent: 'center',
         flexShrink: 0,
     },
-    searchWrapper: {
-        display: 'flex',
-        alignItems: 'center',
-        backgroundColor: colors.borderLight,
-        borderRadius: '999px',
-        padding: '0.5rem 1rem',
-        gap: '0.5rem',
-        width: '280px',
-        maxWidth: '100%'
-    },
-    searchInput: {
-        border: 'none',
-        backgroundColor: 'transparent',
-        fontSize: '0.875rem',
-        color: colors.textBody,
-        width: '100%',
-        borderRadius: '999px'
-    },
     topBarRight: {
+        // Right-aligned even when the menu button is hidden (desktop)
+        marginLeft: 'auto',
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',

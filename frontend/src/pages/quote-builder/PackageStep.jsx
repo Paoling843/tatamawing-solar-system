@@ -11,7 +11,7 @@ import SavingsCard from './SavingsCard';
 //   - pick any battery (up or down)
 // Every change updates the itemized quote immediately.
 export default function PackageStep({
-    load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice,
+    load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice, onSwitchAccount,
     onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onRequestQuote,
 }) {
     const { pkg, pkgIndex, recommendedPkgIndex, panels, battery, batteryIndex, recommendedBatteryIndex } = selection;
@@ -259,7 +259,19 @@ export default function PackageStep({
                         ))}
                     </div>
 
-                    {submitError && <div style={styles.error}>{submitError}</div>}
+                    {submitError && (
+                        <div style={styles.error}>
+                            {submitError}
+                            {/* Only when the admin is signed in: switch to a customer without losing the inputs */}
+                            {onSwitchAccount && (
+                                <div style={{ marginTop: '10px' }}>
+                                    <button type="button" className="se-btn-secondary" onClick={onSwitchAccount} style={{ ...s.secondaryButton, padding: '9px 14px', fontSize: '13px' }}>
+                                        Log out and continue
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '22px', flexWrap: 'wrap' }}>
                         <button className="se-btn-secondary" onClick={onBack} style={{ ...s.secondaryButton, padding: '13px 20px', fontSize: '14px' }}>

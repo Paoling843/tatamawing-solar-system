@@ -351,7 +351,6 @@ function Footer() {
                 <div style={styles.footerLinks}>
                     <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
                     <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
-                    <span style={styles.footerLink}>Sustainability Report</span>
                 </div>
             </div>
             <div style={styles.systemStatus}>

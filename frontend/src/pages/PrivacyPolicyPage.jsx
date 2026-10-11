@@ -7,7 +7,7 @@ export default function PrivacyPolicyPage() {
     return (
         <LegalLayout
             title="Privacy Policy"
-            updated="October 8, 2026"
+            updated="October 11, 2026"
             intro="This explains what personal information TataMawing Solar collects through this website, why we need it, who can see it, and what you can ask us to do with it. We follow the Data Privacy Act of 2012 (Republic Act No. 10173)."
         >
             <Section title="Who is responsible for your information">
@@ -71,7 +71,7 @@ export default function PrivacyPolicyPage() {
                 <List>
                     <li>The business owner, who manages the system.</li>
                     <li>
-                        An email delivery service, only to send you emails about your account and requests.
+                        Google (Gmail), which delivers the emails we send you about your requests. Replies you send us arrive in the owner’s Gmail inbox.
                     </li>
                     <li>
                         Meta (Facebook), only if you choose to message us on Messenger. Meta’s own privacy policy

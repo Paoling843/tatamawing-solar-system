@@ -149,13 +149,17 @@ class MessengerFallbackTest extends TestCase
         $this->actingAs($this->customer, 'sanctum')->putJson('/api/admin/inbox-settings', ['fallback_enabled' => false])->assertForbidden();
     }
 
-    public function test_public_contact_shows_only_the_messenger_link(): void
+    public function test_public_contact_shows_the_messenger_link_and_business_email(): void
     {
-        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => null]);
+        // The sending address is never published by itself
+        config(['mail.from.address' => 'someone.personal@gmail.com', 'app.contact_email' => null]);
+        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => null, 'email' => null]);
 
         $this->enable(10);
+        config(['app.contact_email' => 'tatamawing.solar@gmail.com']);
 
-        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => self::URL]);
+        $this->getJson('/api/contact')->assertOk()
+            ->assertExactJson(['messenger_url' => self::URL, 'email' => 'tatamawing.solar@gmail.com']);
     }
 
     public function test_admin_can_send_the_link_by_hand(): void

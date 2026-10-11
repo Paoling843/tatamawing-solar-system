@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import { ChevronDownIcon } from '../components/Icons';
 import api from '../api/axios';
@@ -107,12 +108,11 @@ export default function FaqPage() {
             <div style={styles.footer}>
                 <div style={styles.footerLeft}>
                     <span style={styles.footerText}>
-                        © 2024 TataMawing Solar. All rights reserved.
+                        © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
                     </span>
                     <div style={styles.footerLinks}>
-                        <span style={styles.footerLink}>Privacy Policy</span>
-                        <span style={styles.footerLink}>Terms of Service</span>
-                        <span style={styles.footerLink}>Sustainability Report</span>
+                        <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
+                        <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
                     </div>
                 </div>
                 <div style={styles.systemStatus}>
@@ -237,6 +237,7 @@ const styles = {
         fontSize: '0.75rem',
         color: '#9ca3af',
         cursor: 'pointer',
+        textDecoration: 'none',
     },
     systemStatus: {
         display: 'flex',

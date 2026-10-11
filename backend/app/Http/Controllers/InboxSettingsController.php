@@ -19,12 +19,16 @@ class InboxSettingsController extends Controller
         return response()->json($this->fallback->settings());
     }
 
-    // Public: how to reach the owner, for the Privacy Policy and Terms pages.
-    // Only the Messenger link — it's already shown to customers in the chat.
+    // Public: how to reach the owner (Privacy Policy, Terms, "Forgot password?").
+    // The Messenger link is already shown to customers in the chat; the email
+    // appears only when CONTACT_EMAIL is set on purpose in .env.
     public function contact()
     {
+        $email = config('app.contact_email');
+
         return response()->json([
             'messenger_url' => $this->fallback->settings()['messenger_url'],
+            'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null,
         ]);
     }
 
