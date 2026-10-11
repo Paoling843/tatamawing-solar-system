@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import BarangayInput from '../components/BarangayInput';
 import { CalendarIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
@@ -98,6 +98,7 @@ export default function ExternalInstallationRequestPage() {
                         Return to home
                     </button>
                 </section>
+                <PageFooter />
             </main>
         );
     }
@@ -215,6 +216,7 @@ export default function ExternalInstallationRequestPage() {
                     </div>
                 </form>
             </section>
+            <PageFooter />
         </main>
     );
 }
@@ -241,7 +243,26 @@ function Field({ label, htmlFor, error, children }) {
     );
 }
 
+// Links to the legal pages under the card (the consent checkbox links to them too)
+function PageFooter() {
+    return (
+        <footer style={styles.pageFooter}>
+            <span>© {new Date().getFullYear()} TataMawing Solar</span>
+            <nav style={styles.pageFooterLinks}>
+                <Link to="/privacy" style={styles.pageFooterLink}>Privacy Policy</Link>
+                <Link to="/terms" style={styles.pageFooterLink}>Terms of Service</Link>
+            </nav>
+        </footer>
+    );
+}
+
 const styles = {
+    pageFooter: {
+        maxWidth: '780px', margin: '20px auto 0', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '13px', color: colors.textMuted,
+    },
+    pageFooterLinks: { display: 'flex', gap: '18px', flexWrap: 'wrap' },
+    pageFooterLink: { color: colors.primary, fontWeight: 600, textDecoration: 'none' },
     page: { minHeight: '100vh', background: '#f6f7f4', padding: '48px 20px', fontFamily: "'Figtree', Helvetica, Arial, sans-serif", color: colors.textDark },
     card: { maxWidth: '780px', margin: '0 auto', padding: '36px', background: 'white', border: '1px solid #e6e8e2', borderRadius: '14px', boxShadow: '0 12px 40px rgba(15,59,44,.08)' },
     backButton: { border: 'none', background: 'transparent', color: colors.primary, padding: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 700 },
