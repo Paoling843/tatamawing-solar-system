@@ -1,4 +1,4 @@
-import { C, MONO, SANS } from './engineStyles';
+import { C, NUM, SANS } from './engineStyles';
 
 const HERO_STATS = [
     { value: '2 min', label: 'To a sized system' },
@@ -8,8 +8,8 @@ const HERO_STATS = [
 
 const HERO_STEPS = [
     { num: '01', title: 'List your appliances', body: 'Aircon and pump wattage is derived from horsepower. Everything else you enter directly, with the hours split between day and night.' },
-    { num: '02', title: 'See the arithmetic', body: 'Daytime and nighttime energy are totalled separately, then a flat safety buffer is added once for the household.' },
-    { num: '03', title: 'Get your package', body: 'The smallest inverter that covers the adjusted load, its matching panel range, and a battery sized to your nighttime draw.' },
+    { num: '02', title: 'See the arithmetic', body: 'Daytime and nighttime energy are totalled separately, and every appliance\'s watts are added up with a flat safety buffer to size the inverter.' },
+    { num: '03', title: 'Get your package', body: 'The smallest inverter that covers your total load plus the buffer, panels to match it, and a battery sized to your nighttime draw.' },
 ];
 
 // Intro screen shown before Step 1. It only explains the engine; nothing is
@@ -69,7 +69,7 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                             ))}
                         </div>
                         <div style={styles.heroCardFoot}>
-                            <span style={{ fontFamily: MONO, color: C.yellow }}>↓</span>
+                            <span style={{ fontFamily: NUM, color: C.yellow }}>↓</span>
                             <span>An itemised price comes with the package, before you request a quotation.</span>
                         </div>
                     </div>
@@ -121,7 +121,7 @@ const styles = {
         border: '1px solid rgba(244,197,66,.4)', borderRadius: '20px', padding: '6px 13px',
     },
     pillDot: { width: '6px', height: '6px', borderRadius: '50%', background: C.yellow },
-    pillText: { fontFamily: MONO, fontSize: '11px', letterSpacing: '.1em', color: C.yellow },
+    pillText: { fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: C.yellow },
     heroTitle: {
         margin: '26px 0 0', fontSize: '54px', lineHeight: 1.05, fontWeight: 800, letterSpacing: '-.035em',
         color: '#fff', textWrap: 'balance',
@@ -148,19 +148,19 @@ const styles = {
         display: 'flex', gap: '36px', marginTop: '48px', paddingTop: '26px',
         borderTop: '1px solid rgba(255,255,255,.13)', flexWrap: 'wrap',
     },
-    statValue: { fontFamily: MONO, fontSize: '24px', fontWeight: 500, letterSpacing: '-.02em', color: C.yellow },
+    statValue: { fontFamily: NUM, fontSize: '24px', fontWeight: 600, letterSpacing: '-.02em', color: C.yellow },
     statLabel: { fontSize: '12.5px', color: C.onDarkMuted, marginTop: '4px' },
     heroCardWrap: { padding: '48px 40px 48px 0', minWidth: 0 },
     heroCard: { background: C.darkPanel, borderRadius: '13px', padding: '28px', border: '1px solid rgba(255,255,255,.08)' },
-    monoLabel: { fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: C.faint },
+    monoLabel: { fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: C.faint },
     heroStep: { display: 'flex', gap: '16px', padding: '18px 0', borderBottom: '1px solid rgba(255,255,255,.08)' },
-    heroStepNum: { fontFamily: MONO, fontSize: '12px', color: C.yellow, flex: 'none', paddingTop: '2px' },
+    heroStepNum: { fontFamily: NUM, fontSize: '12px', color: C.yellow, flex: 'none', paddingTop: '2px' },
     heroStepTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', letterSpacing: '-.015em' },
-    heroStepBody: { margin: '6px 0 0', fontSize: '13.5px', lineHeight: 1.6, color: '#9aada4', textWrap: 'pretty' },
-    heroCardFoot: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px', fontSize: '13px', color: '#7d948a' },
+    heroStepBody: { margin: '6px 0 0', fontSize: '13.5px', lineHeight: 1.6, color: C.onDark, textWrap: 'pretty' },
+    heroCardFoot: { display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px', fontSize: '13px', color: C.onDarkMuted },
     section: { padding: '64px 40px 80px', maxWidth: '1160px', margin: '0 auto', width: '100%' },
     sectionHead: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '36px', flexWrap: 'wrap' },
-    eyebrow: { fontFamily: MONO, fontSize: '11px', letterSpacing: '.14em', color: C.faint },
+    eyebrow: { fontFamily: NUM, fontSize: '12.5px', fontWeight: 600, letterSpacing: '.08em', color: C.faint },
     sectionTitle: {
         margin: '14px 0 0', fontSize: '32px', fontWeight: 800, letterSpacing: '-.028em', color: C.ink,
         maxWidth: '560px', textWrap: 'balance',

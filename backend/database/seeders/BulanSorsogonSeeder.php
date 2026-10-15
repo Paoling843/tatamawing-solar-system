@@ -150,12 +150,13 @@ class BulanSorsogonSeeder extends Seeder
         $rows = $this->applianceRows($profile);
 
         // Pick what the Step 3 defaults would be: the recommended package,
-        // its default panel count, and the recommended battery
+        // its recommended panel count, and the recommended battery
         $load = $this->engine->computeLoad($rows);
-        $package = SolarComputationService::PACKAGES[$this->engine->recommendPackageIndex($load['adjusted_total_wh'])];
+        $package = SolarComputationService::PACKAGES[$this->engine->recommendPackageIndex($load['inverter_size_w'])];
+        $panels = $this->engine->recommendPanelCount($load['inverter_size_w'], $package);
         $battery = SolarComputationService::BATTERIES[$this->engine->recommendBatteryIndex($load['total_night_wh'])];
 
-        $result = $this->engine->evaluate($rows, $package['kw'], $package['panelDefault'], $battery['ah'], $bills);
+        $result = $this->engine->evaluate($rows, $package['kw'], $panels, $battery['ah'], $bills);
 
         $request = QuotationRequest::create([
             'customer_id' => $customer->id,

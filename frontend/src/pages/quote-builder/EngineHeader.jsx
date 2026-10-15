@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import logo from '../../assets/logo.jpg';
-import { C, MONO, SANS } from './engineStyles';
+import { C, NUM, SANS } from './engineStyles';
 import EngineStepNav from './EngineStepNav';
 
 // Sticky top bar: logo, engine name, and either the "Get Started" button
@@ -58,7 +58,7 @@ const styles = {
     logo: { height: '44px', width: 'auto', display: 'block', borderRadius: '8px' },
     brandName: { fontSize: '17px', fontWeight: 700, color: C.ink, letterSpacing: '-.015em', whiteSpace: 'nowrap' },
     divider: { width: '1px', height: '24px', background: C.border },
-    tagline: { fontFamily: MONO, fontSize: '11.5px', letterSpacing: '.1em', color: C.muted },
+    tagline: { fontFamily: NUM, fontSize: '12.5px', fontWeight: 600, letterSpacing: '.06em', color: C.muted },
     right: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '22px' },
     getStarted: {
         background: C.green, color: '#fff', border: 'none', borderRadius: '9px', padding: '11px 18px',

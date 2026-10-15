@@ -1,8 +1,8 @@
 import {
     PACKAGES, BATTERIES, PANEL_WATTS,
-    arrayKwp, batteryWh, panelOptions, formatWhole, formatDecimal, peso, recommendationReason,
+    arrayKwp, batteryWh, panelOptions, panelsForInverterSize, formatWhole, formatDecimal, peso, recommendationReason,
 } from '../../services/solarEngine';
-import { C, MONO, SANS, COST_RAMP, s } from './engineStyles';
+import { C, NUM, SANS, COST_RAMP, s } from './engineStyles';
 import SavingsCard from './SavingsCard';
 
 // STEP 3 — the recommended package. The customer can:
@@ -14,10 +14,16 @@ export default function PackageStep({
     load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice, onSwitchAccount,
     onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onRequestQuote,
 }) {
-    const { pkg, pkgIndex, recommendedPkgIndex, panels, battery, batteryIndex, recommendedBatteryIndex } = selection;
+    const { pkg, pkgIndex, recommendedPkgIndex, recommendedPanels, panels, battery, batteryIndex, recommendedBatteryIndex } = selection;
     const largest = PACKAGES[PACKAGES.length - 1];
-    const exceedsMax = load.adjusted > largest.watts;
+    const exceedsMax = load.inverterSize > largest.watts;
     const usableWh = batteryWh(battery.ah);
+
+    // Inverter size ÷ 610 W before it's kept inside the package's panel range
+    const sizedPanels = panelsForInverterSize(load.inverterSize);
+    const panelNote = sizedPanels < recommendedPanels
+        ? `, raised to the ${pkg.kw} kW minimum`
+        : sizedPanels > recommendedPanels ? `, capped at the ${pkg.kw} kW maximum` : '';
 
     // Biggest cost first, so the bar colours, band widths and the list below
     // all read in the same order.
@@ -41,7 +47,7 @@ export default function PackageStep({
         { k: 'Array size', v: `${formatDecimal(arrayKwp(panels))} kWp` },
         { k: 'Battery', v: `${battery.ah} Ah @ 51.2 V` },
         { k: 'Usable storage', v: `${formatDecimal(usableWh)} Wh` },
-        { k: 'Adjusted load', v: `${formatWhole(load.adjusted)} Wh` },
+        { k: 'Inverter size', v: `${formatWhole(load.inverterSize)} W` },
         { k: 'Estimated total', v: peso(quote.total) },
         { k: 'Monthly savings', v: peso(savings.monthlySavings) },
         { k: 'Annual ROA', v: savings.roaPercent !== null ? `${formatDecimal(Math.round(savings.roaPercent * 10) / 10)}%` : '—' },
@@ -60,13 +66,12 @@ export default function PackageStep({
                 <div>
                     <h1 className="se-h1" style={{ ...s.h1, margin: 0 }}>{pkg.kw} kW hybrid, sized to your load.</h1>
                     <p style={{ ...s.lead, maxWidth: '640px' }}>
-                        {recommendationReason(load.adjusted)} You can move up from here, never below — the
-                        inverter and panel count are floors, the battery is free to move either way.
+                        {recommendationReason(load)} You can pick a bigger inverter, but not a smaller one.
                     </p>
                 </div>
                 <div style={styles.adjustedBox}>
-                    <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>ADJUSTED TOTAL</div>
-                    <div style={styles.adjustedValue}>{formatWhole(load.adjusted)} Wh</div>
+                    <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>INVERTER SIZE</div>
+                    <div style={styles.adjustedValue}>{formatWhole(load.inverterSize)} W</div>
                 </div>
             </div>
 
@@ -80,9 +85,8 @@ export default function PackageStep({
                     <div>
                         <div style={{ fontSize: '14px', fontWeight: 700, color: C.warnText }}>Load exceeds the largest package</div>
                         <div style={{ fontSize: '13.5px', lineHeight: 1.55, color: C.warnBody, marginTop: '3px' }}>
-                            The adjusted total of {formatWhole(load.adjusted)} Wh is above the {largest.kw} kW capacity,
-                            which is the largest tier currently offered. The quotation is built on the {largest.kw} kW
-                            package and flagged for an engineer to review.
+                            {formatWhole(load.inverterSize)} W is above our largest {largest.kw} kW package. The quote
+                            uses the {largest.kw} kW and an engineer will review it.
                         </div>
                     </div>
                 </div>
@@ -111,7 +115,7 @@ export default function PackageStep({
                                     style={{ ...s.option(active, locked), opacity: locked ? 0.55 : 1 }}
                                 >
                                     <span style={s.radioDot(active)} />
-                                    <span style={{ fontFamily: MONO, fontSize: '14px' }}>{p.kw} kW hybrid</span>
+                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>{p.kw} kW hybrid</span>
                                     <span style={styles.optionTag(i === recommendedPkgIndex)}>{tag}</span>
                                 </button>
                             );
@@ -136,12 +140,13 @@ export default function PackageStep({
                     >
                         {panelOptions(pkg).map((n) => (
                             <option key={n} value={String(n)}>
-                                {n} panels · {formatDecimal(arrayKwp(n))} kWp{n === pkg.panelDefault ? ' (default)' : ''}
+                                {n} panels · {formatDecimal(arrayKwp(n))} kWp{panelTag(n, recommendedPanels, pkg.panelDefault)}
                             </option>
                         ))}
                     </select>
                     <p style={styles.cardFootnote}>
-                        The {pkg.kw} kW package ships with {pkg.panelDefault} panels and accepts up to {pkg.panelMax}.
+                        {formatWhole(load.inverterSize)} W ÷ {PANEL_WATTS} W = {recommendedPanels} panels, rounded
+                        down{panelNote}.
                     </p>
                 </div>
 
@@ -161,7 +166,7 @@ export default function PackageStep({
                             return (
                                 <button key={b.ah} type="button" onClick={() => onPickBattery(i)} style={s.option(active, false)}>
                                     <span style={s.radioDot(active)} />
-                                    <span style={{ fontFamily: MONO, fontSize: '14px' }}>
+                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>
                                         {b.ah} Ah · {formatDecimal(batteryWh(b.ah))} Wh
                                     </span>
                                     <span style={styles.optionTag(true)}>{i === recommendedBatteryIndex ? 'matched' : ''}</span>
@@ -171,8 +176,8 @@ export default function PackageStep({
                     </div>
                     <p style={styles.cardFootnote}>
                         {load.night > 0
-                            ? `Your ${formatWhole(load.night)} Wh of nighttime draw needs at least ${BATTERIES[recommendedBatteryIndex].ah} Ah. All four banks stay selectable either way.`
-                            : 'No nighttime load was entered, so the smallest bank is offered as a starting point.'}
+                            ? `${formatWhole(load.night)} Wh at night needs at least ${BATTERIES[recommendedBatteryIndex].ah} Ah. Any bank can be picked.`
+                            : 'No nighttime load, so the smallest bank is suggested.'}
                     </p>
                 </div>
             </div>
@@ -183,8 +188,7 @@ export default function PackageStep({
                     <div>
                         <div style={s.cardTitle}>Where the price goes</div>
                         <div style={{ ...s.cardNote, color: C.muted, maxWidth: '560px' }}>
-                            Each band below is one cost, sized to its share of the total. The figures update whenever
-                            you change the panel count or the battery.
+                            Each band is one cost, sized to its share of the total.
                         </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -218,7 +222,7 @@ export default function PackageStep({
                             <div style={{ flex: '1 1 auto', minWidth: 0 }}>
                                 <div style={styles.costLine}>
                                     <div style={{ fontSize: '15px', fontWeight: 700, color: C.ink, letterSpacing: '-.012em' }}>{item.label}</div>
-                                    <div style={{ fontFamily: MONO, fontSize: '16px', color: C.ink, whiteSpace: 'nowrap' }}>{peso(item.amount)}</div>
+                                    <div style={{ fontFamily: NUM, fontSize: '16px', color: C.ink, whiteSpace: 'nowrap' }}>{peso(item.amount)}</div>
                                 </div>
                                 <div style={{ ...styles.costLine, marginTop: '4px' }}>
                                     <div style={{ fontSize: '13px', lineHeight: 1.5, color: C.muted }}>{item.description}</div>
@@ -239,7 +243,7 @@ export default function PackageStep({
 
                 <div style={styles.priceFoot}>
                     <div style={{ fontWeight: 700, color: C.ink, fontSize: '15px' }}>Total installed price</div>
-                    <div style={{ fontFamily: MONO, color: C.ink, fontSize: '18px', whiteSpace: 'nowrap' }}>{peso(quote.total)}</div>
+                    <div style={{ fontFamily: NUM, color: C.ink, fontSize: '18px', whiteSpace: 'nowrap' }}>{peso(quote.total)}</div>
                 </div>
             </div>
 
@@ -254,7 +258,7 @@ export default function PackageStep({
                         {summary.map((row) => (
                             <div key={row.k} style={styles.summaryRow}>
                                 <span style={{ color: C.muted }}>{row.k}</span>
-                                <span style={{ fontFamily: MONO, color: C.ink, textAlign: 'right' }}>{row.v}</span>
+                                <span style={{ fontFamily: NUM, color: C.ink, textAlign: 'right' }}>{row.v}</span>
                             </div>
                         ))}
                     </div>
@@ -296,13 +300,13 @@ export default function PackageStep({
                                 <span style={styles.checkIcon(check.ok)}>{check.ok ? '✓' : '!'}</span>
                                 <div>
                                     <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#fff' }}>{check.title}</div>
-                                    <div style={{ fontSize: '12.5px', lineHeight: 1.5, color: '#9aada4', marginTop: '2px' }}>{check.body}</div>
+                                    <div style={{ fontSize: '12.5px', lineHeight: 1.5, color: C.onDark, marginTop: '2px' }}>{check.body}</div>
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <div style={{ marginTop: 'auto', paddingTop: '20px', fontSize: '11.5px', lineHeight: 1.55, color: '#7d948a' }}>
-                        Prices shown are customer-facing sales prices. Supplier comparison is handled separately by the admin.
+                    <div style={{ marginTop: 'auto', paddingTop: '20px', fontSize: '12.5px', lineHeight: 1.55, color: C.onDarkMuted }}>
+                        All prices shown are sales prices.
                     </div>
                 </aside>
             </div>
@@ -310,10 +314,18 @@ export default function PackageStep({
     );
 }
 
+// Label after a panel count in the dropdown, e.g. " (recommended)"
+function panelTag(n, recommended, minimum) {
+    const tags = [];
+    if (n === recommended) tags.push('recommended');
+    if (n === minimum) tags.push('minimum');
+    return tags.length ? ` (${tags.join(', ')})` : '';
+}
+
 const styles = {
     titleRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '36px', flexWrap: 'wrap', marginTop: '16px' },
     adjustedBox: { background: C.green, borderRadius: '12px', padding: '20px 24px' },
-    adjustedValue: { fontFamily: MONO, fontSize: '28px', fontWeight: 500, letterSpacing: '-.03em', color: C.yellow, marginTop: '8px', whiteSpace: 'nowrap' },
+    adjustedValue: { fontFamily: NUM, fontSize: '28px', fontWeight: 600, letterSpacing: '-.03em', color: C.yellow, marginTop: '8px', whiteSpace: 'nowrap' },
     infoBanner: {
         background: C.mint, border: '1px solid #c7d3cc', borderRadius: '12px', padding: '14px 18px',
         marginTop: '24px', fontSize: '14px', color: C.green, lineHeight: 1.5,
@@ -330,15 +342,15 @@ const styles = {
     optionCard: { ...s.card, padding: '24px', display: 'flex', flexDirection: 'column' },
     cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
     bigLabel: { fontSize: '23px', fontWeight: 800, letterSpacing: '-.025em', color: C.ink, marginTop: '14px' },
-    bigNumber: { fontFamily: MONO, fontSize: '30px', fontWeight: 500, letterSpacing: '-.03em', color: C.ink },
+    bigNumber: { fontFamily: NUM, fontSize: '30px', fontWeight: 600, letterSpacing: '-.03em', color: C.ink },
     optionList: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '20px' },
     optionTag: (highlight) => ({
-        marginLeft: 'auto', fontFamily: MONO, fontSize: '10px', letterSpacing: '.06em',
+        marginLeft: 'auto', fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.06em',
         color: highlight ? C.green : C.dim,
     }),
     panelSelect: {
         marginTop: '20px', border: `1px solid ${C.fieldBorder}`, borderRadius: '9px', padding: '13px',
-        fontFamily: MONO, fontSize: '14.5px', color: C.ink, outline: 'none', background: C.fieldBg,
+        fontFamily: NUM, fontSize: '14.5px', color: C.ink, outline: 'none', background: C.fieldBg,
         cursor: 'pointer', width: '100%',
     },
     cardFootnote: { margin: '14px 0 0', fontSize: '13px', lineHeight: 1.55, color: C.muted },
@@ -346,7 +358,7 @@ const styles = {
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px',
         padding: '20px 26px', borderBottom: `1px solid ${C.borderSoft}`, flexWrap: 'wrap',
     },
-    priceTotal: { fontFamily: MONO, fontSize: '29px', fontWeight: 500, letterSpacing: '-.03em', color: C.green, whiteSpace: 'nowrap', marginTop: '4px' },
+    priceTotal: { fontFamily: NUM, fontSize: '29px', fontWeight: 600, letterSpacing: '-.03em', color: C.green, whiteSpace: 'nowrap', marginTop: '4px' },
     bar: { display: 'flex', height: '14px', borderRadius: '99px', overflow: 'hidden', gap: '2px' },
     band: (item, selected) => ({
         flex: `${item.amount} 0 0`, background: item.color, cursor: 'pointer',
@@ -378,7 +390,7 @@ const styles = {
     coverage: { flex: '1 1 280px', minWidth: 0, background: C.darkPanel, padding: '26px', display: 'flex', flexDirection: 'column' },
     checkIcon: (ok) => ({
         flex: 'none', width: '19px', height: '19px', borderRadius: '50%', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: '11px', marginTop: '1px',
+        justifyContent: 'center', fontSize: '12px', marginTop: '1px',
         background: ok ? C.yellow : '#c0392b', color: ok ? C.ink : '#fff',
     }),
 };

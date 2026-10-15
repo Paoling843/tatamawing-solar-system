@@ -19,11 +19,9 @@
 // CONSTANTS
 // ---------------------------------------------------------------------
 
-// Flat safety buffer added once to the household's grand total (Wh)
-export const BUFFER_WH = 2000;
-
-// Loads under this adjusted total always get the smallest package
-export const SMALL_LOAD_FLOOR_WH = 3000;
+// Flat safety buffer added once to the household's total load (W)
+// to get the inverter size
+export const INVERTER_BUFFER_W = 2000;
 
 // Aircon and water pump wattage is derived from horsepower: hp × 800 W
 export const WATTS_PER_HP = 800;
@@ -49,7 +47,7 @@ export const APPLIANCES = [
 ];
 
 // Hybrid inverter packages, smallest first.
-//   watts        → the most adjusted Wh this package is recommended for
+//   watts        → the largest inverter size (W) this package is recommended for
 //   panelDefault → panels that ship with the package (the minimum)
 //   panelMax     → most panels the package accepts
 //   inverter     → inverter price (₱)
@@ -169,14 +167,22 @@ export function computeRow(row) {
 //   TOTAL DAYTIME   = sum of day_wh
 //   TOTAL NIGHTTIME = sum of night_wh
 //   GRAND TOTAL     = day + night
-//   ADJUSTED TOTAL  = grand + 2,000 buffer
+//   TOTAL LOAD      = sum of row watts (every appliance running at once)
+//   INVERTER SIZE   = total load + 2,000 W buffer
 export function computeLoad(rows) {
     const computed = rows.map(computeRow);
     const day = computed.reduce((sum, r) => sum + r.dayWh, 0);
     const night = computed.reduce((sum, r) => sum + r.nightWh, 0);
-    const grand = day + night;
+    const totalLoad = computed.reduce((sum, r) => sum + r.rowWatts, 0);
 
-    return { rows: computed, day, night, grand, adjusted: grand + BUFFER_WH };
+    return {
+        rows: computed,
+        day,
+        night,
+        grand: day + night,
+        totalLoad,
+        inverterSize: totalLoad + INVERTER_BUFFER_W,
+    };
 }
 
 // A row is ready when it has a quantity, and a wattage if it isn't an HP appliance.
@@ -188,19 +194,28 @@ export function isRowComplete(row) {
 // STEP 3: RECOMMENDATION
 // ---------------------------------------------------------------------
 
-// Index (in PACKAGES) of the recommended inverter package:
-//   - under 3,000 Wh → the smallest package
-//   - otherwise → the first package whose watts cover the adjusted total
-//   - bigger than every package → the largest (flagged for an engineer)
-export function recommendPackageIndex(adjustedWh) {
-    if (adjustedWh < SMALL_LOAD_FLOOR_WH) return 0;
-    const index = PACKAGES.findIndex((p) => p.watts >= adjustedWh);
+// Index (in PACKAGES) of the recommended inverter package: the first package
+// whose watts cover the inverter size. Bigger than every package → the
+// largest (flagged for an engineer).
+export function recommendPackageIndex(inverterSize) {
+    const index = PACKAGES.findIndex((p) => p.watts >= inverterSize);
     return index < 0 ? PACKAGES.length - 1 : index;
 }
 
-// True when the adjusted load is more than the largest package can carry.
-export function exceedsLargestPackage(adjustedWh) {
-    return adjustedWh > PACKAGES[PACKAGES.length - 1].watts;
+// True when the inverter size is more than the largest package can carry.
+export function exceedsLargestPackage(inverterSize) {
+    return inverterSize > PACKAGES[PACKAGES.length - 1].watts;
+}
+
+// Panels the inverter size calls for: inverter size ÷ 610 W, rounded down
+export function panelsForInverterSize(inverterSize) {
+    return Math.floor(inverterSize / PANEL_WATTS);
+}
+
+// Recommended panel count for a package: panelsForInverterSize(), kept
+// inside the package's panel range (panelDefault–panelMax)
+export function recommendPanelCount(inverterSize, pkg) {
+    return Math.max(pkg.panelDefault, Math.min(pkg.panelMax, panelsForInverterSize(inverterSize)));
 }
 
 // Usable Wh of a battery: ah × 40.96.
@@ -219,17 +234,15 @@ export function recommendBatteryIndex(nightWh) {
 }
 
 // One-sentence explanation of why the package was recommended
-export function recommendationReason(adjustedWh) {
+export function recommendationReason(load) {
     const largest = PACKAGES[PACKAGES.length - 1];
+    const sizing = `${formatWhole(load.totalLoad)} W of appliances + ${formatWhole(INVERTER_BUFFER_W)} W buffer = ${formatWhole(load.inverterSize)} W`;
 
-    if (adjustedWh < SMALL_LOAD_FLOOR_WH) {
-        return `The adjusted load of ${formatWhole(adjustedWh)} Wh sits under the 3,000 Wh floor, so the smallest package we install applies.`;
+    if (exceedsLargestPackage(load.inverterSize)) {
+        return `${sizing}, above our largest package. The ${largest.kw} kW is recommended and an engineer will check if you need more.`;
     }
-    if (exceedsLargestPackage(adjustedWh)) {
-        return `At ${formatWhole(adjustedWh)} Wh the adjusted load sits above the largest package we currently offer, so the ${largest.kw} kW is recommended and an engineer will confirm whether a larger tier is needed.`;
-    }
-    const recommended = PACKAGES[recommendPackageIndex(adjustedWh)];
-    return `${formatWhole(adjustedWh)} Wh of adjusted load is the first figure the ${recommended.kw} kW package covers without running at its limit.`;
+    const recommended = PACKAGES[recommendPackageIndex(load.inverterSize)];
+    return `${sizing}, the first size the ${recommended.kw} kW package covers.`;
 }
 
 // Every allowed panel count for a package: default, default + 1, … max
@@ -247,13 +260,14 @@ export function arrayKwp(panels) {
 // the recommended one) falls back to the default, exactly like the prototype.
 //   choice = { pkg: index | null, panels: number | null, battery: index | null }
 export function resolveSelection(load, choice) {
-    const recommendedPkgIndex = recommendPackageIndex(load.adjusted);
+    const recommendedPkgIndex = recommendPackageIndex(load.inverterSize);
     const pkgIndex = choice.pkg !== null && choice.pkg >= recommendedPkgIndex ? choice.pkg : recommendedPkgIndex;
     const pkg = PACKAGES[pkgIndex];
 
+    const recommendedPanels = recommendPanelCount(load.inverterSize, pkg);
     const panels = choice.panels !== null && choice.panels >= pkg.panelDefault && choice.panels <= pkg.panelMax
         ? choice.panels
-        : pkg.panelDefault;
+        : recommendedPanels;
 
     const recommendedBatteryIndex = recommendBatteryIndex(load.night);
     const batteryIndex = choice.battery !== null ? choice.battery : recommendedBatteryIndex;
@@ -262,6 +276,7 @@ export function resolveSelection(load, choice) {
         recommendedPkgIndex,
         pkgIndex,
         pkg,
+        recommendedPanels,
         panels,
         recommendedBatteryIndex,
         batteryIndex,

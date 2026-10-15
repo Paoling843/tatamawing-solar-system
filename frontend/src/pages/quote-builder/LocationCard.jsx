@@ -27,7 +27,7 @@ export default function LocationCard({ location, seen, onChange, onTouch }) {
                     <div style={styles.fixedValue}>{HOME_MUNICIPALITY}, {HOME_PROVINCE}</div>
                 </Field>
 
-                <Field label="Barangay *" htmlFor="loc-barangay" error={message}>
+                <Field label="Barangay" required htmlFor="loc-barangay" error={message}>
                     <BarangayInput
                         id="loc-barangay"
                         value={location.barangay}
@@ -58,11 +58,11 @@ export default function LocationCard({ location, seen, onChange, onTouch }) {
                             value={location.description}
                             onChange={(e) => onChange('description', e.target.value)}
                             maxLength={SITE_DESCRIPTION_MAX}
-                            placeholder="e.g. Two-storey concrete house, GI sheet roof facing south, a mango tree shades part of the roof in the afternoon. Narrow road — only a tricycle can reach the gate."
+                            placeholder="e.g. Two-storey house, GI roof facing south, shaded by a tree in the afternoon. Only a tricycle can reach the gate."
                             style={{ ...inputStyle(false), resize: 'vertical', lineHeight: 1.5, fontFamily: SANS }}
                         />
                         <span style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: C.sub }}>
-                            <span>Roof type, number of floors, shading, how to reach the house — anything that helps us plan.</span>
+                            <span>Roof, floors, shading, road access — anything that helps us plan.</span>
                             <span style={{ whiteSpace: 'nowrap' }}>{location.description.length} / {SITE_DESCRIPTION_MAX}</span>
                         </span>
                     </Field>
@@ -72,10 +72,13 @@ export default function LocationCard({ location, seen, onChange, onTouch }) {
     );
 }
 
-function Field({ label, htmlFor, error, children }) {
+function Field({ label, required, htmlFor, error, children }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 }}>
-            <label htmlFor={htmlFor} style={{ fontSize: '12.5px', color: C.muted }}>{label}</label>
+            <label htmlFor={htmlFor} style={{ fontSize: '12.5px', fontWeight: 600, color: C.body }}>
+                {label}
+                {required && <span aria-hidden="true" style={s.requiredMark}>*</span>}
+            </label>
             {children}
             {error && <span style={{ fontSize: '12px', color: C.errorText }}>{error}</span>}
         </div>

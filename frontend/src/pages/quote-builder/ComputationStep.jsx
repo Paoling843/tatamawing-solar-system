@@ -1,16 +1,16 @@
-import { formatWhole, formatDecimal } from '../../services/solarEngine';
-import { C, MONO, SANS, s } from './engineStyles';
+import { formatWhole, formatDecimal, panelsForInverterSize } from '../../services/solarEngine';
+import { C, NUM, SANS, s } from './engineStyles';
 
-const GRID = 'minmax(0,1.7fr) minmax(0,0.9fr) minmax(0,0.75fr) minmax(0,0.45fr) minmax(0,1.25fr) minmax(0,1.25fr)';
+const GRID = 'minmax(0,1.6fr) minmax(0,0.8fr) minmax(0,0.75fr) minmax(0,0.45fr) minmax(0,0.95fr) minmax(0,1.2fr) minmax(0,1.2fr)';
 
 // STEP 2 — shows the arithmetic behind the total: one line per appliance
-// with "watts × qty × hours" spelled out, then the four-box ledger.
+// with "watts × qty" and "watts × qty × hours" spelled out, then the ledger.
 export default function ComputationStep({ rows, load, onBack, onNext }) {
     const ledger = [
-        { label: 'TOTAL DAYTIME', value: load.day, formula: 'sum of daytime Wh · 08:00–16:00' },
-        { label: 'TOTAL NIGHTTIME', value: load.night, formula: 'sum of nighttime Wh · 16:00–08:00' },
-        { label: 'GRAND TOTAL', value: load.grand, formula: 'day + night' },
-        { label: 'ADJUSTED TOTAL', value: load.adjusted, formula: 'grand + 2,000 buffer', highlight: true },
+        { label: 'TOTAL DAYTIME', value: load.day, unit: 'Wh', formula: 'sum of daytime Wh · 08:00–16:00' },
+        { label: 'TOTAL NIGHTTIME', value: load.night, unit: 'Wh', formula: 'sum of nighttime Wh · 16:00–08:00' },
+        { label: 'TOTAL LOAD', value: load.inverterSize, unit: 'W', formula: 'sizes the inverter', highlight: true },
+        { label: 'PANELS', value: panelsForInverterSize(load.inverterSize), unit: 'panels', formula: 'total load ÷ 610 W, rounded down' },
     ];
 
     return (
@@ -18,21 +18,20 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
             <div style={s.eyebrow}>STEP 02 · COMPUTATION</div>
             <h1 className="se-h1" style={s.h1}>How the total was reached.</h1>
             <p style={s.lead}>
-                Every appliance is split into the energy it draws while the sun is up and the energy it draws
-                after dark. Each figure is its wattage × how many units you have × the hours it runs in that
-                window; the daytime and nighttime columns are then summed on their own. Nothing is rounded
-                until the final figure.
+                Daytime and nighttime energy are each wattage × quantity × hours used. Total load is wattage ×
+                quantity, everything running at once, and sizes the inverter.
             </p>
 
             {/* ----- Per-appliance breakdown ----- */}
             <div style={{ ...s.card, overflow: 'hidden', marginTop: '36px' }}>
                 <div className="se-table-scroll">
-                    <div style={{ minWidth: '760px' }}>
+                    <div style={{ minWidth: '860px' }}>
                         <div style={styles.head}>
                             <div>APPLIANCE</div>
                             <div>BASIS</div>
                             <div style={{ textAlign: 'right' }}>WATTS</div>
                             <div style={{ textAlign: 'right' }}>QTY</div>
+                            <div style={{ textAlign: 'right' }}>TOTAL LOAD</div>
                             <div style={{ textAlign: 'right' }}>DAYTIME Wh</div>
                             <div style={{ textAlign: 'right' }}>NIGHTTIME Wh</div>
                         </div>
@@ -48,6 +47,7 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
                                     </div>
                                     <div style={styles.figure}>{formatWhole(c.watts)} W</div>
                                     <div style={styles.figure}>{c.qty}</div>
+                                    <FormulaCell value={`${formatWhole(c.rowWatts)} W`} formula={`${formatWhole(c.watts)} × ${c.qty}`} />
                                     <EnergyCell wh={c.dayWh} watts={c.watts} qty={c.qty} hours={c.dayHours} emptyText="no daytime use" />
                                     <EnergyCell wh={c.nightWh} watts={c.watts} qty={c.qty} hours={c.nightHours} emptyText="no nighttime use" />
                                 </div>
@@ -57,6 +57,7 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
                         <div style={styles.totals}>
                             <div style={{ fontFamily: SANS, fontWeight: 700, color: C.ink }}>Totals</div>
                             <div /><div /><div />
+                            <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.totalLoad)} W</div>
                             <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.day)}</div>
                             <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.night)}</div>
                         </div>
@@ -68,16 +69,16 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
             <div style={styles.ledger}>
                 {ledger.map((box, i) => (
                     <div key={box.label} style={styles.ledgerBox(box.highlight, i < ledger.length - 1)}>
-                        <div style={{ fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: box.highlight ? C.onDark : C.muted }}>
+                        <div style={{ fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: box.highlight ? C.onDark : C.muted }}>
                             {box.label}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', marginTop: '12px' }}>
-                            <span style={{ fontFamily: MONO, fontSize: '27px', fontWeight: 500, letterSpacing: '-.03em', color: box.highlight ? C.yellow : C.ink }}>
+                            <span style={{ fontFamily: NUM, fontSize: '27px', fontWeight: 600, letterSpacing: '-.03em', color: box.highlight ? C.yellow : C.ink }}>
                                 {formatWhole(box.value)}
                             </span>
-                            <span style={{ fontSize: '12px', color: box.highlight ? C.onDark : C.muted }}>Wh</span>
+                            <span style={{ fontSize: '12px', color: box.highlight ? C.onDark : C.muted }}>{box.unit}</span>
                         </div>
-                        <div style={{ fontFamily: MONO, fontSize: '11.5px', color: box.highlight ? C.onDark : C.muted, marginTop: '6px' }}>
+                        <div style={{ fontFamily: NUM, fontSize: '12.5px', color: box.highlight ? C.onDark : C.muted, marginTop: '6px' }}>
                             {box.formula}
                         </div>
                     </div>
@@ -97,11 +98,19 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
 // One Wh figure with its formula underneath, e.g. "2,400 × 1 × 8 h"
 function EnergyCell({ wh, watts, qty, hours, emptyText }) {
     return (
+        <FormulaCell
+            value={formatWhole(wh)}
+            formula={hours ? `${formatWhole(watts)} × ${qty} × ${formatDecimal(hours)} h` : emptyText}
+        />
+    );
+}
+
+// A figure with the formula that produced it underneath
+function FormulaCell({ value, formula }) {
+    return (
         <div style={{ textAlign: 'right', minWidth: 0 }}>
-            <div style={{ fontFamily: MONO, color: C.ink }}>{formatWhole(wh)}</div>
-            <div style={{ fontFamily: MONO, fontSize: '11px', color: C.muted, marginTop: '4px' }}>
-                {hours ? `${formatWhole(watts)} × ${qty} × ${formatDecimal(hours)} h` : emptyText}
-            </div>
+            <div style={{ fontFamily: NUM, color: C.ink }}>{value}</div>
+            <div style={{ fontFamily: NUM, fontSize: '12px', color: C.muted, marginTop: '4px' }}>{formula}</div>
         </div>
     );
 }
@@ -109,18 +118,18 @@ function EnergyCell({ wh, watts, qty, hours, emptyText }) {
 const styles = {
     head: {
         display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '13px 20px', background: C.fieldBg,
-        borderBottom: `1px solid ${C.borderSoft}`, fontFamily: MONO, fontSize: '10px', lineHeight: 1.5,
-        letterSpacing: '.08em', color: C.muted, alignItems: 'end',
+        borderBottom: `1px solid ${C.borderSoft}`, fontFamily: NUM, fontSize: '11.5px', lineHeight: 1.5,
+        fontWeight: 600, letterSpacing: '.05em', color: C.muted, alignItems: 'end',
     },
     row: {
         display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '15px 20px',
         borderBottom: `1px solid ${C.rowBorder}`, fontSize: '14px', alignItems: 'start',
     },
     name: { color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    figure: { fontFamily: MONO, textAlign: 'right', color: C.body },
+    figure: { fontFamily: NUM, textAlign: 'right', color: C.body },
     totals: {
         display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '16px 20px', background: C.fieldBg,
-        fontFamily: MONO, fontSize: '14px',
+        fontFamily: NUM, fontSize: '14px',
     },
     ledger: {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', background: '#fff',

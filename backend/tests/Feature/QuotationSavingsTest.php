@@ -49,6 +49,12 @@ class QuotationSavingsTest extends TestCase
             'monthly_savings' => 1620,
             'new_monthly_bill' => 1380,
             'annual_savings' => 19440,
+            // Sizing: 1,500 W + 2,000 = 3,500 W → 5 kW recommended (8 kW is an upgrade);
+            // 3,500 ÷ 610 = 5 panels → raised to the 8 kW minimum of 10
+            'total_load_w' => 1500,
+            'inverter_size_w' => 3500,
+            'recommended_package_kw' => 5,
+            'recommended_panels' => 10,
         ]);
     }
 }
