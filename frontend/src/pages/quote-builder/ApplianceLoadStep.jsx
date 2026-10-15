@@ -1,9 +1,9 @@
 import {
     APPLIANCES, HP_OPTIONS, DAY_SLOTS, NIGHT_SLOTS, PACKAGES,
-    computeRow, formatHour, formatWhole, formatDecimal, monthLabel, prevMonth,
+    computeRow, formatHour, formatWhole, formatDecimal, monthLabel,
     recommendationReason,
 } from '../../services/solarEngine';
-import { C, MONO, SANS, s } from './engineStyles';
+import { C, NUM, SANS, s } from './engineStyles';
 import LocationCard from './LocationCard';
 
 // Column widths shared by the table header and every appliance row
@@ -29,16 +29,18 @@ export default function ApplianceLoadStep({
             <div style={s.eyebrow}>STEP 01 · APPLIANCE LOAD</div>
             <h1 className="se-h1" style={s.h1}>What does the household actually run?</h1>
             <p style={s.lead}>
-                Daytime hours are use between 08:00 and 16:00, when the array is generating. Nighttime
-                hours are 16:00 to 08:00 and are what the battery has to carry.
+                Daytime is 08:00–16:00, when the panels produce power. Nighttime is 16:00–08:00, covered
+                by the battery.
             </p>
             {/* Privacy notice for the anonymous calculator tracking (quoteTracker.js) */}
             <p style={styles.privacyNote}>
-                We count how far visitors get in this calculator, without names, to improve it. Nothing that
-                identifies you is saved until you send a request.{' '}
+                Visits are counted anonymously. Nothing that identifies you is saved until you send a request.{' '}
                 <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontWeight: 600 }}>
                     Privacy Policy
                 </a>
+            </p>
+            <p style={styles.privacyNote}>
+                Fields marked with <span style={{ ...s.requiredMark, marginLeft: 0 }}>*</span> are required.
             </p>
 
             {/* ================= Installation location ================= */}
@@ -71,8 +73,8 @@ export default function ApplianceLoadStep({
                             <div style={styles.tableHead}>
                                 <div>APPLIANCE</div>
                                 <div>HP</div>
-                                <div style={{ textAlign: 'right' }}>WATTS *</div>
-                                <div style={{ textAlign: 'right' }}>QTY *</div>
+                                <div style={{ textAlign: 'right' }}>WATTS<span aria-hidden="true" style={s.requiredMark}>*</span></div>
+                                <div style={{ textAlign: 'right' }}>QTY<span aria-hidden="true" style={s.requiredMark}>*</span></div>
                                 <div>DAYTIME · {hour(8)}–{hour(16)}</div>
                                 <div>NIGHTTIME · {hour(16)}–{hour(8)}</div>
                                 <div />
@@ -82,7 +84,7 @@ export default function ApplianceLoadStep({
                                 <div style={styles.empty}>
                                     <div style={{ fontSize: '14.5px', fontWeight: 700, color: C.ink }}>No appliances yet</div>
                                     <div style={{ fontSize: '13px', color: C.muted, marginTop: '5px' }}>
-                                        Add the first appliance below, then set its wattage, quantity and the hours it runs.
+                                        Add an appliance below, then set its wattage, quantity and hours.
                                     </div>
                                 </div>
                             )}
@@ -108,8 +110,7 @@ export default function ApplianceLoadStep({
                             <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> Add appliance
                         </button>
                         <span style={{ fontSize: '13px', color: C.sub }}>
-                            Aircon and water pump wattage is computed as hp × 800 W. Everything else takes the
-                            wattage from the unit's plate.
+                            Aircon and water pump: hp × 800 W. Others: the wattage on the unit's label.
                         </span>
                     </div>
                 </div>
@@ -117,29 +118,28 @@ export default function ApplianceLoadStep({
                 {/* ================= Live totals (sidebar) ================= */}
                 <div className="se-load-sidebar" style={styles.sidebar}>
                     <div style={styles.totalCard}>
-                        <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>ADJUSTED TOTAL</div>
+                        <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>INVERTER SIZE</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-                            <span style={styles.totalValue}>{formatWhole(load.adjusted)}</span>
-                            <span style={{ fontSize: '13px', color: C.onDarkMuted }}>Wh</span>
+                            <span style={styles.totalValue}>{formatWhole(load.inverterSize)}</span>
+                            <span style={{ fontSize: '13px', color: C.onDarkMuted }}>W</span>
                         </div>
                         <div style={styles.totalDivider} />
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-                            <TotalLine label="Daytime" value={`${formatWhole(load.day)} Wh`} />
-                            <TotalLine label="Nighttime" value={`${formatWhole(load.night)} Wh`} />
-                            <TotalLine label="Safety buffer" value="+2,000 Wh" />
+                            <TotalLine label="Total load" value={`${formatWhole(load.totalLoad)} W`} />
+                            <TotalLine label="Safety buffer" value="+2,000 W" />
                         </div>
                     </div>
 
                     <div style={{ ...s.card, borderRadius: '12px', padding: '20px' }}>
                         <div style={{ fontSize: '13.5px', fontWeight: 700, color: C.ink }}>Recommendation preview</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '8px' }}>
-                            <span style={{ fontFamily: MONO, fontSize: '22px', color: C.green }}>
+                            <span style={{ fontFamily: NUM, fontSize: '22px', color: C.green }}>
                                 {PACKAGES[selection.recommendedPkgIndex].kw} kW
                             </span>
                             <span style={{ fontSize: '13px', color: C.sub }}>hybrid inverter</span>
                         </div>
                         <p style={{ margin: '10px 0 0', fontSize: '13px', lineHeight: 1.55, color: C.muted }}>
-                            {recommendationReason(load.adjusted)}
+                            {recommendationReason(load)}
                         </p>
                     </div>
                 </div>
@@ -150,8 +150,7 @@ export default function ApplianceLoadStep({
                 <div style={{ padding: '18px 26px', borderBottom: `1px solid ${C.borderSoft}` }}>
                     <div style={s.cardTitle}>Recent electricity bills</div>
                     <div style={s.cardNote}>
-                        Used to estimate your savings in Step 3. Enter the bill amount; the kWh is optional but
-                        lets us use your actual rate. Nothing here changes the computation above.
+                        Only used to estimate your savings in Step 3. Adding the kWh lets us use your actual rate.
                     </div>
                 </div>
                 <div style={styles.billGrid}>
@@ -264,6 +263,7 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                         onBlur={() => onTouch('watts')}
                         inputMode="numeric"
                         placeholder="required"
+                        aria-required="true"
                         aria-invalid={wattsMissing}
                         style={s.numberInput(wattsMissing)}
                     />
@@ -279,6 +279,7 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                     onBlur={() => onTouch('qty')}
                     inputMode="numeric"
                     placeholder="req."
+                    aria-required="true"
                     aria-invalid={qtyMissing}
                     style={s.numberInput(qtyMissing)}
                 />
@@ -332,7 +333,7 @@ function HourRange({ from, to, fromOptions, toOptions, label, hours, onFrom, onT
                     {toOptions.map((h) => <option key={h} value={String(h)}>{label(h)}</option>)}
                 </select>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: '11px', color: hours ? C.green : C.dim }}>
+            <div style={{ fontFamily: NUM, fontSize: '12px', color: hours ? C.green : C.dim }}>
                 {hours ? `${formatDecimal(hours)} h` : 'not used'}
             </div>
         </div>
@@ -343,25 +344,18 @@ function TotalLine({ label, value }) {
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '13.5px' }}>
             <span style={{ color: C.onDark, whiteSpace: 'nowrap' }}>{label}</span>
-            <span style={{ fontFamily: MONO, color: '#fff', whiteSpace: 'nowrap' }}>{value}</span>
+            <span style={{ fontFamily: NUM, color: '#fff', whiteSpace: 'nowrap' }}>{value}</span>
         </div>
     );
 }
 
 function BillCard({ index, bill, mostRecentPeriod, onChange }) {
-    // Bill 2 stays locked until bill 1 has a month, then can't go later than
-    // the month right before bill 1.
+    // Bill 2's month isn't picked: it's always the month right before bill 1
+    // (QuotationFormPage keeps it in step), so it's shown as fixed text.
     const isEarlierBill = index === 1;
-    const locked = isEarlierBill && !mostRecentPeriod;
-    const maxMonth = isEarlierBill ? prevMonth(mostRecentPeriod) : undefined;
-
-    let hint = '';
-    if (isEarlierBill) {
-        hint = mostRecentPeriod ? `Up to ${monthLabel(maxMonth)}` : 'Set the most recent bill first';
-    }
 
     const fieldStyle = {
-        border: `1px solid ${C.fieldBorder}`, borderRadius: '8px', padding: '10px 9px', fontFamily: MONO,
+        border: `1px solid ${C.fieldBorder}`, borderRadius: '8px', padding: '10px 9px', fontFamily: NUM,
         fontSize: '13px', color: C.ink, outline: 'none', background: '#fff', minWidth: 0, width: '100%',
     };
 
@@ -369,18 +363,27 @@ function BillCard({ index, bill, mostRecentPeriod, onChange }) {
         <div style={styles.billCard}>
             <div style={s.cardEyebrow}>{index === 0 ? 'MOST RECENT BILL' : 'THE MONTH BEFORE'}</div>
             <div className="se-bill-fields" style={styles.billFields}>
-                <label style={styles.billLabel}>
-                    <span style={styles.billLabelText}>Billing month</span>
-                    <input
-                        type="month"
-                        value={bill.period}
-                        max={maxMonth || undefined}
-                        disabled={locked}
-                        onChange={(e) => onChange('period', e)}
-                        style={{ ...fieldStyle, color: locked ? C.dim : C.ink, background: locked ? C.softBg : '#fff' }}
-                    />
-                    <span style={{ fontSize: '11.5px', color: locked ? C.dim : C.sub }}>{hint}</span>
-                </label>
+                {isEarlierBill ? (
+                    <div style={styles.billLabel}>
+                        <span style={styles.billLabelText}>Billing month</span>
+                        <div style={{ ...fieldStyle, background: C.softBg, color: mostRecentPeriod ? C.ink : C.dim }}>
+                            {mostRecentPeriod ? monthLabel(bill.period) : '—'}
+                        </div>
+                        <span style={{ fontSize: '12.5px', color: C.sub }}>
+                            {mostRecentPeriod ? 'Set automatically' : 'Set the most recent bill first'}
+                        </span>
+                    </div>
+                ) : (
+                    <label style={styles.billLabel}>
+                        <span style={styles.billLabelText}>Billing month</span>
+                        <input
+                            type="month"
+                            value={bill.period}
+                            onChange={(e) => onChange('period', e)}
+                            style={fieldStyle}
+                        />
+                    </label>
+                )}
                 <label style={styles.billLabel}>
                     <span style={styles.billLabelText}>Bill amount ₱</span>
                     <input
@@ -392,7 +395,7 @@ function BillCard({ index, bill, mostRecentPeriod, onChange }) {
                     />
                 </label>
                 <label style={styles.billLabel}>
-                    <span style={styles.billLabelText}>kWh used (optional)</span>
+                    <span style={styles.billLabelText}>kWh used</span>
                     <input
                         value={bill.kwh}
                         onChange={(e) => onChange('kwh', e)}
@@ -422,16 +425,16 @@ const styles = {
     }),
     tableHead: {
         display: 'grid', gridTemplateColumns: GRID, gap: '16px', padding: '16px 26px 14px',
-        background: C.fieldBg, borderBottom: `1px solid ${C.borderSoft}`, fontFamily: MONO,
-        fontSize: '10px', lineHeight: 1.5, letterSpacing: '.08em', color: C.faint, alignItems: 'end',
+        background: C.fieldBg, borderBottom: `1px solid ${C.borderSoft}`, fontFamily: NUM,
+        fontSize: '11.5px', lineHeight: 1.5, fontWeight: 600, letterSpacing: '.05em', color: C.faint, alignItems: 'end',
     },
     empty: { padding: '34px 26px', textAlign: 'center' },
     row: { display: 'grid', gridTemplateColumns: GRID, gap: '16px', padding: '20px 26px', alignItems: 'start' },
     cellStack: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 },
-    naCell: { display: 'flex', alignItems: 'center', minHeight: '42px', fontFamily: MONO, fontSize: '12px', color: C.dim },
+    naCell: { display: 'flex', alignItems: 'center', minHeight: '42px', fontFamily: NUM, fontSize: '12px', color: C.dim },
     computedWatts: {
         display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minHeight: '42px',
-        fontFamily: MONO, fontSize: '14px', color: C.muted,
+        fontFamily: NUM, fontSize: '14px', color: C.muted,
     },
     removeButton: {
         width: '30px', height: '30px', alignSelf: 'center', borderRadius: '8px', border: `1px solid ${C.border}`,
@@ -448,13 +451,13 @@ const styles = {
     },
     sidebar: { flex: '1 1 300px', position: 'sticky', top: '96px', display: 'flex', flexDirection: 'column', gap: '16px' },
     totalCard: { background: C.green, borderRadius: '12px', padding: '24px' },
-    totalValue: { fontFamily: MONO, fontSize: '34px', fontWeight: 500, letterSpacing: '-.03em', color: C.yellow },
+    totalValue: { fontFamily: NUM, fontSize: '34px', fontWeight: 600, letterSpacing: '-.03em', color: C.yellow },
     totalDivider: { height: '1px', background: 'rgba(255,255,255,.14)', margin: '20px 0' },
     billGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: '16px', padding: '22px 26px' },
     billCard: { background: C.fieldBg, border: `1px solid ${C.borderSoft}`, borderRadius: '11px', padding: '18px 20px' },
     billFields: { display: 'grid', gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr)', gap: '14px', marginTop: '14px' },
     billLabel: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 },
-    billLabelText: { fontSize: '12.5px', color: C.muted },
+    billLabelText: { fontSize: '12.5px', fontWeight: 600, color: C.body },
     continueButton: (ready) => ({
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', border: 'none',
         borderRadius: '11px', padding: '16px 24px', fontFamily: SANS, fontSize: '15px', fontWeight: 800,

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { formatWhole } from '../../services/solarEngine';
-import { C, MONO, SANS, s } from './engineStyles';
+import { C, NUM, SANS, s } from './engineStyles';
 
 const PERKS = [
     'Track this quotation to signature',
@@ -11,7 +11,7 @@ const PERKS = [
 // Shown when a guest presses "Request quotation". Their inputs are already
 // saved in the browser, so they can log in or register and come straight
 // back to Step 3 to send the request.
-export default function RequestQuoteDialog({ summaryLine, adjustedWh, onClose, onLogin, onRegister }) {
+export default function RequestQuoteDialog({ summaryLine, inverterSize, onClose, onLogin, onRegister }) {
     // Close on Escape
     useEffect(() => {
         const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -34,8 +34,7 @@ export default function RequestQuoteDialog({ summaryLine, adjustedWh, onClose, o
                             <div style={s.cardEyebrow}>ONE STEP LEFT</div>
                             <h3 id="request-quote-title" style={styles.title}>Sign in to request your quotation</h3>
                             <p style={styles.blurb}>
-                                Your appliance list and this configuration are saved, so you'll come straight back
-                                here after you log in or create an account.
+                                Your inputs are saved. You'll come right back here after signing in.
                             </p>
                         </div>
                         <button className="se-btn-secondary" onClick={onClose} aria-label="Close" style={styles.close}>×</button>
@@ -47,7 +46,7 @@ export default function RequestQuoteDialog({ summaryLine, adjustedWh, onClose, o
 
                     <div style={styles.orRow}>
                         <span style={styles.orLine} />
-                        <span style={{ fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: C.dim }}>OR</span>
+                        <span style={{ fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: C.dim }}>OR</span>
                         <span style={styles.orLine} />
                     </div>
 
@@ -61,8 +60,8 @@ export default function RequestQuoteDialog({ summaryLine, adjustedWh, onClose, o
                     <div style={styles.summary}>{summaryLine}</div>
                     <div style={{ height: '1px', background: 'rgba(255,255,255,.14)', margin: '22px 0' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '13.5px', color: C.onDark }}>
-                        <span>Adjusted load</span>
-                        <span style={{ fontFamily: MONO, color: C.yellow, whiteSpace: 'nowrap' }}>{formatWhole(adjustedWh)} Wh</span>
+                        <span>Inverter size</span>
+                        <span style={{ fontFamily: NUM, color: C.yellow, whiteSpace: 'nowrap' }}>{formatWhole(inverterSize)} W</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', marginTop: '26px' }}>
                         {PERKS.map((perk) => (
@@ -72,8 +71,8 @@ export default function RequestQuoteDialog({ summaryLine, adjustedWh, onClose, o
                             </div>
                         ))}
                     </div>
-                    <div style={{ marginTop: 'auto', paddingTop: '22px', fontSize: '12px', lineHeight: 1.55, color: '#7d948a' }}>
-                        By continuing you agree to our terms and privacy policy. We never sell your consumption data.
+                    <div style={{ marginTop: 'auto', paddingTop: '22px', fontSize: '12px', lineHeight: 1.55, color: C.onDarkMuted }}>
+                        By continuing you agree to our terms and privacy policy. We never sell your data.
                     </div>
                 </aside>
             </div>

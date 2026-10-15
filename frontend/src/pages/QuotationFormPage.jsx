@@ -41,6 +41,12 @@ import './quote-builder/engine.css';
 
 const EMPTY_BILL = { period: '', amount: '', kwh: '' };
 
+// The second bill is always the month right before the most recent one
+// (empty until the most recent bill has a month).
+function withPreviousMonth([recent, earlier]) {
+    return [recent, { ...earlier, period: prevMonth(recent.period) }];
+}
+
 // Screen → step number reported to the anonymous analytics tracker
 const STEP_NUMBERS = { load: 1, compute: 2, package: 3 };
 const NO_CHOICE = { pkg: null, panels: null, battery: null };
@@ -77,8 +83,11 @@ export default function QuotationFormPage() {
     // ----- State -----
     const [screen, setScreen] = useState(draft?.screen ?? 'load');   // load | compute | package
     const [timeFormat, setTimeFormat] = useState(draft?.timeFormat ?? '24');
-    const [rows, setRows] = useState(draft?.rows ?? []);
-    const [bills, setBills] = useState(draft?.bills ?? [EMPTY_BILL, EMPTY_BILL]);
+    // A new visit starts with one empty appliance row, so the first input is
+    // right there instead of behind the "Add appliance" button. (A function,
+    // so newRow() runs once and not on every render.)
+    const [rows, setRows] = useState(() => draft?.rows ?? [newRow()]);
+    const [bills, setBills] = useState(() => withPreviousMonth(draft?.bills ?? [EMPTY_BILL, EMPTY_BILL]));
 
     // Where the system will be installed (top of Step 1)
     const [location, setLocation] = useState(() => ({ ...EMPTY_LOCATION, ...(draft?.location ?? {}) }));
@@ -193,37 +202,14 @@ export default function QuotationFormPage() {
 
     // ----- Monthly bills (reference only) -----
     const handleBillChange = (index, key, event) => {
+        // Bill 2's month can't be picked — it always follows bill 1's
+        if (index === 1 && key === 'period') return;
+
         const input = event.target;
-        let value = key === 'period' ? input.value : input.value.replace(/[^0-9.]/g, '');
+        const value = key === 'period' ? input.value : input.value.replace(/[^0-9.]/g, '');
         const next = bills.map((bill) => ({ ...bill }));
-
-        if (index === 1 && key === 'period') {
-            // Bill 2 is locked until bill 1 has a month...
-            const cap = prevMonth(bills[0].period);
-            if (!cap) {
-                input.value = '';
-                return;
-            }
-            // ...and can't be later than the month before bill 1. A typed-in
-            // month can already equal the value in state, in which case React
-            // won't re-render, so the field is also snapped back by hand.
-            if (value && value > cap) {
-                value = cap;
-                input.value = cap;
-            }
-        }
-
         next[index][key] = value;
-
-        if (index === 0 && key === 'period') {
-            // Changing bill 1 can make bill 2's month invalid — clear it if so
-            const cap = prevMonth(value);
-            if (!value || (next[1].period && next[1].period > cap)) {
-                next[1].period = '';
-            }
-        }
-
-        setBills(next);
+        setBills(withPreviousMonth(next));
     };
 
     // ----- Step 3: selection -----
@@ -290,7 +276,7 @@ export default function QuotationFormPage() {
     let resumeNotice = null;
     if (awaitingLogin && user && activeScreen === 'package') {
         resumeNotice = user.role === 'customer'
-            ? `Welcome back, ${user.name}. Your configuration is just as you left it — press Request quotation below to send it.`
+            ? `Welcome back, ${user.name}. Press Request quotation below to send it.`
             : STAFF_SIGNED_IN;
     }
 
@@ -386,7 +372,7 @@ export default function QuotationFormPage() {
             {authPromptOpen && (
                 <RequestQuoteDialog
                     summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.battery.ah} Ah`}
-                    adjustedWh={load.adjusted}
+                    inverterSize={load.inverterSize}
                     onClose={closeAuthPrompt}
                     onLogin={() => sendToAuth('/login')}
                     onRegister={() => sendToAuth('/register')}
@@ -397,7 +383,7 @@ export default function QuotationFormPage() {
 }
 
 // Shown on Step 3 when the admin (not a customer) is signed in
-const STAFF_SIGNED_IN = "You're signed in as the admin. Quotations are requested from customer accounts — log out to send this one as a customer. Your inputs will be kept.";
+const STAFF_SIGNED_IN = "You're signed in as the admin. Log out and sign in as a customer to send this. Your inputs will be kept.";
 
 const styles = {
     // Inside CustomerLayout the layout already provides the page background

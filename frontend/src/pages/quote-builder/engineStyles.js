@@ -9,20 +9,23 @@ export const C = {
     green: '#0f3b2c',      // brand dark green
     yellow: '#f4c542',     // highlight numbers on dark green
     mint: '#e4ede8',       // selected option background
-    muted: '#6b7670',      // body copy
-    sub: '#8d968f',        // secondary notes
-    faint: '#9aa39d',      // eyebrow labels
-    dim: '#b0b8b2',        // disabled / "not used"
+    // The greys below are kept dark enough to read easily: each one has at
+    // least 4.5:1 contrast on white (the WCAG AA minimum for body text).
+    muted: '#3c4741',      // body copy
+    sub: '#4a5550',        // secondary notes
+    faint: '#4f5a54',      // eyebrow labels
+    dim: '#6c7570',        // disabled / "not used"
     pageBg: '#f6f7f4',
     fieldBg: '#fbfcfa',
     softBg: '#f3f5f1',
     border: '#e6e8e2',
     borderSoft: '#eef0ec',
     rowBorder: '#f2f4f0',
-    fieldBorder: '#dcdfd8',
+    fieldBorder: '#bfc5bd',
     darkPanel: '#16211c',
-    onDark: '#b9c9c1',
-    onDarkMuted: '#8fa79b',
+    onDark: '#e2ebe6',     // text on the dark green / dark panels
+    onDarkMuted: '#c3d4cb',
+    required: '#c0392b',   // the red asterisk on required fields
     errorText: '#9c2f22',
     errorBorder: '#d9a49b',
     errorBg: '#fdf6f4',
@@ -33,8 +36,11 @@ export const C = {
     warnIcon: '#8a6100',
 };
 
-export const SANS = "'Figtree', Helvetica, Arial, sans-serif";
-export const MONO = "'IBM Plex Mono', monospace";
+// Inter: sturdy letters and a tall x-height, so small text stays readable.
+// Numbers use the same font; engine.css turns on tabular (equal-width)
+// digits so figures in tables and totals still line up.
+export const SANS = "'Inter', Helvetica, Arial, sans-serif";
+export const NUM = SANS;
 
 // Colours for the stacked price bar, darkest for the biggest cost
 export const COST_RAMP = ['#0f3b2c', '#1d5c46', '#2e7d62', '#4c9179', '#79ac99', '#f4c542'];
@@ -49,7 +55,6 @@ export const s = {
         background: C.pageBg,
         fontFamily: SANS,
         color: C.ink,
-        WebkitFontSmoothing: 'antialiased',
     },
 
     // Page wrappers
@@ -60,9 +65,9 @@ export const s = {
         width: '100%',
     }),
 
-    // Small uppercase monospace label, e.g. "STEP 01 · APPLIANCE LOAD"
-    eyebrow: { fontFamily: MONO, fontSize: '11px', letterSpacing: '.14em', color: C.faint },
-    cardEyebrow: { fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: C.faint },
+    // Small uppercase label, e.g. "STEP 01 · APPLIANCE LOAD"
+    eyebrow: { fontFamily: NUM, fontSize: '12.5px', fontWeight: 600, letterSpacing: '.08em', color: C.faint },
+    cardEyebrow: { fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: C.faint },
 
     h1: { margin: '16px 0 0', fontSize: '38px', fontWeight: 800, letterSpacing: '-.03em', color: C.ink, textWrap: 'balance', lineHeight: 1.15 },
     lead: { margin: '12px 0 0', fontSize: '16px', lineHeight: 1.55, color: C.muted, maxWidth: '660px', textWrap: 'pretty' },
@@ -79,15 +84,17 @@ export const s = {
     },
     monoSelect: {
         border: `1px solid ${C.fieldBorder}`, borderRadius: '8px', padding: '10px 6px',
-        fontFamily: MONO, fontSize: '13px', color: C.ink, outline: 'none',
+        fontFamily: NUM, fontSize: '13px', color: C.ink, outline: 'none',
         background: C.fieldBg, cursor: 'pointer', minWidth: 0,
     },
     numberInput: (invalid) => ({
         border: `1px solid ${invalid ? C.errorBorder : C.fieldBorder}`, borderRadius: '8px', padding: '10px 9px',
-        fontFamily: MONO, fontSize: '14px', color: C.ink, outline: 'none',
+        fontFamily: NUM, fontSize: '14px', color: C.ink, outline: 'none',
         background: invalid ? C.errorBg : C.fieldBg, textAlign: 'right', minWidth: 0, width: '100%',
     }),
-    requiredNote: { fontSize: '11px', color: C.errorText, textAlign: 'right' },
+    requiredNote: { fontSize: '12px', color: C.errorText, textAlign: 'right' },
+    // Red "*" after a required field's label
+    requiredMark: { color: C.required, fontWeight: 700, marginLeft: '3px' },
 
     // Buttons
     primaryButton: {
@@ -112,7 +119,7 @@ export const s = {
         border: active ? `4px solid ${C.green}` : '1.5px solid #c3cac4', background: '#fff',
     }),
     tag: (bg, color) => ({
-        fontFamily: MONO, fontSize: '10px', letterSpacing: '.08em', background: bg, color,
+        fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.05em', background: bg, color,
         borderRadius: '20px', padding: '4px 9px', whiteSpace: 'nowrap',
     }),
 };

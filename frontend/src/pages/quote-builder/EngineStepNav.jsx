@@ -1,4 +1,4 @@
-import { C, MONO } from './engineStyles';
+import { C, NUM } from './engineStyles';
 
 const STEPS = [
     { screen: 'load', label: 'Appliance load' },
@@ -32,7 +32,7 @@ const styles = {
     }),
     dot: (current) => ({
         width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontFamily: MONO, fontSize: '10.5px',
+        justifyContent: 'center', fontFamily: NUM, fontSize: '12px',
         background: current ? C.green : C.borderSoft, color: current ? C.yellow : C.sub,
     }),
 };

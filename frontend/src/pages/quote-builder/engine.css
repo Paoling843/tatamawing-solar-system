@@ -2,13 +2,23 @@
    hover and focus states, and layout changes for small screens.
    Every class starts with "se-" so nothing here affects other pages. */
 
+/* Equal-width digits everywhere in the engine, so numbers in tables and
+   totals line up. Form controls don't inherit this, so they're listed too. */
+.se-root,
+.se-root input,
+.se-root select,
+.se-root textarea,
+.se-root button {
+    font-variant-numeric: tabular-nums;
+}
+
 .se-root select {
     appearance: none;
     -webkit-appearance: none;
 }
 
 .se-root input::placeholder {
-    color: #a8b0aa;
+    color: #6c7570;
 }
 
 .se-root select:focus,

@@ -68,11 +68,10 @@ export default function SavingsCard({ savings, total }) {
             </div>
 
             <footer style={styles.footer}>
-                Estimate only. Savings are limited to the solar power you use and can't exceed your bill.
-                Weather and usage will change actual results.
+                Estimate only. Savings can't exceed your bill, and weather and usage will vary.
                 {savings.rateSource === 'default' && (
-                    <> A typical rate of ₱{DEFAULT_RATE_PER_KWH}/kWh is used — add a bill amount and its kWh in
-                        Step 1 to use your own rate.</>
+                    <> Using a typical ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add a bill amount and kWh in Step 1 to
+                        use yours.</>
                 )}
             </footer>
         </div>
@@ -109,7 +108,7 @@ function BillBar({ savings }) {
     if (savings.monthlyBill === null) {
         return (
             <div style={styles.billPlaceholder}>
-                Add your monthly bill amount in Step 1 to see how much of it solar covers.
+                Add your bill amount in Step 1 to see how much solar covers.
             </div>
         );
     }

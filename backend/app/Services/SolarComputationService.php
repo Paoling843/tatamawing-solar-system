@@ -20,8 +20,8 @@ use Illuminate\Validation\ValidationException;
  *
  * The flow is:
  *   1. computeRow()      → watts and day/night Wh for one appliance
- *   2. computeLoad()     → daytime, nighttime, grand and adjusted totals
- *   3. recommend...()    → smallest inverter package and battery that fit
+ *   2. computeLoad()     → daytime, nighttime and grand totals, total load and inverter size
+ *   3. recommend...()    → smallest inverter package, panel count and battery that fit
  *   4. buildQuote()      → itemized price for the customer's selection
  *   5. computeSavings()  → estimated monthly/annual savings and payback
  *   6. evaluate()        → runs 1–5 and checks the selection is allowed
@@ -33,11 +33,9 @@ class SolarComputationService
     // CONSTANTS — keep these identical to frontend/src/services/solarEngine.js
     // ===================================================================
 
-    // Flat safety buffer added once to the household's grand total (Wh)
-    public const BUFFER_WH = 2000;
-
-    // Loads under this adjusted total always get the smallest package
-    public const SMALL_LOAD_FLOOR_WH = 3000;
+    // Flat safety buffer added once to the household's total load (W)
+    // to get the inverter size
+    public const INVERTER_BUFFER_W = 2000;
 
     // Aircon and water pump wattage is derived from horsepower: hp × 800 W
     public const WATTS_PER_HP = 800;
@@ -65,7 +63,7 @@ class SolarComputationService
     ];
 
     // Hybrid inverter packages, smallest first.
-    // watts        = the most adjusted Wh the package is recommended for
+    // watts        = the largest inverter size (W) the package is recommended for
     // panelDefault = panels that ship with the package (the minimum)
     // panelMax     = most panels the package accepts
     // inverter     = inverter price (₱), safety = safety devices price (₱)
@@ -191,7 +189,8 @@ class SolarComputationService
      *   TOTAL DAYTIME   = sum of day_wh
      *   TOTAL NIGHTTIME = sum of night_wh
      *   GRAND TOTAL     = day + night
-     *   ADJUSTED TOTAL  = grand + 2,000 buffer
+     *   TOTAL LOAD      = sum of row_watts (every appliance running at once)
+     *   INVERTER SIZE   = total load + 2,000 W buffer
      */
     public function computeLoad(array $rows): array
     {
@@ -199,14 +198,15 @@ class SolarComputationService
 
         $day = array_sum(array_column($computed, 'day_wh'));
         $night = array_sum(array_column($computed, 'night_wh'));
-        $grand = $day + $night;
+        $totalLoad = array_sum(array_column($computed, 'row_watts'));
 
         return [
             'rows' => $computed,
             'total_day_wh' => $day,
             'total_night_wh' => $night,
-            'grand_total_wh' => $grand,
-            'adjusted_total_wh' => $grand + self::BUFFER_WH,
+            'grand_total_wh' => $day + $night,
+            'total_load_w' => $totalLoad,
+            'inverter_size_w' => $totalLoad + self::INVERTER_BUFFER_W,
         ];
     }
 
@@ -215,19 +215,14 @@ class SolarComputationService
     // ===================================================================
 
     /**
-     * Index (in PACKAGES) of the recommended inverter package.
-     * - Under 3,000 Wh → the smallest package.
-     * - Otherwise → the first package whose watts cover the adjusted total.
-     * - Bigger than every package → the largest one (flagged for an engineer).
+     * Index (in PACKAGES) of the recommended inverter package: the first
+     * package whose watts cover the inverter size. Bigger than every package
+     * → the largest one (flagged for an engineer).
      */
-    public function recommendPackageIndex(float $adjustedWh): int
+    public function recommendPackageIndex(float $inverterSizeW): int
     {
-        if ($adjustedWh < self::SMALL_LOAD_FLOOR_WH) {
-            return 0;
-        }
-
         foreach (self::PACKAGES as $index => $package) {
-            if ($package['watts'] >= $adjustedWh) {
+            if ($package['watts'] >= $inverterSizeW) {
                 return $index;
             }
         }
@@ -236,12 +231,23 @@ class SolarComputationService
     }
 
     /**
-     * True when the adjusted load is more than the largest package can carry.
+     * True when the inverter size is more than the largest package can carry.
      * The quote is still built on the largest package; this only adds a warning.
      */
-    public function exceedsLargestPackage(float $adjustedWh): bool
+    public function exceedsLargestPackage(float $inverterSizeW): bool
     {
-        return $adjustedWh > self::PACKAGES[count(self::PACKAGES) - 1]['watts'];
+        return $inverterSizeW > self::PACKAGES[count(self::PACKAGES) - 1]['watts'];
+    }
+
+    /**
+     * Recommended panel count: inverter size ÷ 610 W, rounded down, kept
+     * inside the package's panel range (panelDefault–panelMax).
+     */
+    public function recommendPanelCount(float $inverterSizeW, array $package): int
+    {
+        $panels = (int) floor($inverterSizeW / self::PANEL_WATTS);
+
+        return max($package['panelDefault'], min($package['panelMax'], $panels));
     }
 
     /**
@@ -465,7 +471,7 @@ class SolarComputationService
         $load = $this->computeLoad($rows);
 
         // --- Inverter package: upgrade only ---
-        $recommendedIndex = $this->recommendPackageIndex($load['adjusted_total_wh']);
+        $recommendedIndex = $this->recommendPackageIndex($load['inverter_size_w']);
         $packageIndex = $this->findIndex(self::PACKAGES, 'kw', $packageKw);
 
         if ($packageIndex === null) {
@@ -506,7 +512,8 @@ class SolarComputationService
             'load' => $load,
             'recommended_package' => self::PACKAGES[$recommendedIndex],
             'package' => $package,
-            'exceeds_max_package' => $this->exceedsLargestPackage($load['adjusted_total_wh']),
+            'exceeds_max_package' => $this->exceedsLargestPackage($load['inverter_size_w']),
+            'recommended_panels' => $this->recommendPanelCount($load['inverter_size_w'], $package),
             'panel_count' => $panelCount,
             'array_kwp' => $panelCount * self::PANEL_WATTS / 1000,
             'recommended_battery' => $recommendedBattery,
@@ -542,8 +549,10 @@ class SolarComputationService
                 'total_day_wh' => round($load['total_day_wh'], 2),
                 'total_night_wh' => round($load['total_night_wh'], 2),
                 'grand_total_wh' => round($load['grand_total_wh'], 2),
-                'adjusted_total_wh' => round($load['adjusted_total_wh'], 2),
+                'total_load_w' => round($load['total_load_w'], 2),
+                'inverter_size_w' => round($load['inverter_size_w'], 2),
                 'recommended_package_kw' => $result['recommended_package']['kw'],
+                'recommended_panels' => $result['recommended_panels'],
                 'package_kw' => $package['kw'],
                 'inverter_sku' => $package['sku'],
                 'inverter_brand' => $package['brand'],

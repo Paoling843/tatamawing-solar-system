@@ -62,7 +62,7 @@ class SolarComputationServiceTest extends TestCase
         $this->assertEquals(0, $this->engine->span(12, 12));
     }
 
-    public function test_ledger_totals_add_the_2000_buffer(): void
+    public function test_ledger_totals_and_inverter_size(): void
     {
         $load = $this->engine->computeLoad([
             ['appliance_type' => 'aircon', 'hp' => 1, 'qty' => 1, 'day_from' => 8, 'day_to' => 10, 'night_from' => 20, 'night_to' => 22],
@@ -73,12 +73,47 @@ class SolarComputationServiceTest extends TestCase
         $this->assertEquals(2800, $load['total_day_wh']);
         $this->assertEquals(4000, $load['total_night_wh']);
         $this->assertEquals(6800, $load['grand_total_wh']);
-        $this->assertEquals(8800, $load['adjusted_total_wh']);
+        // Total load: 800×1 + 150×1 = 950 W   Inverter size: 950 + 2,000 = 2,950 W
+        $this->assertEquals(950, $load['total_load_w']);
+        $this->assertEquals(2950, $load['inverter_size_w']);
+    }
+
+    public function test_package_matches_client_example(): void
+    {
+        // The client's example: 2 × 1 hp aircon, 1 hp water pump, 120 W freezer,
+        // 2,000 W induction cooker. Total load 1,600 + 800 + 120 + 2,000 = 4,520 W,
+        // + 2,000 = 6,520 W → 8 kW. Panels: 6,520 ÷ 610 = 10.69 → 10.
+        $rows = [
+            ['appliance_type' => 'aircon', 'hp' => 1, 'qty' => 2, 'day_from' => 13, 'day_to' => 16, 'night_from' => 20, 'night_to' => 22],
+            ['appliance_type' => 'water_pump', 'hp' => 1, 'qty' => 1, 'day_from' => 8, 'day_to' => 9],
+            ['appliance_type' => 'freezer', 'watts' => 120, 'qty' => 1, 'day_from' => 8, 'day_to' => 16, 'night_from' => 16, 'night_to' => 32],
+            ['appliance_type' => 'induction_cooker', 'watts' => 2000, 'qty' => 1, 'day_from' => 11, 'day_to' => 12, 'night_from' => 18, 'night_to' => 19],
+        ];
+        $load = $this->engine->computeLoad($rows);
+
+        $this->assertEquals(4520, $load['total_load_w']);
+        $this->assertEquals(6520, $load['inverter_size_w']);
+
+        $result = $this->engine->evaluate($rows, 8, 10, 205);
+        $this->assertSame(8, $result['recommended_package']['kw']);
+        $this->assertSame(10, $result['recommended_panels']);
+        $this->assertFalse($result['exceeds_max_package']);
+    }
+
+    public function test_recommended_panels_round_down_within_the_package_range(): void
+    {
+        [$kw5, , $kw8, , $kw12] = SolarComputationService::PACKAGES;
+
+        $this->assertSame(6, $this->engine->recommendPanelCount(4150, $kw5));   // 6.80 → 6
+        $this->assertSame(10, $this->engine->recommendPanelCount(6100, $kw8));  // exactly 10
+        $this->assertSame(10, $this->engine->recommendPanelCount(6099, $kw8));  // 9 → raised to the 8 kW minimum
+        $this->assertSame(4, $this->engine->recommendPanelCount(2000, $kw5));   // 3 → raised to the 5 kW minimum
+        $this->assertSame(26, $this->engine->recommendPanelCount(20000, $kw12)); // 32 → capped at the 12 kW maximum
     }
 
     public function test_package_recommendation_boundaries(): void
     {
-        $this->assertSame(0, $this->engine->recommendPackageIndex(2999));  // under floor → 5 kW
+        $this->assertSame(0, $this->engine->recommendPackageIndex(2000));  // buffer only → 5 kW
         $this->assertSame(0, $this->engine->recommendPackageIndex(5000));  // exactly 5 kW cap
         $this->assertSame(1, $this->engine->recommendPackageIndex(5001));  // → 6 kW
         $this->assertSame(4, $this->engine->recommendPackageIndex(12000)); // exactly 12 kW cap
@@ -119,13 +154,14 @@ class SolarComputationServiceTest extends TestCase
 
     public function test_evaluate_accepts_upgrades_and_any_battery(): void
     {
-        // Night: 1,500 W × 3 h = 4,500 Wh → adjusted 6,500 Wh → 8 kW recommended.
+        // Total load 1,500 W + 2,000 = 3,500 W → 5 kW recommended.
         // Upgrading to 10 kW (14 panels) and picking a battery smaller than
         // the recommended one are both allowed.
         $rows = [['appliance_type' => 'freezer', 'watts' => 1500, 'qty' => 1, 'night_from' => 16, 'night_to' => 19]];
         $result = $this->engine->evaluate($rows, 10, 14, 100);
 
-        $this->assertSame(8, $result['recommended_package']['kw']);
+        $this->assertSame(5, $result['recommended_package']['kw']);
+        $this->assertSame(14, $result['recommended_panels']); // 3,500 ÷ 610 = 5 → raised to the 10 kW minimum
         $this->assertSame(10, $result['package']['kw']);
         $this->assertSame(205, $result['recommended_battery']['ah']); // 4,500 Wh night > 4,096
         $this->assertSame(100, $result['battery']['ah']);
@@ -134,11 +170,11 @@ class SolarComputationServiceTest extends TestCase
 
     public function test_evaluate_rejects_package_below_recommended(): void
     {
-        // 8 h × 1,000 W day + buffer = 10,000 Wh → 10 kW recommended
-        $rows = [['appliance_type' => 'water_heater', 'watts' => 1000, 'qty' => 1, 'day_from' => 8, 'day_to' => 16]];
+        // Total load 4,500 W + 2,000 = 6,500 W → 8 kW recommended, so 6 kW is refused
+        $rows = [['appliance_type' => 'water_heater', 'watts' => 4500, 'qty' => 1, 'day_from' => 8, 'day_to' => 9]];
 
         $this->expectException(ValidationException::class);
-        $this->engine->evaluate($rows, 8, 10, 100);
+        $this->engine->evaluate($rows, 6, 7, 100);
     }
 
     public function test_evaluate_rejects_panels_outside_package_range(): void
