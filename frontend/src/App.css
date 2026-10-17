@@ -284,3 +284,8 @@
         animation-duration: 1ms;
     }
 }
+
+/* ---------- Customer "My Quotations" card header ---------- */
+.mq-row-toggle:hover {
+    background: #fafbfa !important;
+}

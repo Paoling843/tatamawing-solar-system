@@ -3,12 +3,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
-import { adminTokens } from '../styles/adminTheme';
+import { adminTokens, adminUi } from '../styles/adminTheme';
 
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 
 import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
+import { formatQuotationRef, formatExternalRef } from '../utils/references';
+import { priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
 
 import { CalendarIcon, DownloadIcon, XIcon } from '../components/Icons';
 
@@ -186,11 +189,6 @@ export default function AdminDashboardPage() {
         });
     };
 
-    const formatReference = (id, createdAt) => {
-        const year = new Date(createdAt).getFullYear();
-        const paddedId = String(id).padStart(3, '0');
-        return `#Q-${year}-${paddedId}`;
-    };
 
     const formatTime = (timeStr) => {
         if (!timeStr) return '';
@@ -228,7 +226,7 @@ export default function AdminDashboardPage() {
                     scheduleQuotationId: approvedQuotation.quotation?.id,
                     scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
                     scheduleLocation: approvedQuotation.installation_address || approvedQuotation.customer?.install_location || '',
-                    scheduleReference: formatReference(approvedQuotation.id, approvedQuotation.created_at),
+                    scheduleReference: formatQuotationRef(approvedQuotation.id, approvedQuotation.created_at),
                 },
             });
         } catch (err) {
@@ -273,7 +271,7 @@ export default function AdminDashboardPage() {
                 scheduleQuotationId: quotation.quotation?.id,
                 scheduleCustomerName: quotation.customer?.user?.name || 'Customer',
                 scheduleLocation: quotation.installation_address || quotation.customer?.install_location || '',
-                scheduleReference: formatReference(quotation.id, quotation.created_at),
+                scheduleReference: formatQuotationRef(quotation.id, quotation.created_at),
             },
         });
     };
@@ -420,7 +418,7 @@ export default function AdminDashboardPage() {
                                                         style={styles.queueRef}
                                                         onClick={() => setSelectedQuotation(q)}
                                                     >
-                                                        {formatReference(q.id, q.created_at)}
+                                                        {formatQuotationRef(q.id, q.created_at)}
                                                     </button>
                                                     <span style={styles.queueCustomer}>
                                                         {q.customer?.user?.name || 'N/A'}
@@ -545,7 +543,7 @@ export default function AdminDashboardPage() {
                                     <div key={requestRecord.id} style={styles.externalRow}>
                                         <div style={styles.externalInfo}>
                                             <div style={styles.queueTopLine}>
-                                                <span style={styles.queueRef}>#EXT-{String(requestRecord.id).padStart(3, '0')}</span>
+                                                <span style={styles.queueRef}>{formatExternalRef(requestRecord.id)}</span>
                                                 <span style={styles.queueCustomer}>{requestRecord.name}</span>
                                                 <span style={styles.externalSource}>External quotation</span>
                                             </div>
@@ -576,7 +574,7 @@ export default function AdminDashboardPage() {
                                                 </>
                                             )}
                                             {requestRecord.status !== 'pending_review' && (
-                                                <StatusPill status={requestRecord.status} />
+                                                <Badge status={requestRecord.status} />
                                             )}
                                         </div>
                                     </div>
@@ -635,7 +633,7 @@ export default function AdminDashboardPage() {
                                             style={{ ...styles.tableBodyRow, gridTemplateColumns: TABLE_COLUMNS }}
                                             onClick={() => setSelectedQuotation(q)}
                                         >
-                                            <span style={styles.tdMono}>{formatReference(q.id, q.created_at)}</span>
+                                            <span style={styles.tdMono}>{formatQuotationRef(q.id, q.created_at)}</span>
 
                                             <span style={{ minWidth: 0 }}>
                                                 <div style={styles.tdCustomerName}>
@@ -647,7 +645,7 @@ export default function AdminDashboardPage() {
                                             </span>
 
                                             <span style={styles.tdSystem}>
-                                                {q.solar_system_type?.replace('-', ' ')}
+                                                {systemTypeLabel(q.solar_system_type)}
                                             </span>
 
                                             <span style={styles.tdValue}>{formatCurrency(getValue(q))}</span>
@@ -657,7 +655,7 @@ export default function AdminDashboardPage() {
                                             </span>
 
                                             <span>
-                                                <StatusPill status={q.status} />
+                                                <Badge status={q.status} />
                                             </span>
 
                                             <span style={{ textAlign: 'right' }}>
@@ -697,7 +695,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.modalEyebrow}>External quotation</div>
                                 <h2 style={styles.confirmModalTitle}>Quotation preview</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {quotationPreview.requestRecord.name} · #{String(quotationPreview.requestRecord.id).padStart(3, '0')}
+                                    {quotationPreview.requestRecord.name} · {formatExternalRef(quotationPreview.requestRecord.id)}
                                 </p>
                             </div>
                             <button onClick={closeQuotationPreview} aria-label="Close" style={styles.modalCloseBtn}>
@@ -748,7 +746,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.rejectModalEyebrow}>Reject quotation request</div>
                                 <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatReference(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation.id, rejectingQuotation.created_at)}
                                 </p>
                             </div>
                             <button onClick={closeRejectQuotation} aria-label="Close" style={styles.modalCloseBtn}>
@@ -794,7 +792,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.rejectModalEyebrow}>Reject external installation</div>
                                 <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {rejectingExternal.name} · #{String(rejectingExternal.id).padStart(3, '0')}
+                                    {rejectingExternal.name} · {formatExternalRef(rejectingExternal.id)}
                                 </p>
                             </div>
                             <button onClick={closeRejectExternal} aria-label="Close" style={styles.modalCloseBtn}>
@@ -835,7 +833,7 @@ export default function AdminDashboardPage() {
                 <ScheduleModal
                     title="Confirm external installation"
                     contextLabel={confirmingExternal.name}
-                    badge={`#${String(confirmingExternal.id).padStart(3, '0')}`}
+                    badge={formatExternalRef(confirmingExternal.id)}
                     schedules={schedules}
                     initial={{ scheduled_date: confirmingExternal.preferred_installation_date?.split('T')[0] }}
                     intro={
@@ -860,7 +858,7 @@ export default function AdminDashboardPage() {
                     <div style={styles.drawer}>
                         <div style={styles.drawerHeader}>
                             <span style={styles.drawerRef}>
-                                {formatReference(selectedQuotation.id, selectedQuotation.created_at)}
+                                {formatQuotationRef(selectedQuotation.id, selectedQuotation.created_at)}
                             </span>
                             <button
                                 style={styles.drawerClose}
@@ -882,11 +880,11 @@ export default function AdminDashboardPage() {
                             <div style={styles.drawerRow}>
                                 <span style={styles.drawerRowLabel}>SYSTEM TYPE</span>
                                 <span style={styles.drawerRowValue}>
-                                    {selectedQuotation.solar_system_type?.replace('-', ' ')}
+                                    {systemTypeLabel(selectedQuotation.solar_system_type)}
                                 </span>
                             </div>
                             <div style={styles.drawerRow}>
-                                <span style={styles.drawerRowLabel}>QUOTED VALUE</span>
+                                <span style={styles.drawerRowLabel}>{priceLabel(selectedQuotation).toUpperCase()}</span>
                                 <span style={styles.drawerRowValue}>
                                     {formatCurrency(getValue(selectedQuotation))}
                                 </span>
@@ -894,12 +892,12 @@ export default function AdminDashboardPage() {
                             <div style={styles.drawerRow}>
                                 <span style={styles.drawerRowLabel}>REQUESTED</span>
                                 <span style={styles.drawerRowValue}>
-                                    {daysAgo(selectedQuotation.created_at)} days ago
+                                    {daysAgoLabel(daysAgo(selectedQuotation.created_at))}
                                 </span>
                             </div>
                             <div style={{ ...styles.drawerRow, ...styles.drawerRowLast }}>
                                 <span style={styles.drawerRowLabel}>STATUS</span>
-                                <StatusPill status={selectedQuotation.status} />
+                                <Badge status={selectedQuotation.status} />
                             </div>
                         </div>
 
@@ -970,29 +968,6 @@ function SortableHeader({ label, sortKey, sortState, onSort, align }) {
             <span>{label}</span>
             {align !== 'right' && active && <span style={styles.sortArrow}>{arrow}</span>}
         </button>
-    );
-}
-
-function StatusPill({ status }) {
-    const map = {
-        pending: { bg: '#fdf4dc', text: '#8a6a12', border: '#f3e3ad' },
-        approved: { bg: '#e4ede8', text: '#0f3b2c', border: '#cfe0d7' },
-        rejected: { bg: '#fbeae7', text: '#a4302a', border: '#f0d0cb' },
-    };
-    const c = map[status] || map.pending;
-    return (
-        <span style={{
-            display: 'inline-block',
-            padding: '4px 11px',
-            borderRadius: '999px',
-            fontSize: '12px',
-            fontWeight: 600,
-            backgroundColor: c.bg,
-            color: c.text,
-            border: `1px solid ${c.border}`,
-        }}>
-            {status ? status.charAt(0).toUpperCase() + status.slice(1) : ''}
-        </span>
     );
 }
 
@@ -1263,14 +1238,7 @@ const styles = {
     },
     segmentCount: { fontFamily: adminTokens.fontMono, fontSize: '10.5px', color: adminTokens.faint },
 
-    error: {
-        backgroundColor: '#fbeae7',
-        color: '#a4302a',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
 
     modalOverlay: {
         position: 'fixed',

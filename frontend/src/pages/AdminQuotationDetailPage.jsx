@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIcon, MailIcon } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
-import { colors, typography } from '../styles/theme';
+import { formatQuotationRef } from '../utils/references';
+import { colors } from '../styles/theme';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
 function formatTime(time) {
@@ -229,6 +232,14 @@ export default function AdminQuotationDetailPage() {
         });
     };
 
+    const formatNumber = (value) => parseFloat(value).toLocaleString('en-PH', { maximumFractionDigits: 2 });
+
+    // The bill the savings are based on: the average of both bills when the
+    // customer entered two. Older requests only have the first bill saved.
+    const billCount = (quotation?.electricity_bills ?? []).filter((bill) => parseFloat(bill.amount) > 0).length;
+    const savingsBill = quotation?.solar_computation?.monthly_bill ?? quotation?.monthly_bill ?? null;
+    const billLabel = billCount > 1 ? 'Average Monthly Bill' : 'Monthly Bill';
+
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-PH', {
             year: 'numeric',
@@ -237,19 +248,9 @@ export default function AdminQuotationDetailPage() {
         });
     };
 
-    const getStatusStyle = (status) => {
-        const statusStyles = {
-            pending: { backgroundColor: '#fef9c3', color: '#ca8a04' },
-            approved: { backgroundColor: '#dcfce7', color: '#16a34a' },
-            rejected: { backgroundColor: '#fef2f2', color: '#dc2626' },
-            draft: { backgroundColor: '#f3f4f6', color: '#6b7280' },
-        };
-        return statusStyles[status] || statusStyles.draft;
-    };
-
     if (loading) {
         return (
-            <AdminLayout active="Projects">
+            <AdminLayout active="Quotations">
                 <LoadingState label="Loading quotation details..." />
             </AdminLayout>
         );
@@ -257,7 +258,7 @@ export default function AdminQuotationDetailPage() {
 
     if (error && !quotation) {
         return (
-            <AdminLayout active="Projects">
+            <AdminLayout active="Quotations">
                 <div style={styles.loadError}>{error}</div>
             </AdminLayout>
         );
@@ -302,32 +303,29 @@ export default function AdminQuotationDetailPage() {
     };
 
     return (
-        <AdminLayout active="Projects">
+        <AdminLayout active="Quotations">
             <div style={styles.shell}>
 
                 {/* ---- Sticky header: breadcrumb, title, stepper ---- */}
                 <div style={styles.shellHeader}>
-                    <button onClick={() => navigate('/admin/projects')} style={styles.backBtn}>
+                    <button onClick={() => navigate('/admin/quotations')} style={styles.backBtn}>
                         <span style={styles.backArrow}>←</span>
-                        <span>Back to Projects</span>
+                        <span>Back to Quotations</span>
                     </button>
 
                     <div style={styles.titleRow}>
                         <div style={styles.titleGroup}>
                             <h1 style={styles.pageTitle}>
-                                Quotation Request #{quotation?.id}
+                                Quotation Request {quotation && formatQuotationRef(quotation.id, quotation.created_at)}
                             </h1>
-                            <span style={{ ...styles.badge, ...getStatusStyle(quotation?.status) }}>
-                                {quotation?.status?.charAt(0).toUpperCase() +
-                                 quotation?.status?.slice(1)}
-                            </span>
+                            <Badge status={quotation?.status} />
                         </div>
 
                         <a
                             href={`mailto:${quotation?.customer?.user?.email || ''}`}
                             style={styles.contactBtn}
                         >
-                            <MailIcon size={15} color={colors.textBody} />
+                            <MailIcon size={15} color={adminTokens.body} />
                             <span>Contact customer</span>
                         </a>
                     </div>
@@ -347,8 +345,8 @@ export default function AdminQuotationDetailPage() {
                                     <div style={{
                                         ...styles.stepConnector,
                                         backgroundColor: step.state === 'done' || step.state === 'rejected'
-                                            ? colors.primary
-                                            : colors.border,
+                                            ? adminTokens.green
+                                            : adminTokens.border,
                                     }} />
                                 )}
                                 <div style={styles.step}>
@@ -380,7 +378,7 @@ export default function AdminQuotationDetailPage() {
 
                     {actionSuccess && (
                         <div style={styles.success}>
-                            <CheckIcon size={16} color={colors.primary} />
+                            <CheckIcon size={16} color={adminTokens.green} />
                             <span>{actionSuccess}</span>
                         </div>
                     )}
@@ -427,11 +425,11 @@ export default function AdminQuotationDetailPage() {
                                 </span>
                             </div>
 
-                            {quotation?.monthly_bill && (
+                            {savingsBill != null && (
                                 <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>Monthly Bill</span>
+                                    <span style={styles.infoLabel}>{billLabel}</span>
                                     <span style={styles.infoValueFigure}>
-                                        {formatCurrency(quotation.monthly_bill)}
+                                        {formatCurrency(savingsBill)}
                                     </span>
                                 </div>
                             )}
@@ -487,34 +485,58 @@ export default function AdminQuotationDetailPage() {
                     <section id="requirements" style={styles.card}>
                         <h3 style={styles.cardTitle}>Computed Solar Requirements</h3>
                         <div className="responsive-grid-2" style={styles.resultGrid}>
+                            {/* total_load_watts holds the day's energy (daytime + nighttime Wh) */}
                             <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><BoltIcon size={22} color={colors.primary} /></span>
-                                <span style={styles.resultLabel}>Total Daily Load</span>
+                                <span style={styles.resultIcon}><BoltIcon size={22} color={adminTokens.green} /></span>
+                                <span style={styles.resultLabel}>Daily Energy Use</span>
                                 <span style={styles.resultValue}>
-                                    {parseFloat(quotation?.solar_computation?.total_load_watts
-                                    ).toLocaleString()} Wh
+                                    {formatNumber(quotation?.solar_computation?.total_load_watts)} Wh
                                 </span>
                             </div>
 
-                            <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><SunIcon size={22} color={colors.primary} /></span>
-                                <span style={styles.resultLabel}>Panel Capacity</span>
-                                <span style={styles.resultValue}>
-                                    {quotation?.solar_computation?.panel_capacity_kw} kW
-                                </span>
-                            </div>
+                            {/* Inverter sizing — only on quotations made after it was added */}
+                            {quotation?.solar_computation?.total_load_w != null && (
+                                <div style={styles.resultBox}>
+                                    <span style={styles.resultIcon}><BoltIcon size={22} color={adminTokens.green} /></span>
+                                    <span style={styles.resultLabel}>Total Load</span>
+                                    <span style={styles.resultValue}>
+                                        {formatNumber(quotation.solar_computation.total_load_w)} W
+                                    </span>
+                                </div>
+                            )}
+                            {quotation?.solar_computation?.inverter_size_w != null && (
+                                <div style={styles.resultBox}>
+                                    <span style={styles.resultIcon}><PlugIcon size={22} color={adminTokens.green} /></span>
+                                    <span style={styles.resultLabel}>Inverter Size</span>
+                                    <span style={styles.resultValue}>
+                                        {formatNumber(quotation.solar_computation.inverter_size_w)} W
+                                    </span>
+                                    <span style={styles.resultNote}>Total load + 2,000 W buffer</span>
+                                </div>
+                            )}
 
                             <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><PlugIcon size={22} color={colors.primary} /></span>
-                                <span style={styles.resultLabel}>Inverter Size</span>
+                                <span style={styles.resultIcon}><PlugIcon size={22} color={adminTokens.green} /></span>
+                                <span style={styles.resultLabel}>Inverter Package</span>
                                 <span style={styles.resultValue}>
                                     {quotation?.solar_computation?.inverter_specification}
                                 </span>
                             </div>
 
+                            <div style={styles.resultBox}>
+                                <span style={styles.resultIcon}><SunIcon size={22} color={adminTokens.green} /></span>
+                                <span style={styles.resultLabel}>Panels</span>
+                                <span style={styles.resultValue}>
+                                    {quotation?.solar_computation?.panel_count
+                                        ? `${quotation.solar_computation.panel_count} panels · `
+                                        : ''}
+                                    {quotation?.solar_computation?.panel_capacity_kw} kW
+                                </span>
+                            </div>
+
                             {parseFloat(quotation?.solar_computation?.battery_capacity_ah) > 0 && (
                                 <div style={styles.resultBox}>
-                                    <span style={styles.resultIcon}><BatteryIcon size={22} color={colors.primary} /></span>
+                                    <span style={styles.resultIcon}><BatteryIcon size={22} color={adminTokens.green} /></span>
                                     <span style={styles.resultLabel}>Battery Capacity</span>
                                     <span style={styles.resultValue}>
                                         {parseFloat(quotation?.solar_computation?.battery_capacity_ah
@@ -524,8 +546,27 @@ export default function AdminQuotationDetailPage() {
                             )}
                         </div>
 
+                        {/* Price breakdown the customer saw in the calculator */}
+                        {quotation?.solar_computation?.line_items?.length > 0 && (
+                            <div style={styles.breakdown}>
+                                <div style={styles.breakdownTitle}>Price Breakdown</div>
+                                {quotation.solar_computation.line_items.map((item) => (
+                                    <div key={item.key} style={styles.breakdownRow}>
+                                        <span style={{ flex: 3, minWidth: 0 }}>
+                                            <span style={styles.breakdownLabel}>{item.label}</span>
+                                            {item.sku && <span style={styles.breakdownSku}> · {item.sku}</span>}
+                                        </span>
+                                        <span style={styles.breakdownQty}>
+                                            {item.qty} {item.qty_unit} × {formatCurrency(item.unit_price)}
+                                        </span>
+                                        <span style={styles.breakdownAmount}>{formatCurrency(item.amount)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         <div style={styles.totalBanner}>
-                            <span style={styles.totalBannerLabel}>System estimated cost</span>
+                            <span style={styles.totalBannerLabel}>Estimated cost</span>
                             <span style={styles.totalBannerValue}>
                                 {formatCurrency(quotation?.solar_computation?.estimated_cost)}
                             </span>
@@ -551,6 +592,12 @@ export default function AdminQuotationDetailPage() {
                                         <span style={styles.resultValue}>{formatCurrency(computation.annual_savings)}</span>
                                     </div>
                                     <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>New Monthly Bill</span>
+                                        <span style={styles.resultValue}>
+                                            {computation.new_monthly_bill != null ? formatCurrency(computation.new_monthly_bill) : '—'}
+                                        </span>
+                                    </div>
+                                    <div style={styles.resultBox}>
                                         <span style={styles.resultLabel}>Payback Period</span>
                                         <span style={styles.resultValue}>{payback !== null ? `${payback} years` : '—'}</span>
                                     </div>
@@ -566,6 +613,10 @@ export default function AdminQuotationDetailPage() {
                                         <span style={styles.resultValue}>
                                             {ret.roaPercent !== null ? `${ret.roaPercent.toFixed(1)}%` : '—'}
                                         </span>
+                                    </div>
+                                    <div style={styles.resultBox}>
+                                        <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Savings</span>
+                                        <span style={styles.resultValue}>{formatCurrency(ret.lifetimeSavings)}</span>
                                     </div>
                                     <div style={styles.resultBox}>
                                         <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Net Gain</span>
@@ -612,7 +663,7 @@ export default function AdminQuotationDetailPage() {
                             </div>
 
                             <div style={styles.totalBanner}>
-                                <span style={styles.totalBannerLabel}>Total amount</span>
+                                <span style={styles.totalBannerLabel}>Approved total</span>
                                 <span style={styles.totalBannerValue}>
                                     {formatCurrency(quotation.quotation.total_amount)}
                                 </span>
@@ -623,7 +674,7 @@ export default function AdminQuotationDetailPage() {
                     {/* ---- Rejection reason ---- */}
                     {quotation?.status === 'rejected' && quotation?.notes && (
                         <section style={{ ...styles.card, ...styles.cardDanger }}>
-                            <h3 style={{ ...styles.cardTitle, color: colors.danger }}>
+                            <h3 style={{ ...styles.cardTitle, color: adminTokens.danger }}>
                                 Rejection Reason
                             </h3>
                             <p style={styles.cardBodyText}>{quotation.notes}</p>
@@ -722,7 +773,7 @@ export default function AdminQuotationDetailPage() {
                                         </div>
 
                                         <div style={styles.totalBanner}>
-                                            <span style={styles.totalBannerLabel}>Total amount</span>
+                                            <span style={styles.totalBannerLabel}>Approved total</span>
                                             <span style={styles.totalBannerValue}>
                                                 {formatCurrency(
                                                     (parseFloat(approveForm.adjusted_cost) || 0) +
@@ -821,7 +872,7 @@ export default function AdminQuotationDetailPage() {
                             {purchaseRequest ? (
                                 <div>
                                     <div style={styles.success}>
-                                        <CheckIcon size={16} color={colors.primary} />
+                                        <CheckIcon size={16} color={adminTokens.green} />
                                         <span>Purchase request has already been generated.</span>
                                     </div>
                                     <button
@@ -834,7 +885,7 @@ export default function AdminQuotationDetailPage() {
                                 </div>
                             ) : prSuccess ? (
                                 <div style={styles.success}>
-                                    <CheckIcon size={16} color={colors.primary} />
+                                    <CheckIcon size={16} color={adminTokens.green} />
                                     <span>Purchase request generated. Download its PDF to send to a supplier.</span>
                                 </div>
                             ) : !showPRForm ? (
@@ -917,7 +968,7 @@ export default function AdminQuotationDetailPage() {
                                                             style={styles.removeMaterialBtn}
                                                             aria-label="Remove material"
                                                         >
-                                                            <XIcon size={14} color={colors.danger} />
+                                                            <XIcon size={14} color={adminTokens.danger} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -971,7 +1022,7 @@ export default function AdminQuotationDetailPage() {
                             {installSchedule ? (
                                 <div>
                                     <div style={styles.success}>
-                                        <CheckIcon size={16} color={colors.primary} />
+                                        <CheckIcon size={16} color={adminTokens.green} />
                                         <span>Installation has been scheduled.</span>
                                     </div>
 
@@ -1000,7 +1051,7 @@ export default function AdminQuotationDetailPage() {
                                 </div>
                             ) : scheduleSuccess ? (
                                 <div style={styles.success}>
-                                    <CheckIcon size={16} color={colors.primary} />
+                                    <CheckIcon size={16} color={adminTokens.green} />
                                     <span>Installation schedule created successfully.</span>
                                 </div>
                             ) : (
@@ -1027,10 +1078,10 @@ export default function AdminQuotationDetailPage() {
             {showScheduleModal && (
                 <ScheduleModal
                     contextLabel="For quotation"
-                    badge={`#Q-${new Date(quotation.created_at).getFullYear()}-${String(quotation.id).padStart(3, '0')}`}
+                    badge={formatQuotationRef(quotation.id, quotation.created_at)}
                     schedules={bookedSchedules}
                     intro={
-                        <div style={{ fontSize: '14px', color: colors.textBody }}>
+                        <div style={{ fontSize: '14px', color: adminTokens.body }}>
                             Installing for <strong>{quotation?.customer?.user?.name || 'this customer'}</strong>
                             {(quotation?.installation_address || quotation?.customer?.install_location)
                                 ? ` · ${quotation.installation_address || quotation.customer.install_location}`
@@ -1052,22 +1103,22 @@ const styles = {
     loadError: {
         textAlign: 'center',
         padding: '3rem',
-        color: colors.danger,
+        color: adminTokens.danger,
     },
 
     /* ---------- Shell ---------- */
     shell: {
         maxWidth: '1080px',
         margin: '0 auto',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '16px',
-        backgroundColor: colors.bgCard,
+        backgroundColor: adminTokens.surface,
         overflow: 'hidden',
         boxShadow: '0 1px 2px rgba(17,24,39,0.04), 0 12px 32px -18px rgba(17,24,39,0.18)',
     },
     shellHeader: {
-        backgroundColor: colors.bgCard,
-        borderBottom: `1px solid ${colors.border}`,
+        backgroundColor: adminTokens.surface,
+        borderBottom: `1px solid ${adminTokens.border}`,
         padding: '1.375rem 1.75rem 1.25rem',
     },
     backBtn: {
@@ -1075,7 +1126,7 @@ const styles = {
         alignItems: 'center',
         gap: '0.5rem',
         backgroundColor: 'transparent',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         border: 'none',
         padding: 0,
         marginBottom: '0.875rem',
@@ -1100,29 +1151,16 @@ const styles = {
         gap: '0.75rem',
         flexWrap: 'wrap',
     },
-    pageTitle: {
-        ...typography.h1,
-        fontWeight: 500,
-        letterSpacing: '-0.02em',
-        margin: 0,
-    },
-    badge: {
-        fontSize: '0.6875rem',
-        fontWeight: '600',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        padding: '0.3125rem 0.6875rem',
-        borderRadius: '100px',
-    },
+    pageTitle: adminText.pageTitle,
     contactBtn: {
         display: 'flex',
         alignItems: 'center',
         gap: '0.4375rem',
         fontSize: '0.8125rem',
         padding: '0.5625rem 0.9375rem',
-        border: `1px solid ${colors.border}`,
-        backgroundColor: colors.bgCard,
-        color: colors.textBody,
+        border: `1px solid ${adminTokens.border}`,
+        backgroundColor: adminTokens.surface,
+        color: adminTokens.body,
         borderRadius: '9px',
         textDecoration: 'none',
         whiteSpace: 'nowrap',
@@ -1183,35 +1221,35 @@ const styles = {
         flexShrink: 0,
     },
     stepDotDone: {
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
     },
     stepDotRejected: {
-        backgroundColor: colors.danger,
+        backgroundColor: adminTokens.danger,
         color: 'white',
     },
     stepDotCurrent: {
-        border: `2px solid ${colors.primary}`,
-        backgroundColor: colors.primaryTint,
-        color: colors.primary,
+        border: `2px solid ${adminTokens.green}`,
+        backgroundColor: adminTokens.greenTint,
+        color: adminTokens.green,
     },
     stepDotTodo: {
-        border: `2px solid ${colors.border}`,
-        color: colors.textMuted,
+        border: `2px solid ${adminTokens.border}`,
+        color: adminTokens.muted,
     },
     stepLabel: {
         fontSize: '0.71875rem',
-        color: colors.textDark,
+        color: adminTokens.ink,
         fontWeight: '500',
         letterSpacing: '0.02em',
         textAlign: 'center',
     },
     stepLabelCurrent: {
-        color: colors.primary,
+        color: adminTokens.green,
         fontWeight: '600',
     },
     stepLabelTodo: {
-        color: colors.textMuted,
+        color: adminTokens.muted,
         fontWeight: '400',
     },
 
@@ -1227,35 +1265,35 @@ const styles = {
 
     /* ---------- Cards ---------- */
     card: {
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '14px',
         padding: '1.25rem 1.375rem',
-        backgroundColor: colors.bgCard,
+        backgroundColor: adminTokens.surface,
     },
     cardAccent: {
-        backgroundColor: colors.primaryTint,
+        backgroundColor: adminTokens.greenTint,
         border: `1px solid ${colors.primaryBorder}`,
     },
     cardDanger: {
-        borderLeft: `4px solid ${colors.danger}`,
+        borderLeft: `4px solid ${adminTokens.danger}`,
     },
     cardTitle: {
         fontSize: '0.9375rem',
         fontWeight: '600',
         letterSpacing: '-0.01em',
-        color: colors.textDark,
+        color: adminTokens.ink,
         margin: '0 0 1.125rem 0',
     },
     cardDesc: {
         margin: '0 0 1rem',
         fontSize: '0.8125rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         maxWidth: '52ch',
     },
     cardBodyText: {
         margin: 0,
         fontSize: '0.875rem',
-        color: colors.textBody,
+        color: adminTokens.body,
     },
 
     /* ---------- Labelled fields ---------- */
@@ -1269,7 +1307,7 @@ const styles = {
     },
     infoLabel: {
         fontSize: '0.65625rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         letterSpacing: '0.1em',
         fontWeight: '500',
         textTransform: 'uppercase',
@@ -1277,13 +1315,13 @@ const styles = {
     infoValue: {
         marginTop: '0.3125rem',
         fontSize: '0.90625rem',
-        color: colors.textDark,
+        color: adminTokens.ink,
         wordBreak: 'break-word',
     },
     infoValueFigure: {
         marginTop: '0.3125rem',
         fontSize: '0.90625rem',
-        color: colors.textDark,
+        color: adminTokens.ink,
     },
     figure: {
     },
@@ -1295,21 +1333,21 @@ const styles = {
         justifyContent: 'space-between',
         gap: '1rem',
         flexWrap: 'wrap',
-        backgroundColor: colors.primaryTint,
+        backgroundColor: adminTokens.greenTint,
         borderRadius: '11px',
         padding: '1rem 1.25rem',
         marginTop: '1.25rem',
     },
     totalBannerLabel: {
         fontSize: '0.8125rem',
-        color: colors.primary,
+        color: adminTokens.green,
         fontWeight: '600',
         letterSpacing: '0.02em',
     },
     totalBannerValue: {
         fontSize: '1.375rem',
         fontWeight: '600',
-        color: colors.primary,
+        color: adminTokens.green,
         letterSpacing: '-0.02em',
     },
 
@@ -1318,20 +1356,20 @@ const styles = {
         display: 'flex',
         gap: '0.5rem',
         padding: '0 0 0.625rem',
-        borderBottom: `1px solid ${colors.border}`,
+        borderBottom: `1px solid ${adminTokens.border}`,
         fontSize: '0.65625rem',
         fontWeight: '500',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
-        color: colors.textMuted,
+        color: adminTokens.muted,
     },
     tableRow: {
         display: 'flex',
         gap: '0.5rem',
         padding: '0.75rem 0',
-        borderBottom: `1px solid ${colors.borderLight}`,
+        borderBottom: `1px solid ${adminTokens.hairline}`,
         fontSize: '0.875rem',
-        color: colors.textBody,
+        color: adminTokens.body,
     },
 
     /* ---------- Solar requirement boxes ---------- */
@@ -1344,7 +1382,7 @@ const styles = {
         gap: '0.375rem',
         padding: '1rem',
         borderRadius: '11px',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         backgroundColor: colors.bgSubtle,
     },
     resultIcon: {
@@ -1353,7 +1391,7 @@ const styles = {
     },
     resultLabel: {
         fontSize: '0.65625rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         letterSpacing: '0.1em',
         fontWeight: '500',
         textTransform: 'uppercase',
@@ -1361,8 +1399,41 @@ const styles = {
     resultValue: {
         fontSize: '1.0625rem',
         fontWeight: '600',
-        color: colors.textDark,
+        color: adminTokens.ink,
     },
+    resultNote: {
+        fontSize: '0.75rem',
+        color: adminTokens.muted,
+    },
+
+    /* ---------- Price breakdown ---------- */
+    breakdown: {
+        marginTop: '1.25rem',
+        borderTop: `1px solid ${adminTokens.border}`,
+        paddingTop: '0.875rem',
+    },
+    breakdownTitle: {
+        fontSize: '0.65625rem',
+        color: adminTokens.muted,
+        letterSpacing: '0.1em',
+        fontWeight: '500',
+        textTransform: 'uppercase',
+        marginBottom: '0.25rem',
+    },
+    breakdownRow: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'baseline',
+        gap: '0.25rem 1rem',
+        padding: '0.625rem 0',
+        borderBottom: `1px solid ${adminTokens.hairline}`,
+        fontSize: '0.875rem',
+        color: adminTokens.body,
+    },
+    breakdownLabel: { fontWeight: 600, color: adminTokens.ink },
+    breakdownSku: { color: adminTokens.muted, fontSize: '0.8125rem' },
+    breakdownQty: { flex: 2, minWidth: '140px', color: adminTokens.muted, fontSize: '0.8125rem' },
+    breakdownAmount: { flex: 1, minWidth: '100px', textAlign: 'right', fontWeight: 600, color: adminTokens.ink },
 
     /* ---------- Buttons and forms ---------- */
     actionButtons: {
@@ -1376,7 +1447,7 @@ const styles = {
         gap: '0.4375rem',
         fontSize: '0.8125rem',
         padding: '0.6875rem 1.125rem',
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
         borderRadius: '9px',
@@ -1389,7 +1460,7 @@ const styles = {
         gap: '0.4375rem',
         fontSize: '0.8125rem',
         padding: '0.6875rem 1.125rem',
-        backgroundColor: colors.danger,
+        backgroundColor: adminTokens.danger,
         color: 'white',
         border: 'none',
         borderRadius: '9px',
@@ -1397,9 +1468,9 @@ const styles = {
         cursor: 'pointer',
     },
     cancelBtn: {
-        backgroundColor: colors.bgCard,
-        color: colors.textBody,
-        border: `1px solid ${colors.border}`,
+        backgroundColor: adminTokens.surface,
+        color: adminTokens.body,
+        border: `1px solid ${adminTokens.border}`,
         padding: '0.6875rem 1.125rem',
         borderRadius: '9px',
         fontSize: '0.8125rem',
@@ -1414,7 +1485,7 @@ const styles = {
         display: 'block',
         marginBottom: '0.375rem',
         fontSize: '0.65625rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         letterSpacing: '0.1em',
         fontWeight: '500',
         textTransform: 'uppercase',
@@ -1422,14 +1493,14 @@ const styles = {
     input: {
         width: '100%',
         padding: '0.625rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '9px',
         fontSize: '0.9375rem',
         boxSizing: 'border-box',
     },
     decisionForm: {
         padding: '1rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '12px',
         backgroundColor: colors.bgSubtle,
     },
@@ -1449,18 +1520,18 @@ const styles = {
         maxHeight: 'calc(100vh - 2rem)',
         overflowY: 'auto',
         padding: '1.25rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '16px',
-        backgroundColor: colors.bgCard,
+        backgroundColor: adminTokens.surface,
         boxShadow: '0 24px 70px rgba(17,24,39,0.22)',
     },
     decisionInput: {
         width: '100%',
         padding: '0.7rem 0.75rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '9px',
-        backgroundColor: colors.bgCard,
-        color: colors.textDark,
+        backgroundColor: adminTokens.surface,
+        color: adminTokens.ink,
         fontSize: '0.9375rem',
         fontWeight: '600',
         boxSizing: 'border-box',
@@ -1470,10 +1541,10 @@ const styles = {
         width: '100%',
         minHeight: '122px',
         padding: '0.75rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         borderRadius: '10px',
-        backgroundColor: colors.bgCard,
-        color: colors.textDark,
+        backgroundColor: adminTokens.surface,
+        color: adminTokens.ink,
         fontSize: '0.875rem',
         lineHeight: 1.55,
         boxSizing: 'border-box',
@@ -1493,7 +1564,7 @@ const styles = {
         gap: '0.5rem',
         marginBottom: '0.5rem',
         fontSize: '0.65625rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         fontWeight: '500',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
@@ -1507,16 +1578,16 @@ const styles = {
     removeMaterialBtn: {
         flex: 1,
         backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        border: `1px solid ${colors.danger}`,
+        color: adminTokens.danger,
+        border: `1px solid ${adminTokens.danger}`,
         borderRadius: '9px',
         padding: '0.5rem',
         cursor: 'pointer',
     },
     addMaterialBtn: {
         backgroundColor: 'transparent',
-        color: colors.primary,
-        border: `1px dashed ${colors.primary}`,
+        color: adminTokens.green,
+        border: `1px dashed ${adminTokens.green}`,
         borderRadius: '9px',
         padding: '0.625rem 1rem',
         cursor: 'pointer',
@@ -1530,19 +1601,13 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        backgroundColor: colors.primaryTint,
-        color: colors.primary,
+        backgroundColor: adminTokens.greenTint,
+        color: adminTokens.green,
         padding: '0.75rem 1rem',
         borderRadius: '9px',
         fontSize: '0.875rem',
     },
-    error: {
-        backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        padding: '0.75rem 1rem',
-        borderRadius: '9px',
-        fontSize: '0.875rem',
-    },
+    error: { ...adminUi.errorBanner, marginBottom: 0 },
 
     /* ---------- Schedule modal ---------- */
 

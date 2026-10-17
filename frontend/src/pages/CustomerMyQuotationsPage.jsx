@@ -1,21 +1,133 @@
-import { useState, useEffect, Fragment, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
-import { typography } from '../styles/theme';
+import { formatQuotationRef } from '../utils/references';
+import { useMessagePanel } from '../context/message-panel-context';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
+
+// Customer's list of quotation requests. Each one is a card; opening it shows
+// what the system includes, the estimated bill before/after solar, and
+// whether it pays for itself over the system's life.
+// Look from "My Quotations.html".
+
+const C = {
+    green: '#1f5a3d',
+    greenSoft: '#eef6f0',
+    greenText: '#3d6b51',
+    good: '#2f7a52',
+    bad: '#b42318',
+    ink: '#17201b',
+    body: '#3d4741',
+    muted: '#5f6a63',
+    sub: '#6b756f',
+    border: '#e6e9e6',
+    rowLine: '#f0f2f0',
+    track: '#eef0ee',
+};
+
+const TABS = [
+    { id: 'all', label: 'All' },
+    { id: 'approved', label: 'Approved' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'rejected', label: 'Rejected' },
+];
+
+const STATUS = {
+    pending: { label: 'PENDING', bg: '#fdf3d7', fg: '#8a6100' },
+    approved: { label: 'APPROVED', bg: '#e3f4e8', fg: '#1c7a3e' },
+    rejected: { label: 'REJECTED', bg: '#fde5e3', fg: '#b42318' },
+    draft: { label: 'DRAFT', bg: '#f1f3f1', fg: '#4b554f' },
+};
+
+const peso = (amount) => {
+    if (amount === null || amount === undefined || amount === '') return '—';
+    return '₱' + parseFloat(amount).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const number = (value, digits = 2) =>
+    parseFloat(value).toLocaleString('en-PH', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+
+const formatDate = (createdAt) =>
+    new Date(createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+const toNumberOrNull = (value) => (value === null || value === undefined ? null : parseFloat(value));
+
+// Everything the card needs, worked out once from the API row
+function describe(qr) {
+    const computation = qr.solar_computation ?? {};
+    // Once approved, the approved total replaces the estimate
+    const total = toNumberOrNull(qr.quotation?.total_amount ?? computation.estimated_cost);
+    const monthlySavings = toNumberOrNull(computation.monthly_savings);
+    const annualSavings = toNumberOrNull(computation.annual_savings);
+    const newBill = toNumberOrNull(computation.new_monthly_bill);
+    const currentBill = toNumberOrNull(computation.monthly_bill)
+        ?? (newBill !== null && monthlySavings !== null ? newBill + monthlySavings : null);
+
+    const hasSavings = monthlySavings !== null && annualSavings !== null;
+    const payback = hasSavings && annualSavings > 0 && total ? total / annualSavings : null;
+    const ret = hasSavings && total ? computeReturn(annualSavings, total) : null;
+
+    return {
+        total,
+        monthlySavings,
+        annualSavings,
+        currentBill,
+        newBill,
+        // Two bills entered → monthly_bill is their average
+        billIsAverage: (qr.electricity_bills ?? []).filter((bill) => parseFloat(bill.amount) > 0).length > 1,
+        rate: toNumberOrNull(computation.electricity_rate),
+        rateFromBill: computation.rate_source === 'bill',
+        hasSavings,
+        payback,
+        // Takes longer than the system lasts — shown in red
+        slowPayback: payback !== null && payback > SYSTEM_LIFE_YEARS,
+        ret,
+    };
+}
+
+// The coloured note at the top of an opened card
+function notice(qr, info) {
+    if (qr.status === 'approved') {
+        return {
+            title: 'Approved.',
+            text: 'This quotation is final. Your installation date will appear under Installation Schedule once it is booked.',
+            bg: '#e8f4ec', fg: '#1c5a35',
+        };
+    }
+    if (qr.status === 'rejected') {
+        return {
+            title: 'Not approved.',
+            text: qr.notes || 'Contact us if you would like to revise this request.',
+            bg: '#fdeceb', fg: '#8c1d13',
+        };
+    }
+    if (qr.status === 'pending') {
+        return info.slowPayback
+            ? {
+                title: 'Under review — payback looks unusually long.',
+                text: `The estimated payback is longer than the ${SYSTEM_LIFE_YEARS}-year system life. This may change after review; ask us if your load details need updating.`,
+                bg: '#fdf6e3', fg: '#6b4c00',
+            }
+            : {
+                title: 'Under review.',
+                text: 'Our team is checking this quotation. You will be notified once it is approved, usually within 2–3 business days.',
+                bg: '#fdf6e3', fg: '#6b4c00',
+            };
+    }
+    return { title: 'Draft.', text: 'This request has not been sent yet.', bg: '#f1f3f1', fg: '#4b554f' };
+}
 
 export default function CustomerMyQuotationsPage() {
     const navigate = useNavigate();
+    const { openPanel } = useMessagePanel();
 
     const [quotationRequests, setQuotationRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [openMenuId, setOpenMenuId] = useState(null);
     const [expandedId, setExpandedId] = useState(null);
-
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
@@ -23,6 +135,8 @@ export default function CustomerMyQuotationsPage() {
         try {
             const res = await api.get('/quotation-requests');
             setQuotationRequests(res.data);
+            // Open the newest one so its details are visible straight away
+            setExpandedId((current) => current ?? res.data[0]?.id ?? null);
         } catch {
             setError('Failed to load your quotations.');
         } finally {
@@ -55,288 +169,314 @@ export default function CustomerMyQuotationsPage() {
         }
     };
 
-    const formatCurrency = (amount) => {
-        if (!amount) return '—';
-        return '₱' + parseFloat(amount).toLocaleString('en-PH', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
-    };
-
-    const formatReference = (id, createdAt) => {
-        const year = new Date(createdAt).getFullYear();
-        const paddedId = String(id).padStart(3, '0');
-        return `#Q-${year}-${paddedId}`;
-    };
-
-    const toggleMenu = (id) => {
-        setOpenMenuId(openMenuId === id ? null: id) 
-    };
-
-    const toggleDetails = (id) => {
-        setExpandedId(expandedId === id ? null : id)
-        setOpenMenuId(null);
-    };
-
-    const getStatusStyle = (status) => {
-        const statusStyles = {
-            pending: { backgroundColor: '#fef9c3', color: '#ca8a04' },
-            approved: { backgroundColor: '#dcfce7', color: '#16a34a' },
-            rejected: { backgroundColor: '#fef2f2', color: '#dc2626' },
-            draft: { backgroundColor: '#f3f4f6', color: '#6b7280' },
-        };
-        return statusStyles[status] || statusStyles.draft;
-    };
+    const countFor = (tab) => (tab === 'all'
+        ? quotationRequests.length
+        : quotationRequests.filter((q) => q.status === tab).length);
 
     const filteredQuotations = statusFilter === 'all'
         ? quotationRequests
-        : quotationRequests.filter(q => q.status === statusFilter);
+        : quotationRequests.filter((q) => q.status === statusFilter);
 
     return (
         <CustomerLayout active="My Quotations">
             <div style={styles.pageHeader}>
-                <h1 style={styles.pageTitle}>My Quotations</h1>
+                <div>
+                    <h1 style={styles.pageTitle}>My Quotations</h1>
+                    <p style={styles.pageLead}>
+                        Select a quotation to see what it includes and how much you could save.
+                    </p>
+                </div>
 
                 <div style={styles.filterTabs}>
-                    {['all', 'approved', 'pending', 'rejected'].map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setStatusFilter(tab)}
-                            style={{
-                                ...styles.filterTab,
-                                ...(statusFilter === tab ? styles.filterTabActive : {}),
-                            }}
-                        >
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
+                    {TABS.map((tab) => {
+                        const active = statusFilter === tab.id;
+                        return (
+                            <button key={tab.id} onClick={() => setStatusFilter(tab.id)} style={styles.filterTab(active)}>
+                                {tab.label}
+                                <span style={styles.tabCount(active)}>{countFor(tab.id)}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {error && <div style={styles.error}>{error}</div>}
 
-            <div style={styles.tableCard}>
-                {loading ? (
+            {loading ? (
+                <div style={styles.card(false)}>
                     <LoadingState label="Loading your quotations..." />
-                ) : filteredQuotations.length === 0 ? (
-                    <div style={styles.emptyState}>
-                        <p style={styles.emptyTitle}>No quotations found</p>
-                        <p style={styles.emptyDesc}>
-                            You haven't submitted any quotation requests yet.
-                        </p>
-                        <button
-                            className="btn-primary"
-                            style={styles.emptyBtn}
-                            onClick={() => navigate('/quotation/new')}
-                        >
-                            Request a Quotation
-                        </button>
-                    </div>
-                ) : (
-                <div className="table-scroll">
-                    <div>
-                        <div style={styles.tableHeader}>
-                            <span style={{ flex: 1.5 }}>REFERENCE</span>
-                            <span style={{ flex: 1.5 }}>SYSTEM TYPE</span>
-                            <span style={{ flex: 1.5 }}>VALUE</span>
-                            <span style={{ flex: 1 }}>STATUS</span>
-                            <span style={{ flex: 0.5, textAlign: 'right' }}>ACTIONS</span>
-                        </div>
-                            {filteredQuotations.map((qr, index) => {
-                                const isLastRow = index === filteredQuotations.length - 1;
-
-                                return (
-                                <Fragment key={qr.id}>
-                                    <div style={styles.tableRow}>
-                                        <span style={{ flex: 1.5 }}>
-                                            <span style={styles.referenceText}>
-                                                {formatReference(qr.id, qr.created_at)}
-                                            </span>
-                                        </span>
-
-                                        <span style={{ flex: 1.5 }}>
-                                            <span style={styles.systemType}>
-                                                {qr.solar_system_type?.replace('-', ' ').toUpperCase()}
-                                            </span>
-                                        </span>
-
-                                        <span style={{ flex: 1.5, fontWeight: '500', color: '#111827'}}>
-                                            {formatCurrency(
-                                                qr.quotation?.total_amount ||
-                                                qr.solar_computation?.estimated_cost
-                                            )}
-                                        </span>
-
-                                        <span style={{ flex: 1 }}>
-                                            <span style={{
-                                                ...styles.statusBadge,
-                                                ...getStatusStyle(qr.status),
-                                            }}>
-                                                {qr.status?.toUpperCase()}
-                                            </span>
-                                        </span>
-
-                                        <span style={{ flex: 0.5, textAlign: 'right', position: 'relative'}}>
-                                            <button
-                                                style={styles.actionDots}
-                                                onClick={() => toggleMenu(qr.id)}
-                                                aria-label="Actions"
-                                            >
-                                                ⋯
-                                            </button>
-                                            {openMenuId === qr.id && (
-                                                <div
-                                                    style={{
-                                                        ...styles.menuDropdown,
-                                                        ...(isLastRow ? styles.menuDropdownUp : {}),
-                                                    }}
-                                                >
-                                                    <button
-                                                        style={styles.menuItem}
-                                                        onClick={() => toggleDetails(qr.id)}
-                                                    >
-                                                        {expandedId === qr.id ? 'Hide Details' : 'View Details'}
-                                                    </button>
-                                                    {qr.status === 'approved' && qr.quotation && (
-                                                        <button
-                                                            style={styles.menuItem}
-                                                            onClick={() => {
-                                                                setOpenMenuId(null);
-                                                                handleDownload(qr.quotation.id);
-                                                            }}
-                                                        >
-                                                            Download PDF
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </span>
-                                    </div>
-
-                                    {expandedId === qr.id && (
-                                        <div style={styles.detailsPanel}>
-                                            {qr.status === 'rejected' && (
-                                                <div style={styles.rejectionBox}>
-                                                    <span style={styles.rejectionLabel}>Reason for Rejection</span>
-                                                    <p style={styles.rejectionText}>
-                                                        {qr.notes || 'No reason provided.'}
-                                                    </p>
-                                                </div>
-                                            )}
-
-                                            <div className="responsive-grid-4" style={styles.detailsGrid}>
-                                                <div style={styles.detailItem}>
-                                                    <span style={styles.detailLabel}>Total Load</span>
-                                                    <span style={styles.detailValue}>
-                                                        {qr.solar_computation?.total_load_watts
-                                                            ? `${qr.solar_computation.total_load_watts} W`
-                                                            : '—'}
-                                                    </span>
-                                                </div>
-                                                <div style={styles.detailItem}>
-                                                    <span style={styles.detailLabel}>Panel Capacity</span>
-                                                    <span style={styles.detailValue}>
-                                                        {qr.solar_computation?.panel_capacity_kw
-                                                            ? `${qr.solar_computation.panel_capacity_kw} kW`
-                                                            : '—'}
-                                                    </span>
-                                                </div>
-                                                <div style={styles.detailItem}>
-                                                    <span style={styles.detailLabel}>Inverter</span>
-                                                    <span style={styles.detailValue}>
-                                                        {qr.solar_computation?.inverter_specification || '—'}
-                                                    </span>
-                                                </div>
-                                                <div style={styles.detailItem}>
-                                                    <span style={styles.detailLabel}>Battery Capacity</span>
-                                                    <span style={styles.detailValue}>
-                                                        {qr.solar_computation?.battery_capacity_ah
-                                                            ? `${qr.solar_computation.battery_capacity_ah} Ah`
-                                                            : '—'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Savings estimate — older quotations don't have one */}
-                                            {qr.solar_computation?.monthly_savings != null && (() => {
-                                                const computation = qr.solar_computation;
-                                                // Once approved, payback uses the approved total
-                                                const total = qr.quotation?.total_amount ?? computation.estimated_cost;
-                                                const annual = parseFloat(computation.annual_savings);
-                                                const payback = annual > 0 ? (parseFloat(total) / annual).toFixed(1) : null;
-                                                const ret = computeReturn(annual, parseFloat(total));
-
-                                                return (
-                                                    <div className="responsive-grid-4" style={{ ...styles.detailsGrid, marginTop: '12px' }}>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>Est. Monthly Savings</span>
-                                                            <span style={styles.detailValue}>{formatCurrency(computation.monthly_savings)}</span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>Est. Annual Savings</span>
-                                                            <span style={styles.detailValue}>{formatCurrency(computation.annual_savings)}</span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>Payback Period</span>
-                                                            <span style={styles.detailValue}>{payback !== null ? `${payback} years` : '—'}</span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>Est. New Monthly Bill</span>
-                                                            <span style={styles.detailValue}>
-                                                                {computation.new_monthly_bill != null ? formatCurrency(computation.new_monthly_bill) : '—'}
-                                                            </span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>Annual ROA</span>
-                                                            <span style={styles.detailValue}>
-                                                                {ret.roaPercent !== null ? `${ret.roaPercent.toFixed(1)}%` : '—'}
-                                                            </span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>{SYSTEM_LIFE_YEARS}-Year Savings</span>
-                                                            <span style={styles.detailValue}>{formatCurrency(ret.lifetimeSavings)}</span>
-                                                        </div>
-                                                        <div style={styles.detailItem}>
-                                                            <span style={styles.detailLabel}>{SYSTEM_LIFE_YEARS}-Year Net Gain</span>
-                                                            <span style={styles.detailValue}>{signedPeso(ret.netGain)}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            {qr.quotation && (
-                                                <div style={styles.costBreakdown}>
-                                                    <div style={styles.costRow}>
-                                                        <span>Base System Cost</span>
-                                                        <span>{formatCurrency(qr.quotation.adjusted_cost)}</span>
-                                                    </div>
-                                                    <div style={styles.costRow}>
-                                                        <span>Labor Fee</span>
-                                                        <span>{formatCurrency(qr.quotation.labor_fee)}</span>
-                                                    </div>
-                                                    <div style={styles.costRow}>
-                                                        <span>Transportation Fee</span>
-                                                        <span>{formatCurrency(qr.quotation.transportation_fee)}</span>
-                                                    </div>
-                                                    <div style={{ ...styles.costRow, ...styles.costRowTotal }}>
-                                                        <span>Total Amount</span>
-                                                        <span>{formatCurrency(qr.quotation.total_amount)}</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </Fragment>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </div>
+                </div>
+            ) : quotationRequests.length === 0 ? (
+                <div style={styles.emptyState}>
+                    <p style={styles.emptyTitle}>No quotations yet</p>
+                    <p style={styles.emptyDesc}>You haven't submitted any quotation requests yet.</p>
+                    <button className="btn-primary" style={styles.primaryButton} onClick={() => navigate('/quotation/new')}>
+                        Request a Quotation
+                    </button>
+                </div>
+            ) : filteredQuotations.length === 0 ? (
+                <div style={styles.emptyState}>No quotations in this category yet.</div>
+            ) : (
+                <div style={styles.list}>
+                    {filteredQuotations.map((qr) => (
+                        <QuotationCard
+                            key={qr.id}
+                            qr={qr}
+                            expanded={expandedId === qr.id}
+                            onToggle={() => setExpandedId(expandedId === qr.id ? null : qr.id)}
+                            onDownload={() => handleDownload(qr.quotation.id)}
+                            onAsk={openPanel}
+                            onSchedule={() => navigate('/customer/schedule')}
+                        />
+                    ))}
+                </div>
+            )}
 
             <Footer />
         </CustomerLayout>
     );
+}
+
+function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule }) {
+    const info = describe(qr);
+    const status = STATUS[qr.status] ?? STATUS.draft;
+    const paybackColor = info.slowPayback ? C.bad : C.good;
+    const paybackText = info.payback !== null ? `${number(info.payback, 1)} years` : '—';
+
+    return (
+        <div style={styles.card(expanded)}>
+            <button className="mq-row-toggle" onClick={onToggle} aria-expanded={expanded} style={styles.rowButton}>
+                <div>
+                    <div style={styles.reference}>{formatQuotationRef(qr.id, qr.created_at)}</div>
+                    <div style={styles.smallMuted}>Requested {formatDate(qr.created_at)}</div>
+                </div>
+                <div>
+                    <div style={styles.smallLabel}>System</div>
+                    <div style={styles.rowValue}>{systemType(qr.solar_system_type)}</div>
+                </div>
+                <div>
+                    <div style={styles.smallLabel}>Total price</div>
+                    <div style={styles.rowPrice}>{peso(info.total)}</div>
+                </div>
+                <div style={styles.rowSummary}>
+                    {info.hasSavings && (
+                        <>
+                            Saves <strong>{peso(info.monthlySavings)}</strong>/mo · Payback{' '}
+                            <strong style={{ color: paybackColor }}>{paybackText}</strong>
+                        </>
+                    )}
+                </div>
+                <div style={styles.rowEnd}>
+                    <span style={styles.statusBadge(status)}>{status.label}</span>
+                    <span style={styles.chevron(expanded)} aria-hidden="true">▼</span>
+                </div>
+            </button>
+
+            {expanded && (
+                <div style={styles.details}>
+                    <Notice {...notice(qr, info)} />
+
+                    <div style={styles.sections}>
+                        <WhatYouGet qr={qr} />
+                        {info.hasSavings ? (
+                            <>
+                                <MonthlyBill info={info} />
+                                <WorthIt info={info} paybackColor={paybackColor} paybackText={paybackText} />
+                            </>
+                        ) : (
+                            <section style={styles.section}>
+                                <h3 style={styles.sectionTitle}>Savings estimate</h3>
+                                <p style={styles.sectionNote}>
+                                    This quotation was made before savings estimates were added, so none is available.
+                                </p>
+                            </section>
+                        )}
+                    </div>
+
+                    <div style={styles.actions}>
+                        <div style={styles.actionGroup}>
+                            {qr.status === 'approved' && qr.quotation && (
+                                <button className="btn-secondary" onClick={onDownload} style={styles.secondaryButton}>
+                                    Download PDF
+                                </button>
+                            )}
+                            <button className="btn-secondary" onClick={onAsk} style={styles.secondaryButton}>
+                                Ask about this quote
+                            </button>
+                        </div>
+                        {qr.status === 'approved' && (
+                            <button className="btn-primary" onClick={onSchedule} style={styles.primaryButton}>
+                                View installation schedule →
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function Notice({ title, text, bg, fg }) {
+    return (
+        <div style={{ ...styles.notice, background: bg, color: fg }}>
+            <strong>{title}</strong>
+            <span>{text}</span>
+        </div>
+    );
+}
+
+function WhatYouGet({ qr }) {
+    const computation = qr.solar_computation ?? {};
+    const rows = [
+        ['Solar panels', computation.panel_capacity_kw ? `${number(computation.panel_capacity_kw)} kW` : '—'],
+        ['Inverter', computation.inverter_specification || '—'],
+        ['Battery storage', computation.battery_capacity_ah ? `${number(computation.battery_capacity_ah)} Ah` : '—'],
+    ];
+    // total_load_w (watts × qty) only exists on newer quotations
+    if (computation.total_load_w != null) rows.push(['Your total load', `${number(computation.total_load_w)} W`]);
+    // total_load_watts holds the daily energy (daytime + nighttime Wh)
+    if (computation.total_load_watts != null) rows.push(['Daily energy use', `${number(computation.total_load_watts)} Wh`]);
+
+    return (
+        <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>What you get</h3>
+            <p style={styles.sectionNote}>Equipment included in this quote</p>
+            {rows.map(([label, value], i) => (
+                <DataRow key={label} label={label} value={value} last={i === rows.length - 1} />
+            ))}
+            <p style={styles.hint}>
+                kW = how much power the panels can produce. Ah = how much energy the battery can store for
+                night use or outages.
+            </p>
+
+            {qr.quotation && (
+                <div style={styles.breakdown}>
+                    <div style={styles.breakdownTitle}>Price breakdown</div>
+                    <DataRow label="Base system cost" value={peso(qr.quotation.adjusted_cost)} />
+                    <DataRow label="Labor fee" value={peso(qr.quotation.labor_fee)} />
+                    <DataRow label="Transportation fee" value={peso(qr.quotation.transportation_fee)} />
+                    <DataRow label="Total" value={peso(qr.quotation.total_amount)} last />
+                </div>
+            )}
+        </section>
+    );
+}
+
+function MonthlyBill({ info }) {
+    const hasBill = info.currentBill !== null && info.newBill !== null && info.currentBill > 0;
+    const newBillPct = hasBill ? Math.round((info.newBill / info.currentBill) * 100) : 0;
+    const savePct = hasBill ? Math.round((info.monthlySavings / info.currentBill) * 100) : null;
+
+    return (
+        <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Your monthly bill</h3>
+            <p style={styles.sectionNote}>Estimated, before and after solar</p>
+
+            {hasBill ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <BillBar
+                        label={info.billIsAverage ? 'Today (average of your 2 bills)' : 'Today'}
+                        amount={info.currentBill}
+                        pct={100}
+                        color="#d9ddd9"
+                    />
+                    <BillBar label="With solar" amount={info.newBill} pct={newBillPct} color={C.good} />
+                </div>
+            ) : (
+                <p style={{ ...styles.hint, marginTop: 0 }}>
+                    No bill amount was entered with this request, so only the savings are shown.
+                </p>
+            )}
+
+            <div style={styles.saveTiles}>
+                <div style={styles.saveTile}>
+                    <div style={styles.saveTileLabel}>You save / month</div>
+                    <div style={styles.saveTileValue}>{peso(info.monthlySavings)}</div>
+                    {savePct !== null && <div style={styles.saveTileLabel}>{savePct}% off your bill</div>}
+                </div>
+                <div style={styles.saveTile}>
+                    <div style={styles.saveTileLabel}>You save / year</div>
+                    <div style={styles.saveTileValue}>{peso(info.annualSavings)}</div>
+                </div>
+            </div>
+            {info.rate !== null && (
+                <p style={styles.hint}>
+                    Based on {peso(info.rate)}/kWh
+                    {info.rateFromBill ? ', worked out from your bill.' : ', a typical rate (no kWh was entered).'}
+                </p>
+            )}
+        </section>
+    );
+}
+
+function BillBar({ label, amount, pct, color }) {
+    return (
+        <div>
+            <div style={styles.billBarHead}>
+                <span style={{ color: C.muted }}>{label}</span>
+                <strong>{peso(amount)}</strong>
+            </div>
+            <div style={styles.track}>
+                <div style={{ ...styles.trackFill, width: `${pct}%`, background: color }} />
+            </div>
+        </div>
+    );
+}
+
+function WorthIt({ info, paybackColor, paybackText }) {
+    const paybackPct = info.payback !== null ? Math.min(100, (info.payback / SYSTEM_LIFE_YEARS) * 100) : 0;
+    const net = info.ret?.netGain ?? null;
+
+    return (
+        <section style={styles.section}>
+            <h3 style={styles.sectionTitle}>Is it worth it?</h3>
+            <p style={styles.sectionNote}>Over the {SYSTEM_LIFE_YEARS}-year system life</p>
+
+            <div style={{ fontSize: '13px', color: C.muted, marginBottom: '6px' }}>Pays for itself in</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: paybackColor }}>{paybackText}</div>
+            <div style={{ ...styles.track, margin: '12px 0 6px' }}>
+                <div style={{ ...styles.trackFill, width: `${paybackPct}%`, background: paybackColor }} />
+            </div>
+            <div style={styles.scale}>
+                <span>0 yrs</span>
+                <span>{SYSTEM_LIFE_YEARS} yrs</span>
+            </div>
+
+            <div style={{ marginTop: '14px' }}>
+                <DataRow label={`${SYSTEM_LIFE_YEARS}-year savings`} value={peso(info.ret?.lifetimeSavings)} />
+                <DataRow
+                    label="Net gain after cost"
+                    value={net !== null ? signedPeso(net) : '—'}
+                    color={net !== null && net < 0 ? C.bad : '#1c7a3e'}
+                />
+                <DataRow
+                    label="Annual return (ROA)"
+                    value={info.ret?.roaPercent != null ? `${number(info.ret.roaPercent, 1)}%` : '—'}
+                    last
+                />
+            </div>
+            <p style={styles.hint}>
+                Net gain = {SYSTEM_LIFE_YEARS}-year savings minus the total price. A positive number means the
+                system earns back more than it costs.
+            </p>
+        </section>
+    );
+}
+
+function DataRow({ label, value, color, last }) {
+    return (
+        <div style={{ ...styles.dataRow, borderBottom: last ? 'none' : `1px solid ${C.rowLine}` }}>
+            <span style={{ color: C.muted }}>{label}</span>
+            <strong style={{ textAlign: 'right', color }}>{value}</strong>
+        </div>
+    );
+}
+
+// "hybrid" → "Hybrid", "off-grid" → "Off grid"
+function systemType(type) {
+    if (!type) return '—';
+    const words = type.replace('-', ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // Shared page footer — declared at module scope so React sees the same
@@ -344,288 +484,115 @@ export default function CustomerMyQuotationsPage() {
 function Footer() {
     return (
         <div style={styles.footer}>
-            <div style={styles.footerLeft}>
-                <span style={styles.footerText}>
-                    © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
-                </span>
-                <div style={styles.footerLinks}>
-                    <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
-                    <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
-                </div>
-            </div>
-            <div style={styles.systemStatus}>
-                <div style={styles.statusDot} />
-                <span style={styles.statusText}>All Nodes Active</span>
-            </div>
+            <span>
+                © {new Date().getFullYear()} TataMawing Solar. All rights reserved. ·{' '}
+                <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link> ·{' '}
+                <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
+            </span>
+            <span style={styles.systemStatus}>
+                <span style={styles.statusDot} />
+                All Nodes Active
+            </span>
         </div>
     );
 }
 
 const styles = {
     pageHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        marginBottom: '1.5rem',
+        display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between',
+        gap: '20px', marginBottom: '24px',
     },
-    pageTitle: {
-        ...typography.h1,
-        margin: 0,
-    },
+    pageTitle: { margin: 0, fontSize: '32px', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink },
+    pageLead: { margin: '6px 0 0', color: C.muted, fontSize: '15px' },
     filterTabs: {
-        display: 'flex',
-        gap: '0.25rem',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        padding: '3px',
-        backgroundColor: 'white',
+        display: 'flex', flexWrap: 'wrap', gap: '4px', background: '#fff', border: `1px solid ${C.border}`,
+        borderRadius: '10px', padding: '4px',
     },
-    filterTab: {
-        padding: '0.375rem 1rem',
-        border: 'none',
-        borderRadius: '6px',
-        backgroundColor: 'transparent',
-        color: '#6b7280',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-    },
-    filterTabActive: {
-        backgroundColor: 'white',
-        color: '#111827',
-        fontWeight: '600',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    },
+    filterTab: (active) => ({
+        border: 0, borderRadius: '7px', padding: '8px 14px', fontSize: '14px', cursor: 'pointer',
+        display: 'flex', gap: '8px', alignItems: 'center', fontFamily: 'inherit',
+        background: active ? C.green : 'transparent', color: active ? '#fff' : '#4b554f',
+        fontWeight: active ? 600 : 500,
+    }),
+    tabCount: (active) => ({
+        fontSize: '12px', padding: '1px 7px', borderRadius: '99px',
+        background: active ? 'rgba(255,255,255,.2)' : C.track,
+    }),
     error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
+        backgroundColor: '#fef2f2', color: '#b42318', padding: '12px', borderRadius: '8px',
+        marginBottom: '16px', fontSize: '14px',
     },
-    tableCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
-        marginBottom: '1.5rem',
+    list: { display: 'flex', flexDirection: 'column', gap: '12px' },
+    card: (expanded) => ({
+        background: '#fff', border: `1px solid ${expanded ? '#bcd3c3' : C.border}`, borderRadius: '14px',
         overflow: 'hidden',
+    }),
+    rowButton: {
+        width: '100%', border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer',
+        display: 'flex', flexWrap: 'wrap', gap: '12px 28px', alignItems: 'center', padding: '20px 24px',
+        fontFamily: 'inherit', color: C.ink,
     },
-    tableHeader: {
-        display: 'flex',
-        padding: '0.875rem 1.5rem',
-        fontSize: '0.7rem',
-        color: '#9ca3af',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        borderBottom: '1px solid #f3f4f6',
-        backgroundColor: '#fafafa',
+    reference: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '15px', fontWeight: 500 },
+    smallMuted: { fontSize: '13px', color: C.sub, marginTop: '3px' },
+    smallLabel: { fontSize: '12px', color: C.sub },
+    rowValue: { fontWeight: 600, fontSize: '15px' },
+    rowPrice: { fontWeight: 700, fontSize: '17px' },
+    rowSummary: { flex: '1 1 220px', minWidth: 0, fontSize: '14px', color: C.body },
+    rowEnd: { display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0, marginLeft: 'auto' },
+    statusBadge: (status) => ({
+        fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', padding: '5px 10px', borderRadius: '99px',
+        background: status.bg, color: status.fg,
+    }),
+    chevron: (expanded) => ({
+        width: '28px', height: '28px', borderRadius: '50%', background: '#f1f3f1', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#4b554f',
+        transform: `rotate(${expanded ? 180 : 0}deg)`, transition: 'transform .2s',
+    }),
+    details: {
+        borderTop: '1px solid #eef0ee', padding: '24px', background: '#fbfcfb',
+        display: 'flex', flexDirection: 'column', gap: '20px',
     },
-    tableRow: {
-        display: 'flex',
-        padding: '1.125rem 1.5rem',
-        borderBottom: '1px solid #f9fafb',
-        alignItems: 'center',
-        fontSize: '0.875rem',
-        color: '#374151',
+    notice: {
+        display: 'flex', flexWrap: 'wrap', gap: '6px 12px', alignItems: 'center', padding: '14px 16px',
+        borderRadius: '10px', fontSize: '14px', lineHeight: 1.5,
     },
-    referenceText: {
-        fontWeight: '700',
-        color: '#111827',
-        fontSize: '0.9rem',
+    sections: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '16px' },
+    section: { background: '#fff', border: `1px solid ${C.border}`, borderRadius: '12px', padding: '20px', minWidth: 0 },
+    sectionTitle: { margin: '0 0 4px', fontSize: '15px', color: C.ink },
+    sectionNote: { margin: '0 0 16px', fontSize: '13px', color: C.sub },
+    dataRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 0', fontSize: '14px', color: C.ink },
+    hint: { margin: '12px 0 0', fontSize: '12px', color: C.sub, lineHeight: 1.5 },
+    breakdown: { marginTop: '18px', paddingTop: '14px', borderTop: `1px solid ${C.border}` },
+    breakdownTitle: { fontSize: '13px', fontWeight: 600, color: C.ink, marginBottom: '2px' },
+    billBarHead: { display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px', color: C.ink },
+    track: { height: '10px', borderRadius: '99px', background: C.track, overflow: 'hidden' },
+    trackFill: { height: '10px', borderRadius: '99px' },
+    scale: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#6b756f' },
+    saveTiles: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '18px' },
+    saveTile: { background: C.greenSoft, borderRadius: '10px', padding: '12px', minWidth: 0 },
+    saveTileLabel: { fontSize: '12px', color: C.greenText },
+    saveTileValue: { fontSize: '20px', fontWeight: 700, color: C.green, overflowWrap: 'anywhere' },
+    actions: { display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'space-between', alignItems: 'center' },
+    actionGroup: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
+    secondaryButton: {
+        height: '42px', padding: '0 16px', border: '1px solid #d9ddd9', borderRadius: '9px', background: '#fff',
+        fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: C.ink, fontFamily: 'inherit',
     },
-    customerName: {
-        fontWeight: '500',
-        color: '#111827',
-    },
-    customerLocation: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-    },
-    systemType: {
-        fontWeight: '600',
-        color: '#374151',
-        fontSize: '0.85rem',
-    },
-    statusBadge: {
-        padding: '0.25rem 0.75rem',
-        borderRadius: '4px',
-        fontSize: '0.7rem',
-        fontWeight: '700',
-    },
-    actionDots: {
-        background: 'none',
-        border: 'none',
-        fontSize: '1.25rem',
-        cursor: 'pointer',
-        color: '#9ca3af',
-    },
-    loadingText: {
-        textAlign: 'center',
-        color: '#6b7280',
-        padding: '3rem',
-        fontSize: '0.875rem',
+    primaryButton: {
+        height: '42px', padding: '0 18px', border: 0, borderRadius: '9px', background: C.green, color: '#fff',
+        fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
     },
     emptyState: {
-        textAlign: 'center',
-        padding: '3rem',
+        background: '#fff', border: '1px dashed #d9ddd9', borderRadius: '14px', padding: '48px',
+        textAlign: 'center', color: C.muted, fontSize: '15px',
     },
-    emptyTitle: {
-        fontSize: '1rem',
-        fontWeight: '600',
-        color: '#374151',
-        marginBottom: '0.5rem',
-    },
-    emptyDesc: {
-        fontSize: '0.875rem',
-        color: '#9ca3af',
-        marginBottom: '1.5rem',
-    },
-    emptyBtn: {
-        padding: '0.75rem 1.5rem',
-        backgroundColor: '#1a4a3a',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-    },
+    emptyTitle: { fontSize: '16px', fontWeight: 600, color: C.ink, margin: '0 0 8px' },
+    emptyDesc: { fontSize: '14px', color: C.muted, margin: '0 0 24px' },
     footer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: '1px solid #e5e7eb',
-        marginTop: '1rem',
+        marginTop: '48px', paddingTop: '20px', borderTop: `1px solid ${C.border}`, display: 'flex',
+        justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', fontSize: '13px', color: C.sub,
     },
-    footerLeft: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    footerText: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-    },
-    footerLinks: {
-        display: 'flex',
-        gap: '1rem',
-    },
-    footerLink: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-        cursor: 'pointer',
-        textDecoration: 'none',
-    },
-    systemStatus: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-    },
-    statusDot: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: '#16a34a',
-    },
-    statusText: {
-        fontSize: '0.75rem',
-        color: '#6b7280',
-        fontWeight: '500',
-    },
-        menuDropdown: {
-        position: 'absolute',
-        right: '0.5rem',
-        top: '100%',
-        backgroundColor: 'white',
-        border: '1px solid #f3f4f6',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        zIndex: 10,
-        minWidth: '140px',
-    },
-    menuDropdownUp: {
-        top: 'auto',
-        bottom: '100%',
-    },
-    menuItem: {
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        background: 'none',
-        border: 'none',
-        padding: '0.625rem 0.875rem',
-        fontSize: '0.875rem',
-        color: '#111827',
-        cursor: 'pointer',
-    },
-    detailsPanel: {
-        backgroundColor: '#f9fafb',
-        padding: '1.25rem 1.5rem',
-        borderBottom: '1px solid #f9fafb',
-    },
-    rejectionBox: {
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fecaca',
-        borderRadius: '8px',
-        padding: '0.875rem 1rem',
-        marginBottom: '1rem',
-    },
-    rejectionLabel: {
-        display: 'block',
-        fontSize: '0.7rem',
-        fontWeight: '700',
-        color: '#dc2626',
-        textTransform: 'uppercase',
-        letterSpacing: '0.03em',
-        marginBottom: '0.25rem',
-    },
-    rejectionText: {
-        margin: 0,
-        fontSize: '0.875rem',
-        color: '#991b1b',
-        lineHeight: '1.4',
-    },
-    detailsGrid: {
-        marginBottom: '1rem',
-    },
-    detailItem: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    detailLabel: {
-        fontSize: '0.7rem',
-        color: '#6b7280',
-        textTransform: 'uppercase',
-        fontWeight: '600',
-    },
-    detailValue: {
-        fontSize: '0.9375rem',
-        color: '#111827',
-        fontWeight: '500',
-    },
-    costBreakdown: {
-        borderTop: '1px solid #e5e7eb',
-        paddingTop: '0.75rem',
-    },
-    costRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontSize: '0.875rem',
-        color: '#374151',
-        padding: '0.25rem 0',
-    },
-    costRowTotal: {
-        fontWeight: '700',
-        color: '#111827',
-        borderTop: '1px solid #e5e7eb',
-        marginTop: '0.25rem',
-        paddingTop: '0.5rem',
-    },
-
+    footerLink: { color: C.sub, textDecoration: 'none' },
+    systemStatus: { display: 'flex', alignItems: 'center', gap: '8px' },
+    statusDot: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16a34a' },
 };

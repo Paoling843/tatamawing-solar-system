@@ -44,6 +44,8 @@ class AdminQuotationController extends Controller
             'customer.user',
             'applianceItems',
             'solarComputation',
+            // So the detail page can tell an averaged bill from a single one
+            'electricityBills',
             'quotation.purchaseRequest',
             'quotation.installationSchedule',
         ]);

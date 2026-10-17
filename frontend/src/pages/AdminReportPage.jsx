@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState from '../components/LoadingState';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import api from '../api/axios';
 import { DownloadIcon, DocumentIcon } from '../components/Icons';
-import { colors } from '../styles/theme';
 
 // =====================================================================
 // Detailed Analytics — built from the Analytics design.
@@ -11,7 +12,7 @@ import { colors } from '../styles/theme';
 // same range.
 // =====================================================================
 
-const ACCENT = colors.primary;
+const ACCENT = adminTokens.green;
 
 const RANGES = [
     { days: 7, label: '7 days', long: '7 days' },
@@ -60,7 +61,7 @@ function delta({ value, previous }, kind, rangeLong) {
     return { text: `${diff > 0 ? '+' : '−'}${Math.abs(diff)} ${suffix}`, tone: diff > 0 ? 'up' : 'down' };
 }
 
-const TONE_COLOR = { up: '#15803D', down: '#B45309', flat: '#6B7280' };
+const TONE_COLOR = { up: '#15803D', down: '#B45309', flat: '#5d6862' };
 
 export default function AdminReportPage() {
     const [days, setDays] = useState(30);
@@ -175,7 +176,9 @@ export default function AdminReportPage() {
                 {error && <div style={styles.error}>{error}</div>}
 
                 {!data ? (
-                    <div style={styles.loadingCard}>{loading ? 'Loading analytics…' : 'No analytics data.'}</div>
+                    <div style={styles.loadingCard}>
+                        {loading ? <LoadingState label="Loading analytics…" /> : 'No analytics data.'}
+                    </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', opacity: loading ? 0.55 : 1, transition: 'opacity .2s' }}>
                         <UsersSection data={data} rangeLong={range.long} />
@@ -207,8 +210,8 @@ export default function AdminReportPage() {
                                         style={styles.reportBtn}
                                     >
                                         <ReportIcons busy={downloading === r.key} />
-                                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{r.title}</span>
-                                        <span style={{ fontSize: '13px', color: '#4B5563', lineHeight: 1.4 }}>{r.sub}</span>
+                                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#16211c' }}>{r.title}</span>
+                                        <span style={{ fontSize: '13px', color: '#4f5a54', lineHeight: 1.4 }}>{r.sub}</span>
                                     </button>
                                 ))}
 
@@ -217,7 +220,7 @@ export default function AdminReportPage() {
                                     <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                         <span style={styles.reportIconBox}><DocumentIcon size={18} color={ACCENT} /></span>
                                     </span>
-                                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Individual quotation</span>
+                                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#16211c' }}>Individual quotation</span>
                                     <select
                                         aria-label="Quotation to export"
                                         value={selectedQuotationId}
@@ -337,7 +340,7 @@ function KpiCards({ kpis, rangeLong }) {
         <div style={styles.kpiGrid}>
             {cards.map((c) => (
                 <div key={c.label} style={styles.kpiCard}>
-                    <span style={{ fontSize: '14px', color: '#4B5563' }}>{c.label}</span>
+                    <span style={{ fontSize: '14px', color: '#4f5a54' }}>{c.label}</span>
                     <span style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}>{c.value}</span>
                     <span style={{ fontSize: '13px', fontWeight: 500, color: TONE_COLOR[c.d.tone] }}>{c.d.text}</span>
                 </div>
@@ -368,10 +371,10 @@ function FunnelSection({ funnel, external }) {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 <span style={{ fontSize: '22px', fontWeight: 700 }}>{f.count}</span>
-                                <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.35 }}>{f.label}</span>
+                                <span style={{ fontSize: '13px', color: '#293530', lineHeight: 1.35 }}>{f.label}</span>
                                 <span style={{
                                     fontSize: '12px', fontWeight: 600,
-                                    color: i === 0 ? '#6B7280' : dropPct >= 50 ? '#B45309' : '#4B5563',
+                                    color: i === 0 ? '#5d6862' : dropPct >= 50 ? '#B45309' : '#4f5a54',
                                 }}>
                                     {i === 0 ? 'Starting point' : prev ? `${dropPct}% dropped off` : '—'}
                                 </span>
@@ -391,10 +394,10 @@ function StepTimes({ times }) {
             <div>
                 {times.map((t) => (
                     <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0', borderBottom: '1px solid #F0F1F0', gap: '12px' }}>
-                        <span style={{ fontSize: '14px', color: '#374151' }}>{t.label}</span>
+                        <span style={{ fontSize: '14px', color: '#293530' }}>{t.label}</span>
                         <span style={{ fontSize: '20px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                             {t.days === null ? '—' : t.days}{' '}
-                            {t.days !== null && <span style={{ fontSize: '13px', fontWeight: 500, color: '#4B5563' }}>{t.days === 1 ? 'day' : 'days'}</span>}
+                            {t.days !== null && <span style={{ fontSize: '13px', fontWeight: 500, color: '#4f5a54' }}>{t.days === 1 ? 'day' : 'days'}</span>}
                         </span>
                     </div>
                 ))}
@@ -414,7 +417,7 @@ function SizesCard({ sizes }) {
             ))}
             <span style={styles.cardFoot}>
                 Average quoted size:{' '}
-                <strong style={{ color: '#111827', fontWeight: 600 }}>{sizes.average_kw === null ? '—' : `${sizes.average_kw} kW`}</strong>
+                <strong style={{ color: '#16211c', fontWeight: 600 }}>{sizes.average_kw === null ? '—' : `${sizes.average_kw} kW`}</strong>
             </span>
         </section>
     );
@@ -427,7 +430,7 @@ function LocationsCard({ places }) {
         <section style={{ ...styles.card, gap: '14px' }}>
             <SectionTitle title="Top locations" sub="Where the systems will be installed" />
             {places.length === 0 ? (
-                <span style={{ fontSize: '14px', color: '#6B7280' }}>No quotations in this period.</span>
+                <span style={{ fontSize: '14px', color: '#5d6862' }}>No quotations in this period.</span>
             ) : (
                 places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="150px" />)
             )}
@@ -474,8 +477,8 @@ function ReviewQueueCard({ queue }) {
 function SectionTitle({ title, sub }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>{title}</h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#4B5563', lineHeight: 1.45 }}>{sub}</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c' }}>{title}</h2>
+            <p style={{ margin: 0, fontSize: '14px', color: '#4f5a54', lineHeight: 1.45 }}>{sub}</p>
         </div>
     );
 }
@@ -483,7 +486,7 @@ function SectionTitle({ title, sub }) {
 function BarRow({ label, count, max, labelWidth }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: `${labelWidth} minmax(0, 1fr) 32px`, gap: '10px', alignItems: 'center', fontSize: '14px' }}>
-            <span style={{ color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</span>
+            <span style={{ color: '#293530', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</span>
             <div style={{ height: '10px', borderRadius: '5px', background: '#F1F3F2', display: 'flex' }}>
                 <div style={{ height: '10px', borderRadius: '5px', width: `${(count / max) * 100}%`, background: ACCENT }} />
             </div>
@@ -497,7 +500,7 @@ function StatRows({ rows }) {
         <div>
             {rows.map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', padding: '10px 0', borderBottom: '1px solid #F0F1F0' }}>
-                    <span style={{ fontSize: '14px', color: '#374151' }}>{label}</span>
+                    <span style={{ fontSize: '14px', color: '#293530' }}>{label}</span>
                     <span style={{ fontSize: '18px', fontWeight: 700, whiteSpace: 'nowrap' }}>{value}</span>
                 </div>
             ))}
@@ -509,8 +512,8 @@ function ReportIcons({ busy }) {
     return (
         <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span style={styles.reportIconBox}><DocumentIcon size={18} color={ACCENT} /></span>
-            <span style={{ fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {busy ? 'Preparing…' : <DownloadIcon size={18} color="#4B5563" />}
+            <span style={{ fontSize: '12px', color: '#4f5a54', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {busy ? 'Preparing…' : <DownloadIcon size={18} color="#4f5a54" />}
             </span>
         </span>
     );
@@ -518,16 +521,16 @@ function ReportIcons({ busy }) {
 
 const styles = {
     page: {
-        display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1240px', color: '#111827',
+        display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1240px', color: '#16211c',
         fontVariantNumeric: 'tabular-nums',
     },
     headerRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px' },
-    title: { margin: 0, fontSize: '30px', fontWeight: 700, letterSpacing: '-0.02em', color: '#111827' },
-    subtitle: { margin: 0, fontSize: '15px', color: '#4B5563' },
-    rangeGroup: { display: 'flex', background: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '10px', padding: '3px', gap: '2px' },
+    title: adminText.pageTitle,
+    subtitle: { ...adminText.pageSubtitle, margin: 0 },
+    rangeGroup: { display: 'flex', background: '#FFFFFF', border: '1px solid #dcdfd8', borderRadius: '10px', padding: '3px', gap: '2px' },
     rangeBtn: {
         height: '36px', padding: '0 14px', borderRadius: '8px', border: 'none', background: 'transparent',
-        fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit',
+        fontSize: '14px', fontWeight: 500, color: '#293530', cursor: 'pointer', fontFamily: 'inherit',
     },
     rangeBtnActive: { background: ACCENT, color: '#FFFFFF', fontWeight: 600 },
     primaryBtn: {
@@ -535,16 +538,14 @@ const styles = {
         fontSize: '15px', fontWeight: 600, color: '#FFFFFF', cursor: 'pointer', fontFamily: 'inherit',
     },
     secondaryBtn: {
-        padding: '0 16px', borderRadius: '10px', border: '1px solid #D1D5DB', background: '#FFFFFF',
-        fontSize: '14px', fontWeight: 600, color: '#111827', cursor: 'pointer', fontFamily: 'inherit',
+        padding: '0 16px', borderRadius: '10px', border: '1px solid #dcdfd8', background: '#FFFFFF',
+        fontSize: '14px', fontWeight: 600, color: '#16211c', cursor: 'pointer', fontFamily: 'inherit',
     },
-    error: {
-        background: colors.dangerTint, color: colors.danger, border: '1px solid #fecaca', borderRadius: '10px',
-        padding: '10px 14px', fontSize: '14px',
-    },
+    // The page lays its blocks out with a gap, so no bottom margin here
+    error: { ...adminUi.errorBanner, marginBottom: 0 },
     loadingCard: {
-        background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', padding: '48px',
-        textAlign: 'center', color: '#6B7280', fontSize: '15px',
+        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: '48px',
+        textAlign: 'center', color: '#5d6862', fontSize: '15px',
     },
     hero: {
         background: ACCENT, borderRadius: '18px', padding: '28px', color: '#FFFFFF', display: 'grid',
@@ -558,21 +559,21 @@ const styles = {
     monthGrid: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '12px' },
     kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '16px' },
     kpiCard: {
-        background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '14px', padding: '18px 20px',
+        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '14px', padding: '18px 20px',
         display: 'flex', flexDirection: 'column', gap: '4px',
     },
     card: {
-        background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', padding: '24px',
+        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: '24px',
         display: 'flex', flexDirection: 'column', minWidth: 0,
     },
-    cardFoot: { fontSize: '13px', color: '#4B5563', borderTop: '1px solid #F0F1F0', paddingTop: '12px', marginTop: 'auto' },
+    cardFoot: { fontSize: '13px', color: '#4f5a54', borderTop: '1px solid #F0F1F0', paddingTop: '12px', marginTop: 'auto' },
     funnelGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' },
     threeUp: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '16px' },
     twoUp: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: '16px' },
     reportGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '12px', marginTop: '16px' },
     reportBtn: {
         display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '16px',
-        border: '1px solid #E5E7EB', borderRadius: '12px', background: '#FFFFFF', cursor: 'pointer',
+        border: '1px solid #e6e8e2', borderRadius: '12px', background: '#FFFFFF', cursor: 'pointer',
         textAlign: 'left', fontFamily: 'inherit',
     },
     reportIconBox: {
@@ -580,7 +581,7 @@ const styles = {
         alignItems: 'center', justifyContent: 'center',
     },
     select: {
-        width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #D1D5DB', padding: '0 10px',
-        fontSize: '13px', fontFamily: 'inherit', background: '#FFFFFF', color: '#111827',
+        width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcdfd8', padding: '0 10px',
+        fontSize: '13px', fontFamily: 'inherit', background: '#FFFFFF', color: '#16211c',
     },
 };

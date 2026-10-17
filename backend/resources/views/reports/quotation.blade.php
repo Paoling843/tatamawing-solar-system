@@ -6,10 +6,10 @@
     <style>
         /* Basic reset and font */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #111827; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #16211c; }
 
         /* Header section */
-        .header { background-color: #1a4a3a; color: white; padding: 20px; margin-bottom: 20px; }
+        .header { background-color: #0f3b2c; color: white; padding: 20px; margin-bottom: 20px; }
         .header h1 { font-size: 20px; margin-bottom: 4px; }
         .header p { font-size: 11px; opacity: 0.85; }
 
@@ -20,8 +20,8 @@
         .section-title {
             font-size: 13px;
             font-weight: bold;
-            color: #1a4a3a;
-            border-bottom: 2px solid #1a4a3a;
+            color: #0f3b2c;
+            border-bottom: 2px solid #0f3b2c;
             padding-bottom: 4px;
             margin: 16px 0 10px 0;
         }
@@ -29,25 +29,25 @@
         /* Info grid */
         .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         .info-grid td { padding: 5px 8px; vertical-align: top; }
-        .info-grid .label { color: #6b7280; font-size: 10px; text-transform: uppercase; font-weight: bold; }
-        .info-grid .value { font-size: 12px; color: #111827; }
+        .info-grid .label { color: #5d6862; font-size: 10px; text-transform: uppercase; font-weight: bold; }
+        .info-grid .value { font-size: 12px; color: #16211c; }
 
         /* Tables */
         table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        th { background-color: #f3f4f6; text-align: left; padding: 7px 8px; font-size: 10px; text-transform: uppercase; color: #6b7280; }
-        td { padding: 7px 8px; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
+        th { background-color: #eef0ec; text-align: left; padding: 7px 8px; font-size: 10px; text-transform: uppercase; color: #5d6862; }
+        td { padding: 7px 8px; border-bottom: 1px solid #eef0ec; font-size: 11px; }
 
         /* Cost summary box */
-        .cost-box { background-color: #f0f7f4; border: 1px solid #dbe7e1; border-radius: 6px; padding: 14px; margin: 16px 0; }
+        .cost-box { background-color: #e8efea; border: 1px solid #cfe0d7; border-radius: 6px; padding: 14px; margin: 16px 0; }
         .cost-row { display: flex; justify-content: space-between; padding: 4px 0; }
-        .cost-total { font-size: 15px; font-weight: bold; color: #1a4a3a; border-top: 2px solid #1a4a3a; padding-top: 8px; margin-top: 8px; }
+        .cost-total { font-size: 15px; font-weight: bold; color: #0f3b2c; border-top: 2px solid #0f3b2c; padding-top: 8px; margin-top: 8px; }
 
         /* Status badge */
         .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: bold; }
-        .badge-approved { background-color: #dcfce7; color: #16a34a; }
+        .badge-approved { background-color: #e4ede8; color: #0f3b2c; }
 
         /* Footer */
-        .footer { margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 12px; font-size: 10px; color: #9ca3af; text-align: center; }
+        .footer { margin-top: 30px; border-top: 1px solid #e6e8e2; padding-top: 12px; font-size: 10px; color: #5d6862; text-align: center; }
 
         /* Page content */
         .content { padding: 0 20px 20px 20px; }
@@ -81,7 +81,8 @@
             <tr>
                 <td>
                     <div class="label">Quotation No.</div>
-                    <div class="value">#{{ str_pad($quotation->id, 5, '0', STR_PAD_LEFT) }}</div>
+                    {{-- Same reference the customer and admin pages show, e.g. #Q-2026-049 --}}
+                    <div class="value">#Q-{{ $quotation->quotationRequest->created_at->format('Y') }}-{{ str_pad($quotation->quotationRequest->id, 3, '0', STR_PAD_LEFT) }}</div>
                 </td>
                 <td>
                     <div class="label">Status</div>
@@ -162,24 +163,39 @@
 
         {{-- Solar System Requirements --}}
         <div class="section-title">Computed Solar System Requirements</div>
+        @php $sizing = $quotation->quotationRequest->solarComputation; @endphp
         <table class="info-grid">
             <tr>
                 <td>
-                    <div class="label">Total Daily Load</div>
-                    <div class="value">{{ number_format($quotation->quotationRequest->solarComputation->total_load_watts) }} Wh</div>
+                    <div class="label">Daily Energy Use</div>
+                    <div class="value">{{ number_format($sizing->total_load_watts) }} Wh</div>
                 </td>
+                @if($sizing->total_load_w !== null)
                 <td>
-                    <div class="label">Panel Capacity</div>
-                    <div class="value">{{ $quotation->quotationRequest->solarComputation->panel_capacity_kw }} kW</div>
+                    <div class="label">Total Load</div>
+                    <div class="value">{{ number_format($sizing->total_load_w) }} W</div>
                 </td>
                 <td>
                     <div class="label">Inverter Size</div>
-                    <div class="value">{{ $quotation->quotationRequest->solarComputation->inverter_specification }}</div>
+                    <div class="value">{{ number_format($sizing->inverter_size_w) }} W (load + 2,000 W buffer)</div>
                 </td>
-                @if($quotation->quotationRequest->solarComputation->battery_capacity_ah > 0)
+                @endif
+            </tr>
+            <tr>
+                <td>
+                    <div class="label">Inverter Package</div>
+                    <div class="value">{{ $sizing->inverter_specification }}</div>
+                </td>
+                <td>
+                    <div class="label">Panels</div>
+                    <div class="value">
+                        @if($sizing->panel_count){{ $sizing->panel_count }} panels · @endif{{ $sizing->panel_capacity_kw }} kW
+                    </div>
+                </td>
+                @if($sizing->battery_capacity_ah > 0)
                 <td>
                     <div class="label">Battery Capacity</div>
-                    <div class="value">{{ number_format($quotation->quotationRequest->solarComputation->battery_capacity_ah) }} Ah</div>
+                    <div class="value">{{ number_format($sizing->battery_capacity_ah) }} Ah</div>
                 </td>
                 @endif
             </tr>
@@ -203,12 +219,12 @@
                 </tr>
                 <tr>
                     <td colspan="2" style="border: none; padding: 0;">
-                        <div style="border-top: 1px solid #1a4a3a; margin: 8px 0;"></div>
+                        <div style="border-top: 1px solid #0f3b2c; margin: 8px 0;"></div>
                     </td>
                 </tr>
                 <tr>
-                    <td style="border: none; font-weight: bold; font-size: 14px; color: #1a4a3a;">TOTAL AMOUNT</td>
-                    <td style="border: none; font-weight: bold; font-size: 14px; color: #1a4a3a; text-align: right;">PHP{{ number_format($quotation->total_amount, 2) }}</td>
+                    <td style="border: none; font-weight: bold; font-size: 14px; color: #0f3b2c;">APPROVED TOTAL</td>
+                    <td style="border: none; font-weight: bold; font-size: 14px; color: #0f3b2c; text-align: right;">PHP{{ number_format($quotation->total_amount, 2) }}</td>
                 </tr>
             </table>
         </div>
@@ -282,7 +298,7 @@
                 </td>
             </tr>
         </table>
-        <div style="font-size: 10px; color: #6b7280;">
+        <div style="font-size: 10px; color: #5d6862;">
             ROA is the share of the system price that comes back as savings each year.
             The {{ $lifeYears }}-year figures assume the system keeps saving at today's rate for its expected life.
             Savings are an estimate based on {{ \App\Services\SolarComputationService::PEAK_SUN_HOURS }} average sun hours a day

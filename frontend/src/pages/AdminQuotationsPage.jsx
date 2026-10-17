@@ -2,9 +2,12 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
-import { adminTokens } from '../styles/adminTheme';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 import api from '../api/axios';
+import { formatQuotationRef } from '../utils/references';
+import { formatPeso, quotationPrice, priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
 import { XIcon } from '../components/Icons';
 
 const APPLIANCE_COLUMNS = 'minmax(0,1.6fr) minmax(36px,0.5fr) minmax(48px,0.7fr) minmax(56px,0.95fr)';
@@ -17,21 +20,12 @@ const daysAgo = (dateStr) => {
     return Math.max(0, Math.floor(diff / 86400000));
 };
 
-const formatReference = (id, createdAt) => {
-    const year = new Date(createdAt).getFullYear();
-    const paddedId = String(id).padStart(3, '0');
-    return `#Q-${year}-${paddedId}`;
-};
 
 const formatMonthDay = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 const formatFullDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
 });
-
-const formatPeso0 = (amount) => '₱' + Math.round(amount || 0).toLocaleString('en-PH');
-
-const getValue = (q) => parseFloat(q.quotation?.total_amount ?? q.solar_computation?.estimated_cost ?? 0) || 0;
 
 const getCapacity = (q) => {
     const kw = q.solar_computation?.panel_capacity_kw;
@@ -53,30 +47,6 @@ const ageLabelFor = (q) => {
 };
 
 const dailyWh = (item) => (Number(item.wattage) || 0) * (Number(item.quantity) || 0) * (Number(item.usage_hours_per_day) || 0);
-
-function StatusPill({ status }) {
-    const map = {
-        pending: { bg: '#fdf4dc', text: '#8a6a12', border: '#f3e3ad' },
-        approved: { bg: '#e4ede8', text: '#0f3b2c', border: '#cfe0d7' },
-        rejected: { bg: '#fbeae7', text: '#a4302a', border: '#f0d0cb' },
-    };
-    const c = map[status] || map.pending;
-    return (
-        <span style={{
-            display: 'inline-block',
-            padding: '3px 10px',
-            borderRadius: '999px',
-            fontSize: '11.5px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            backgroundColor: c.bg,
-            color: c.text,
-            border: `1px solid ${c.border}`,
-        }}>
-            {status ? status.charAt(0).toUpperCase() + status.slice(1) : ''}
-        </span>
-    );
-}
 
 function FigureCell({ label, value, mono, color, danger }) {
     return (
@@ -207,7 +177,7 @@ export default function AdminQuotationsPage() {
         .filter((q) => statusFilter === 'all' || q.status === statusFilter)
         .filter((q) => {
             if (!search) return true;
-            const ref = formatReference(q.id, q.created_at).toLowerCase();
+            const ref = formatQuotationRef(q.id, q.created_at).toLowerCase();
             const name = (q.customer?.user?.name || '').toLowerCase();
             const location = (q.installation_address || q.customer?.install_location || '').toLowerCase();
             return ref.includes(search) || name.includes(search) || location.includes(search);
@@ -348,7 +318,7 @@ export default function AdminQuotationsPage() {
                                                     <span style={styles.listRowName}>
                                                         {q.customer?.user?.name || 'N/A'}
                                                     </span>
-                                                    <StatusPill status={q.status} />
+                                                    <Badge status={q.status} />
                                                 </div>
                                                 <div style={styles.listRowMeta}>
                                                     <span style={styles.listRowCapacity}>{getCapacity(q)}</span>
@@ -379,7 +349,7 @@ export default function AdminQuotationsPage() {
                                 <div style={styles.detailHeader}>
                                     <div style={{ minWidth: 0 }}>
                                         <div style={styles.detailRef}>
-                                            {formatReference(selected.id, selected.created_at)}
+                                            {formatQuotationRef(selected.id, selected.created_at)}
                                         </div>
                                         <h2 style={styles.detailName}>
                                             {selected.customer?.user?.name || 'N/A'}
@@ -388,11 +358,11 @@ export default function AdminQuotationsPage() {
                                             {selected.installation_address || selected.customer?.install_location || 'N/A'} &middot; submitted {formatFullDate(selected.created_at)}
                                         </p>
                                     </div>
-                                    <StatusPill status={selected.status} />
+                                    <Badge status={selected.status} />
                                 </div>
 
                                 <div style={styles.figureGrid}>
-                                    <FigureCell label="SYSTEM" value="Hybrid" />
+                                    <FigureCell label="SYSTEM" value={systemTypeLabel(selected.solar_system_type)} />
                                     <FigureCell
                                         label="CAPACITY"
                                         value={getCapacity(selected)}
@@ -400,15 +370,23 @@ export default function AdminQuotationsPage() {
                                         color={adminTokens.green}
                                     />
                                     <FigureCell
-                                        label="ESTIMATE"
-                                        value={formatPeso0(getValue(selected))}
+                                        label={priceLabel(selected).toUpperCase()}
+                                        value={formatPeso(quotationPrice(selected))}
                                         mono
                                     />
-                                    <FigureCell
-                                        label="WAITING"
-                                        value={waitingLabel(selected)}
-                                        danger={selected.status === 'pending' && daysAgo(selected.created_at) >= 3}
-                                    />
+                                    {/* Only pending requests are waiting on an admin */}
+                                    {selected.status === 'pending' ? (
+                                        <FigureCell
+                                            label="WAITING"
+                                            value={waitingLabel(selected)}
+                                            danger={daysAgo(selected.created_at) >= 3}
+                                        />
+                                    ) : (
+                                        <FigureCell
+                                            label="REQUESTED"
+                                            value={daysAgoLabel(daysAgo(selected.created_at))}
+                                        />
+                                    )}
                                 </div>
 
                                 <div style={styles.applianceSection}>
@@ -492,7 +470,7 @@ export default function AdminQuotationsPage() {
                                                         scheduleQuotationId: selected.quotation?.id,
                                                         scheduleCustomerName: selected.customer?.user?.name || 'Customer',
                                                         scheduleLocation: selected.installation_address || selected.customer?.install_location || '',
-                                                        scheduleReference: formatReference(selected.id, selected.created_at),
+                                                        scheduleReference: formatQuotationRef(selected.id, selected.created_at),
                                                     },
                                                 })}
                                             >
@@ -519,7 +497,7 @@ export default function AdminQuotationsPage() {
                                 <div style={styles.rejectEyebrow}>Quotation review</div>
                                 <h2 style={styles.rejectModalTitle}>Reject this request?</h2>
                                 <p style={styles.rejectModalSubtitle}>
-                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatReference(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation.id, rejectingQuotation.created_at)}
                                 </p>
                             </div>
                             <button type="button" onClick={closeRejectModal} aria-label="Close" style={styles.modalCloseBtn}>
@@ -569,18 +547,8 @@ const styles = {
         gap: '14px',
         marginBottom: '18px',
     },
-    pageTitle: {
-        fontSize: '30px',
-        fontWeight: 800,
-        letterSpacing: '-.03em',
-        color: adminTokens.ink,
-        margin: 0,
-    },
-    pageSubtitle: {
-        fontSize: '14px',
-        color: adminTokens.muted,
-        margin: '6px 0 0',
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: adminText.pageSubtitle,
     headerControls: {
         display: 'flex',
         alignItems: 'center',
@@ -661,14 +629,7 @@ const styles = {
         color: adminTokens.green,
         fontWeight: 700,
     },
-    error: {
-        backgroundColor: '#fbeae7',
-        color: '#a4302a',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
 
     splitGrid: {
         display: 'grid',

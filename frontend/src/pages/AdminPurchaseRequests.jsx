@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 import { GridIcon, BoltIcon, BatteryIcon, PlugIcon, PackageIcon, CartIcon } from '../components/Icons';
 import api from '../api/axios';
-import { colors, typography } from '../styles/theme';
+import { formatOrderRef } from '../utils/references';
+import { colors } from '../styles/theme';
 
 export default function AdminPurchaseRequestsPage() {
     const navigate = useNavigate();
@@ -43,37 +46,23 @@ export default function AdminPurchaseRequestsPage() {
         });
     };
 
-    const formatOrderId = (id) => {
-        return `ORD-${String(id).padStart(5, '0')}`;
-    };
-
-    const getStatusStyle = (status) => {
-        const statusStyles = {
-            pending: { backgroundColor: '#fef9c3', color: '#ca8a04' },
-            confirmed: { backgroundColor: '#dcfce7', color: '#16a34a' },
-            partially_available: { backgroundColor: '#ffedd5', color: '#ea580c' },
-            unavailable: { backgroundColor: '#fef2f2', color: '#dc2626' },
-        };
-        return statusStyles[status] || statusStyles.pending;
-    };
-
     const getStatusLabel = (status) => {
         const labels = {
-            pending: 'PENDING',
-            confirmed: 'APPROVED',
-            partially_available: 'PARTIAL',
-            unavailable: 'NOT AVAILABLE',
+            pending: 'Pending',
+            confirmed: 'Approved',
+            partially_available: 'Partial',
+            unavailable: 'Not available',
         };
-        return labels[status] || status?.toUpperCase();
+        return labels[status];
     };
 
     const getMaterialIcon = (materialName) => {
         const name = materialName?.toLowerCase() || '';
-        if (name.includes('panel') || name.includes('solar')) return <GridIcon size={18} color={colors.primary} />;
-        if (name.includes('inverter')) return <BoltIcon size={18} color={colors.primary} />;
-        if (name.includes('battery')) return <BatteryIcon size={18} color={colors.primary} />;
-        if (name.includes('cable') || name.includes('wire')) return <PlugIcon size={18} color={colors.primary} />;
-        return <PackageIcon size={18} color={colors.primary} />;
+        if (name.includes('panel') || name.includes('solar')) return <GridIcon size={18} color={adminTokens.green} />;
+        if (name.includes('inverter')) return <BoltIcon size={18} color={adminTokens.green} />;
+        if (name.includes('battery')) return <BatteryIcon size={18} color={adminTokens.green} />;
+        if (name.includes('cable') || name.includes('wire')) return <PlugIcon size={18} color={adminTokens.green} />;
+        return <PackageIcon size={18} color={adminTokens.green} />;
     };
 
     const filteredRequests = purchaseRequests.filter(pr => {
@@ -143,7 +132,7 @@ export default function AdminPurchaseRequestsPage() {
 
                                 <span style={{ flex: 1.2 }}>
                                     <span style={styles.orderIdText}>
-                                        {formatOrderId(pr.id)}
+                                        {formatOrderRef(pr.id)}
                                     </span>
                                 </span>
 
@@ -171,12 +160,10 @@ export default function AdminPurchaseRequestsPage() {
                                 </span>
 
                                 <span style={{ flex: 1.5 }}>
-                                    <span style={{
-                                        ...styles.statusBadge,
-                                        ...getStatusStyle(pr.procurement_status),
-                                    }}>
-                                        {getStatusLabel(pr.procurement_status)}
-                                    </span>
+                                    <Badge
+                                        status={pr.procurement_status}
+                                        label={getStatusLabel(pr.procurement_status)}
+                                    />
                                 </span>
 
                                 <span style={{ flex: 0.5, textAlign: 'right' }}>
@@ -209,29 +196,15 @@ export default function AdminPurchaseRequestsPage() {
 }
 
 const styles = {
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        fontSize: '0.875rem',
-        color: colors.textMuted,
-        margin: '0 0 1.5rem 0',
-    },
-    error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: { ...adminText.pageSubtitle, marginBottom: '1.5rem' },
+    error: adminUi.errorBanner,
     tableCard: {
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
         position: 'relative',
     },
     tableCardHeader: {
@@ -245,13 +218,13 @@ const styles = {
     tableTitle: {
         fontSize: '1rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         margin: 0,
     },
     filterTabs: {
         display: 'flex',
         gap: '0.25rem',
-        border: '1px solid #e5e7eb',
+        border: '1px solid #e6e8e2',
         borderRadius: '8px',
         padding: '3px',
     },
@@ -260,13 +233,13 @@ const styles = {
         border: 'none',
         borderRadius: '6px',
         backgroundColor: 'transparent',
-        color: '#6b7280',
+        color: '#5d6862',
         fontSize: '0.8rem',
         cursor: 'pointer',
     },
     filterTabActive: {
         backgroundColor: 'white',
-        color: '#111827',
+        color: '#16211c',
         fontWeight: '600',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     },
@@ -274,23 +247,23 @@ const styles = {
         display: 'flex',
         padding: '0.75rem 1rem',
         fontSize: '0.7rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: '0.05em',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #eef0ec',
     },
     tableRow: {
         display: 'flex',
         padding: '1rem',
-        borderBottom: '1px solid #f9fafb',
+        borderBottom: '1px solid #f9faf8',
         alignItems: 'center',
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
     },
     orderIdText: {
         fontWeight: '600',
-        color: '#374151',
+        color: '#293530',
         fontFamily: 'monospace',
     },
     materialCell: {
@@ -312,26 +285,20 @@ const styles = {
     materialName: {
         fontSize: '0.875rem',
         fontWeight: '500',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 0.125rem 0',
     },
     materialDesc: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         margin: 0,
-    },
-    statusBadge: {
-        padding: '0.25rem 0.75rem',
-        borderRadius: '4px',
-        fontSize: '0.7rem',
-        fontWeight: '700',
     },
     actionDots: {
         background: 'none',
         border: 'none',
         fontSize: '1.25rem',
         cursor: 'pointer',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     fab: {
         position: 'fixed',
@@ -340,7 +307,7 @@ const styles = {
         width: '52px',
         height: '52px',
         borderRadius: '50%',
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
         fontSize: '1.25rem',

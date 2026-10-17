@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import { adminText, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PlusIcon, EditIcon, TrashIcon, HelpIcon } from '../components/Icons';
 import api from '../api/axios';
-import { colors, typography } from '../styles/theme';
+import { colors } from '../styles/theme';
 
 export default function AdminFaqPage() {
     const [faqs, setFaqs] = useState([]);
@@ -115,7 +116,7 @@ export default function AdminFaqPage() {
     };
 
     return (
-        <AdminLayout active="Help Center">
+        <AdminLayout active="FAQ Management">
 
             {/* Page header with create button */}
             <div style={styles.pageHeader}>
@@ -332,17 +333,10 @@ const styles = {
         alignItems: 'flex-start',
         marginBottom: '1.5rem',
     },
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        fontSize: '0.875rem',
-        color: colors.textMuted,
-        margin: 0,
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: adminText.pageSubtitle,
     createBtn: {
-        backgroundColor: '#1a4a3a',
+        backgroundColor: '#0f3b2c',
         color: 'white',
         border: 'none',
         padding: '0.75rem 1.25rem',
@@ -357,31 +351,24 @@ const styles = {
     },
     success: {
         backgroundColor: '#f0f7f4',
-        color: '#1a4a3a',
+        color: '#0f3b2c',
         padding: '0.75rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
-    error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
     formCard: {
         backgroundColor: 'white',
         borderRadius: '16px',
         padding: '1.5rem',
         marginBottom: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '2px solid #1a4a3a',
+        border: '2px solid #0f3b2c',
     },
     formTitle: {
         fontSize: '1rem',
-        color: '#111827',
+        color: '#16211c',
         marginTop: 0,
         marginBottom: '1.5rem',
     },
@@ -392,24 +379,24 @@ const styles = {
         display: 'block',
         marginBottom: '0.25rem',
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
         fontWeight: '500',
     },
     optional: {
-        color: '#9ca3af',
+        color: '#5d6862',
         fontWeight: 'normal',
     },
     input: {
         width: '100%',
         padding: '0.625rem',
-        border: '1px solid #d1d5db',
+        border: '1px solid #dcdfd8',
         borderRadius: '8px',
         fontSize: '1rem',
         boxSizing: 'border-box',
     },
     hint: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         margin: '0.25rem 0 0 0',
     },
     formActions: {
@@ -419,15 +406,15 @@ const styles = {
     },
     cancelBtn: {
         backgroundColor: 'white',
-        color: '#374151',
-        border: '1px solid #d1d5db',
+        color: '#293530',
+        border: '1px solid #dcdfd8',
         padding: '0.625rem 1.25rem',
         borderRadius: '8px',
         cursor: 'pointer',
         fontSize: '0.875rem',
     },
     saveBtn: {
-        backgroundColor: '#1a4a3a',
+        backgroundColor: '#0f3b2c',
         color: 'white',
         border: 'none',
         padding: '0.625rem 1.25rem',
@@ -445,7 +432,7 @@ const styles = {
         borderRadius: '16px',
         padding: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
         display: 'flex',
         gap: '1rem',
         alignItems: 'flex-start',
@@ -456,12 +443,12 @@ const styles = {
     faqQuestion: {
         fontSize: '1rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         marginTop: 0,
         marginBottom: '0.5rem',
     },
     faqAnswer: {
-        color: '#374151',
+        color: '#293530',
         fontSize: '0.875rem',
         lineHeight: '1.5',
         margin: '0 0 0.75rem 0',
@@ -474,11 +461,11 @@ const styles = {
     },
     keywordsLabel: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     keywordTag: {
         backgroundColor: '#f0f7f4',
-        color: '#1a4a3a',
+        color: '#0f3b2c',
         border: '1px solid #dbe7e1',
         padding: '0.2rem 0.6rem',
         borderRadius: '999px',
@@ -492,7 +479,7 @@ const styles = {
     },
     editBtn: {
         backgroundColor: '#f0f7f4',
-        color: '#1a4a3a',
+        color: '#0f3b2c',
         border: '1px solid #dbe7e1',
         padding: '0.5rem 1rem',
         borderRadius: '8px',
@@ -504,8 +491,8 @@ const styles = {
         gap: '0.4rem',
     },
     deleteBtn: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
+        backgroundColor: '#fbeae7',
+        color: '#a4302a',
         border: '1px solid #fca5a5',
         padding: '0.5rem 1rem',
         borderRadius: '8px',

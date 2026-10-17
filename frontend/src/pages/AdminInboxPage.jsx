@@ -2,9 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
+import { adminText } from '../styles/adminTheme';
 import MessengerLinkCard from '../components/MessengerLinkCard';
+import Badge from '../components/Badge';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
+import { formatQuotationRef } from '../utils/references';
 
 // Admin Messages — conversations | thread | details (customer, linked
 // request, and the slow-response fallback that sends a "Chat on Messenger"
@@ -18,8 +21,8 @@ const T = {
     selected: '#eef3ef',
     ink: '#1b2420',
     body: '#4a524e',
-    muted: '#7a837e',
-    faint: '#9aa19c',
+    muted: '#5c6560',
+    faint: '#646b67',
     border: '#e6e6e0',
     line: '#efefea',
     soft: '#f5f5f2',
@@ -34,11 +37,12 @@ const AVATAR_COLORS = [
     ['#fdf1d6', '#8a6210'],
 ];
 
+// Linked-request label → the shared status colour it uses
 const STATUS = {
-    New: ['#fdf1d6', '#8a6210'],
-    Quoted: ['#e3ecfb', '#2f5fb8'],
-    Scheduled: ['#e4efe7', '#1f4d3a'],
-    Rejected: ['#fbe4e1', '#b4483a'],
+    New: 'pending',
+    Quoted: 'scheduled',
+    Scheduled: 'approved',
+    Rejected: 'rejected',
 };
 
 const FILTERS = [
@@ -52,9 +56,6 @@ const DELAYS = [5, 10, 15, 30];
 // The details panel starts hidden below this width (as in the design)
 const NARROW = '(max-width: 1240px)';
 
-// Same reference format as the Quotations page
-const formatReference = (id, createdAt) =>
-    `#Q-${new Date(createdAt).getFullYear()}-${String(id).padStart(3, '0')}`;
 
 const initialsOf = (name) =>
     (name || '?').split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -115,7 +116,7 @@ const describe = (conversation) => {
     }
 
     return {
-        reference: request ? formatReference(request.id, request.created_at) : null,
+        reference: request ? formatQuotationRef(request.id, request.created_at) : null,
         status,
         location,
         system,
@@ -502,9 +503,7 @@ export default function AdminInboxPage() {
                                 <div style={styles.requestCard}>
                                     <div style={styles.requestTop}>
                                         <span style={{ fontSize: '13px', fontWeight: 600 }}>{info.reference}</span>
-                                        <span style={{ ...styles.statusPill, background: STATUS[info.status][0], color: STATUS[info.status][1] }}>
-                                            {info.status}
-                                        </span>
+                                        <Badge status={STATUS[info.status]} label={info.status} />
                                     </div>
                                     {info.system && <span style={{ fontSize: '13px', color: T.body }}>{info.system}</span>}
                                     <Link to={`/admin/quotation-requests/${current.linked_request.id}`} style={styles.openLink}>
@@ -639,7 +638,7 @@ function SendGlyph() {
 
 const styles = {
     header: { display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '18px' },
-    title: { margin: 0, fontSize: '26px', fontWeight: 700, letterSpacing: '-.02em', color: T.ink },
+    title: adminText.pageTitle,
     summary: { fontSize: '13px', color: T.muted },
 
     card: {
@@ -738,7 +737,6 @@ const styles = {
     factValue: { textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
     requestCard: { border: '1px solid #ebebe6', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' },
     requestTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' },
-    statusPill: { fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px' },
     openLink: { fontSize: '13px', fontWeight: 600, textDecoration: 'none', color: T.green },
     note: { fontSize: '12px', lineHeight: 1.5, color: T.muted, textWrap: 'pretty' },
     fallbackTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' },

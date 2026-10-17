@@ -105,18 +105,24 @@ export default function PackageStep({
                         {PACKAGES.map((p, i) => {
                             const locked = i < recommendedPkgIndex;
                             const active = i === pkgIndex;
-                            const tag = i === recommendedPkgIndex ? 'recommended' : locked ? 'below floor' : 'upgrade';
+                            const recommended = i === recommendedPkgIndex;
                             return (
                                 <button
                                     key={p.kw}
                                     type="button"
                                     disabled={locked}
                                     onClick={() => onPickPackage(i)}
-                                    style={{ ...s.option(active, locked), opacity: locked ? 0.55 : 1 }}
+                                    style={{
+                                        ...s.option(active, locked),
+                                        opacity: locked ? 0.55 : 1,
+                                        ...(recommended ? styles.recommendedRow : {}),
+                                    }}
                                 >
                                     <span style={s.radioDot(active)} />
                                     <span style={{ fontFamily: NUM, fontSize: '14px' }}>{p.kw} kW hybrid</span>
-                                    <span style={styles.optionTag(i === recommendedPkgIndex)}>{tag}</span>
+                                    {recommended
+                                        ? <RecommendedPill />
+                                        : <span style={styles.optionTag(false)}>{locked ? 'below floor' : 'upgrade'}</span>}
                                 </button>
                             );
                         })}
@@ -129,9 +135,16 @@ export default function PackageStep({
                         <span style={s.cardEyebrow}>PANELS · {PANEL_WATTS} W EACH</span>
                         <span style={s.tag(C.mint, C.green)}>{pkg.panelDefault}–{pkg.panelMax}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginTop: '14px' }}>
                         <span style={styles.bigNumber}>{panels}</span>
                         <span style={{ fontSize: '13.5px', color: C.muted }}>panels · {formatDecimal(arrayKwp(panels))} kWp</span>
+                        {panels === recommendedPanels ? (
+                            <RecommendedPill />
+                        ) : (
+                            <button type="button" onClick={() => onPanelsChange(recommendedPanels)} style={styles.useRecommended}>
+                                Use recommended ({recommendedPanels})
+                            </button>
+                        )}
                     </div>
                     <select
                         value={String(panels)}
@@ -163,13 +176,19 @@ export default function PackageStep({
                     <div style={styles.optionList}>
                         {BATTERIES.map((b, i) => {
                             const active = i === batteryIndex;
+                            const recommended = i === recommendedBatteryIndex;
                             return (
-                                <button key={b.ah} type="button" onClick={() => onPickBattery(i)} style={s.option(active, false)}>
+                                <button
+                                    key={b.ah}
+                                    type="button"
+                                    onClick={() => onPickBattery(i)}
+                                    style={{ ...s.option(active, false), ...(recommended ? styles.recommendedRow : {}) }}
+                                >
                                     <span style={s.radioDot(active)} />
                                     <span style={{ fontFamily: NUM, fontSize: '14px' }}>
                                         {b.ah} Ah · {formatDecimal(batteryWh(b.ah))} Wh
                                     </span>
-                                    <span style={styles.optionTag(true)}>{i === recommendedBatteryIndex ? 'matched' : ''}</span>
+                                    {recommended && <RecommendedPill />}
                                 </button>
                             );
                         })}
@@ -314,6 +333,11 @@ export default function PackageStep({
     );
 }
 
+// Green pill that marks the option the engine recommends
+function RecommendedPill() {
+    return <span style={styles.recommendedPill}>★ RECOMMENDED</span>;
+}
+
 // Label after a panel count in the dropdown, e.g. " (recommended)"
 function panelTag(n, recommended, minimum) {
     const tags = [];
@@ -344,6 +368,19 @@ const styles = {
     bigLabel: { fontSize: '23px', fontWeight: 800, letterSpacing: '-.025em', color: C.ink, marginTop: '14px' },
     bigNumber: { fontFamily: NUM, fontSize: '30px', fontWeight: 600, letterSpacing: '-.03em', color: C.ink },
     optionList: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '20px' },
+    // Green ring around the recommended row. A box-shadow, not a thicker
+    // border, so the row doesn't change size when it's highlighted.
+    recommendedRow: { boxShadow: `0 0 0 2px ${C.green}` },
+    recommendedPill: {
+        marginLeft: 'auto', alignSelf: 'center', fontFamily: NUM, fontSize: '11px', fontWeight: 700,
+        letterSpacing: '.06em', background: C.green, color: '#fff', borderRadius: '20px',
+        padding: '4px 9px', whiteSpace: 'nowrap',
+    },
+    useRecommended: {
+        marginLeft: 'auto', alignSelf: 'center', background: 'none', border: 'none', padding: 0,
+        fontFamily: SANS, fontSize: '13px', fontWeight: 600, color: C.green, textDecoration: 'underline',
+        cursor: 'pointer', whiteSpace: 'nowrap',
+    },
     optionTag: (highlight) => ({
         marginLeft: 'auto', fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.06em',
         color: highlight ? C.green : C.dim,

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { adminText, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import { SettingsIcon, ClockIcon, UserIcon } from '../components/Icons';
 import api from '../api/axios';
-import { colors, typography } from '../styles/theme';
+import { colors } from '../styles/theme';
 
 export default function AdminSystemPage() {
     const navigate = useNavigate();
@@ -54,7 +55,7 @@ export default function AdminSystemPage() {
         if (role === 'admin' || role === 'Senior Admin') {
             return { backgroundColor: '#dbeafe', color: '#1d4ed8' };
         }
-        return { backgroundColor: '#f3f4f6', color: '#6b7280' };
+        return { backgroundColor: '#eef0ec', color: '#5d6862' };
     };
 
     const getRoleLabel = (role) => {
@@ -71,21 +72,21 @@ export default function AdminSystemPage() {
             title: 'Policy Updated',
             desc: 'Admin modified Procurement settings',
             time: '14:32 PM • Security',
-            color: '#3b82f6',
+            color: '#1d4ed8',
         },
         {
             id: 2,
             title: 'Failed Login Attempt',
             desc: 'IP blocked after 5 attempts',
             time: '11:15 AM • Security',
-            color: '#dc2626',
+            color: '#a4302a',
         },
         {
             id: 3,
             title: 'New Customer Registered',
             desc: 'New customer account created',
             time: '09:04 AM • Users',
-            color: '#111827',
+            color: '#16211c',
         },
     ];
     return (
@@ -145,7 +146,7 @@ export default function AdminSystemPage() {
                                             ...styles.userAvatar,
                                             backgroundColor: user.role === 'admin'
                                                 ? '#1d4ed8'
-                                                : '#6b7280',
+                                                : '#5d6862',
                                         }}>
                                             {getInitials(user.name)}
                                         </div>
@@ -171,7 +172,7 @@ export default function AdminSystemPage() {
                                         </div>
                                     </span>
 
-                                    <span style={{ flex: 2, fontSize: '0.8rem', color: '#9ca3af' }}>
+                                    <span style={{ flex: 2, fontSize: '0.8rem', color: '#5d6862' }}>
                                         Recently
                                     </span>
 
@@ -220,7 +221,7 @@ export default function AdminSystemPage() {
                         <div style={styles.configItem}>
                             <div>
                                 <p style={styles.configItemTitle}>Two-Factor Auth</p>
-                                <p style={{ ...styles.configItemDesc, color: '#16a34a' }}>
+                                <p style={{ ...styles.configItemDesc, color: '#15803d' }}>
                                     Mandatory for all Admin users
                                 </p>
                             </div>
@@ -275,19 +276,11 @@ const styles = {
         alignItems: 'flex-start',
         marginBottom: '1.25rem',
     },
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        fontSize: '0.875rem',
-        color: colors.textMuted,
-        margin: 0,
-        maxWidth: '500px',
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: { ...adminText.pageSubtitle, maxWidth: '500px' },
     createUserBtn: {
         padding: '0.625rem 1.25rem',
-        backgroundColor: '#38bdf8',
+        backgroundColor: '#0f3b2c',
         color: 'white',
         border: 'none',
         borderRadius: '999px',
@@ -298,7 +291,7 @@ const styles = {
     },
     tabsRow: {
         display: 'flex',
-        borderBottom: '2px solid #e5e7eb',
+        borderBottom: '2px solid #e6e8e2',
         marginBottom: '1.5rem',
         gap: '0',
     },
@@ -307,24 +300,17 @@ const styles = {
         border: 'none',
         borderBottom: '2px solid transparent',
         backgroundColor: 'transparent',
-        color: '#6b7280',
+        color: '#5d6862',
         fontSize: '0.875rem',
         cursor: 'pointer',
         marginBottom: '-2px',
     },
     tabActive: {
-        color: '#1a4a3a',
-        borderBottom: '2px solid #1a4a3a',
+        color: '#0f3b2c',
+        borderBottom: '2px solid #0f3b2c',
         fontWeight: '600',
     },
-    error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
     contentGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 280px',
@@ -336,28 +322,28 @@ const styles = {
         borderRadius: '12px',
         padding: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
     },
     sectionTitle: {
         fontSize: '1rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 1rem 0',
     },
     usersTableHeader: {
         display: 'flex',
         padding: '0.5rem 0',
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         fontWeight: '600',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #eef0ec',
         marginBottom: '0.5rem',
     },
     userRow: {
         display: 'flex',
         alignItems: 'center',
         padding: '0.875rem 0',
-        borderBottom: '1px solid #f9fafb',
+        borderBottom: '1px solid #f9faf8',
         fontSize: '0.875rem',
     },
     userAvatar: {
@@ -375,12 +361,12 @@ const styles = {
     userName: {
         fontSize: '0.875rem',
         fontWeight: '500',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 0.125rem 0',
     },
     userEmail: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         margin: 0,
     },
     roleBadge: {
@@ -402,14 +388,14 @@ const styles = {
     },
     statusText: {
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
     },
     actionDots: {
         background: 'none',
         border: 'none',
         fontSize: '1.25rem',
         cursor: 'pointer',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     paginationRow: {
         display: 'flex',
@@ -417,11 +403,11 @@ const styles = {
         alignItems: 'center',
         marginTop: '1rem',
         paddingTop: '1rem',
-        borderTop: '1px solid #f3f4f6',
+        borderTop: '1px solid #eef0ec',
     },
     paginationText: {
         fontSize: '0.8rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     paginationBtns: {
         display: 'flex',
@@ -429,10 +415,10 @@ const styles = {
     },
     paginationBtn: {
         padding: '0.375rem 0.875rem',
-        border: '1px solid #e5e7eb',
+        border: '1px solid #e6e8e2',
         borderRadius: '6px',
         backgroundColor: 'white',
-        color: '#374151',
+        color: '#293530',
         fontSize: '0.8rem',
         cursor: 'pointer',
     },
@@ -440,7 +426,7 @@ const styles = {
         padding: '0.375rem 0.875rem',
         border: 'none',
         borderRadius: '6px',
-        backgroundColor: '#1a4a3a',
+        backgroundColor: '#0f3b2c',
         color: 'white',
         fontSize: '0.8rem',
         cursor: 'pointer',
@@ -455,12 +441,12 @@ const styles = {
         borderRadius: '12px',
         padding: '1.25rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
     },
     configTitle: {
         fontSize: '0.9rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 1rem 0',
     },
     configItem: {
@@ -469,24 +455,24 @@ const styles = {
         alignItems: 'center',
         marginBottom: '1rem',
         paddingBottom: '1rem',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #eef0ec',
     },
     configItemTitle: {
         fontSize: '0.875rem',
         fontWeight: '500',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 0.125rem 0',
     },
     configItemDesc: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         margin: 0,
     },
     toggleOff: {
         width: '44px',
         height: '24px',
         borderRadius: '999px',
-        backgroundColor: '#e5e7eb',
+        backgroundColor: '#e6e8e2',
         position: 'relative',
         flexShrink: 0,
     },
@@ -504,7 +490,7 @@ const styles = {
         width: '44px',
         height: '24px',
         borderRadius: '999px',
-        backgroundColor: '#38bdf8',
+        backgroundColor: '#0f3b2c',
         position: 'relative',
         flexShrink: 0,
     },
@@ -521,7 +507,7 @@ const styles = {
     applyBtn: {
         width: '100%',
         padding: '0.625rem',
-        backgroundColor: '#1a4a3a',
+        backgroundColor: '#0f3b2c',
         color: 'white',
         border: 'none',
         borderRadius: '8px',
@@ -535,7 +521,7 @@ const styles = {
         borderRadius: '12px',
         padding: '1.25rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
     },
     auditCardHeader: {
         display: 'flex',
@@ -545,14 +531,14 @@ const styles = {
     },
     auditIcon: {
         fontSize: '1rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     auditItem: {
         display: 'flex',
         gap: '0.75rem',
         marginBottom: '1rem',
         paddingBottom: '1rem',
-        borderBottom: '1px solid #f9fafb',
+        borderBottom: '1px solid #f9faf8',
     },
     auditDot: {
         width: '8px',
@@ -564,25 +550,25 @@ const styles = {
     auditTitle: {
         fontSize: '0.8rem',
         fontWeight: '600',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 0.125rem 0',
     },
     auditDesc: {
         fontSize: '0.75rem',
-        color: '#6b7280',
+        color: '#5d6862',
         margin: '0 0 0.125rem 0',
     },
     auditTime: {
         fontSize: '0.7rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         margin: 0,
     },
     viewAuditBtn: {
         width: '100%',
         padding: '0.625rem',
         backgroundColor: 'white',
-        color: '#374151',
-        border: '1px solid #e5e7eb',
+        color: '#293530',
+        border: '1px solid #e6e8e2',
         borderRadius: '8px',
         fontSize: '0.8rem',
         cursor: 'pointer',
