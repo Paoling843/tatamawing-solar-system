@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import {
@@ -16,7 +17,7 @@ import {
 } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
-import { colors, typography, statusColors } from '../styles/theme';
+import { colors, statusColors } from '../styles/theme';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
@@ -374,13 +375,13 @@ export default function AdminSchedulePage() {
                             <div style={styles.monthNav}>
                                 <button onClick={() => shiftMonth(-1)} style={styles.navBtn} aria-label="Previous month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
-                                        <ChevronDownIcon size={14} color={colors.primary} />
+                                        <ChevronDownIcon size={14} color={adminTokens.green} />
                                     </span>
                                 </button>
                                 <button onClick={goToToday} style={styles.todayBtn}>Today</button>
                                 <button onClick={() => shiftMonth(1)} style={styles.navBtn} aria-label="Next month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
-                                        <ChevronDownIcon size={14} color={colors.primary} />
+                                        <ChevronDownIcon size={14} color={adminTokens.green} />
                                     </span>
                                 </button>
                             </div>
@@ -420,10 +421,10 @@ export default function AdminSchedulePage() {
                                     onClick={() => setSelectedDate(cell.key)}
                                     style={{
                                         ...styles.dayCell,
-                                        backgroundColor: cell.isSelected ? colors.primaryTint : 'white',
+                                        backgroundColor: cell.isSelected ? adminTokens.greenTint : 'white',
                                         boxShadow: cell.isSelected
-                                            ? `inset 0 0 0 1.5px ${colors.primary}`
-                                            : `inset 0 0 0 1px ${colors.borderLight}`,
+                                            ? `inset 0 0 0 1.5px ${adminTokens.green}`
+                                            : `inset 0 0 0 1px ${adminTokens.hairline}`,
                                         opacity: !cell.inMonth ? 0.4 : 1,
                                         cursor: 'pointer',
                                     }}
@@ -447,8 +448,8 @@ export default function AdminSchedulePage() {
                                                 }}
                                                 style={{
                                                     ...styles.chip,
-                                                    backgroundColor: statusColors[s.status]?.bg || colors.borderLight,
-                                                    color: statusColors[s.status]?.text || colors.textMuted,
+                                                    backgroundColor: statusColors[s.status]?.bg || adminTokens.hairline,
+                                                    color: statusColors[s.status]?.text || adminTokens.muted,
                                                 }}
                                             >
                                                 {s.scheduled_time && (
@@ -485,7 +486,7 @@ export default function AdminSchedulePage() {
                                         <div key={s.id} onClick={() => openModal(s)} style={styles.dayEventCard}>
                                             <div style={styles.dayEventTop}>
                                                 <span style={styles.dayEventTime}>
-                                                    <ClockIcon size={12} color={colors.textMuted} />
+                                                    <ClockIcon size={12} color={adminTokens.muted} />
                                                     {formatTime(s.scheduled_time) || 'Time TBD'}
                                                 </span>
                                                 <span style={{
@@ -525,12 +526,12 @@ export default function AdminSchedulePage() {
 
                         <div style={{
                             ...styles.modalHeader,
-                            backgroundColor: statusColors[modalSchedule.status]?.bg || colors.primaryTint,
+                            backgroundColor: statusColors[modalSchedule.status]?.bg || adminTokens.greenTint,
                         }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{
                                     ...styles.modalEyebrow,
-                                    color: statusColors[modalSchedule.status]?.text || colors.primary,
+                                    color: statusColors[modalSchedule.status]?.text || adminTokens.green,
                                 }}>
                                     Installation
                                 </div>
@@ -541,7 +542,7 @@ export default function AdminSchedulePage() {
                                 </p>
                             </div>
                             <button onClick={closeModal} aria-label="Close" style={styles.modalCloseBtn}>
-                                <XIcon size={16} color={colors.textMuted} />
+                                <XIcon size={16} color={adminTokens.muted} />
                             </button>
                         </div>
 
@@ -564,7 +565,7 @@ export default function AdminSchedulePage() {
                                     {STATUS_LABELS[modalSchedule.status] || modalSchedule.status}
                                 </span>
                             </div>
-                            <div style={{ ...styles.modalFieldRow, borderBottom: modalSchedule.notes ? '1px solid #f3f4f6' : 'none' }}>
+                            <div style={{ ...styles.modalFieldRow, borderBottom: modalSchedule.notes ? '1px solid #eef0ec' : 'none' }}>
                                 <span style={styles.modalFieldLabel}>Location</span>
                                 <span style={styles.modalFieldValue}>{getLocation(modalSchedule)}</span>
                             </div>
@@ -609,7 +610,7 @@ export default function AdminSchedulePage() {
                             </div>
 
                             <button onClick={() => openEdit(modalSchedule)} className="btn-secondary" style={styles.rescheduleBtn}>
-                                <EditIcon size={14} color={colors.textBody} />
+                                <EditIcon size={14} color={adminTokens.body} />
                                 <span>Reschedule</span>
                             </button>
                         </div>
@@ -697,7 +698,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
         minHeight: '40px',
@@ -708,15 +709,8 @@ const styles = {
         whiteSpace: 'nowrap',
         boxShadow: '0 2px 6px rgba(15,59,44,.14)',
     },
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        fontSize: '0.875rem',
-        color: colors.textMuted,
-        margin: '0 0 1.5rem 0',
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: { ...adminText.pageSubtitle, marginBottom: '1.5rem' },
     success: {
         backgroundColor: colors.successTint,
         color: colors.success,
@@ -725,14 +719,7 @@ const styles = {
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
-    error: {
-        backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
     field: {
         marginBottom: '1rem',
         flex: 1,
@@ -741,35 +728,35 @@ const styles = {
         display: 'block',
         marginBottom: '0.25rem',
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
         fontWeight: '500',
     },
     linkedQuotationBox: {
         border: `1px solid ${colors.primaryBorder}`,
-        backgroundColor: colors.primaryTint,
+        backgroundColor: adminTokens.greenTint,
         borderRadius: '8px',
         padding: '0.625rem 0.75rem',
     },
     linkedQuotationRef: {
         fontSize: '0.75rem',
         fontWeight: '600',
-        color: colors.primary,
+        color: adminTokens.green,
         marginBottom: '0.125rem',
     },
     linkedQuotationName: {
         fontSize: '0.9375rem',
         fontWeight: '600',
-        color: colors.textDark,
+        color: adminTokens.ink,
     },
     linkedQuotationLocation: {
         fontSize: '0.8125rem',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         marginTop: '0.125rem',
     },
     input: {
         width: '100%',
         padding: '0.625rem',
-        border: '1px solid #d1d5db',
+        border: '1px solid #dcdfd8',
         borderRadius: '8px',
         fontSize: '1rem',
         boxSizing: 'border-box',
@@ -785,7 +772,7 @@ const styles = {
         borderRadius: '16px',
         padding: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
         minWidth: 0,
     },
     calendarHeader: {
@@ -799,7 +786,7 @@ const styles = {
     monthLabel: {
         fontSize: '1.15rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         margin: 0,
     },
     monthNav: {
@@ -808,7 +795,7 @@ const styles = {
         gap: '2px',
         padding: '3px',
         borderRadius: '10px',
-        backgroundColor: colors.borderLight,
+        backgroundColor: adminTokens.hairline,
     },
     navBtn: {
         width: '30px',
@@ -826,7 +813,7 @@ const styles = {
         border: 'none',
         borderRadius: '8px',
         backgroundColor: 'transparent',
-        color: colors.primary,
+        color: adminTokens.green,
         fontSize: '0.8rem',
         fontWeight: '600',
         cursor: 'pointer',
@@ -837,7 +824,7 @@ const styles = {
         gap: '4px',
         padding: '4px',
         borderRadius: '10px',
-        backgroundColor: colors.borderLight,
+        backgroundColor: adminTokens.hairline,
         marginBottom: '1.25rem',
         width: 'fit-content',
         maxWidth: '100%',
@@ -850,7 +837,7 @@ const styles = {
         border: 'none',
         borderRadius: '8px',
         backgroundColor: 'transparent',
-        color: colors.textMuted,
+        color: adminTokens.muted,
         fontSize: '0.8rem',
         fontWeight: '500',
         cursor: 'pointer',
@@ -858,7 +845,7 @@ const styles = {
     },
     legendItemActive: {
         backgroundColor: 'white',
-        color: '#111827',
+        color: '#16211c',
         fontWeight: '600',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     },
@@ -869,7 +856,7 @@ const styles = {
     },
     legendCount: {
         fontSize: '0.7rem',
-        color: colors.textFaint === colors.textFaint ? '#9ca3af' : '#9ca3af',
+        color: '#5d6862',
     },
     weekdayRow: {
         display: 'grid',
@@ -882,7 +869,7 @@ const styles = {
         fontWeight: '600',
         letterSpacing: '0.05em',
         textTransform: 'uppercase',
-        color: '#9ca3af',
+        color: '#5d6862',
         padding: '0 2px 4px',
     },
     cellGrid: {
@@ -905,7 +892,7 @@ const styles = {
     },
     dayNumber: {
         fontSize: '0.75rem',
-        color: '#374151',
+        color: '#293530',
         width: '20px',
         height: '20px',
         display: 'flex',
@@ -913,14 +900,14 @@ const styles = {
         justifyContent: 'center',
     },
     dayNumberToday: {
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         borderRadius: '50%',
         fontWeight: '600',
     },
     moreLabel: {
         fontSize: '0.65rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     chipList: {
         display: 'flex',
@@ -954,42 +941,42 @@ const styles = {
         borderRadius: '16px',
         padding: '1.25rem 1.25rem 1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
     },
     sidePanelEyebrow: {
         fontSize: '0.7rem',
         fontWeight: '600',
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
-        color: '#9ca3af',
+        color: '#5d6862',
         marginBottom: '0.5rem',
     },
     selectedDateLabel: {
         fontSize: '1.05rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         marginBottom: '0.2rem',
     },
     selectedCountLabel: {
         fontSize: '0.8rem',
-        color: '#9ca3af',
+        color: '#5d6862',
         marginBottom: '1rem',
     },
     emptyDay: {
         padding: '1.5rem 1rem',
         borderRadius: '12px',
-        backgroundColor: colors.borderLight,
+        backgroundColor: adminTokens.hairline,
         textAlign: 'center',
     },
     emptyDayTitle: {
         fontSize: '0.875rem',
         fontWeight: '600',
-        color: '#374151',
+        color: '#293530',
         marginBottom: '0.25rem',
     },
     emptyDayDesc: {
         fontSize: '0.75rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     dayEventList: {
         display: 'flex',
@@ -999,7 +986,7 @@ const styles = {
     dayEventCard: {
         padding: '0.875rem',
         borderRadius: '10px',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
         cursor: 'pointer',
     },
     dayEventTop: {
@@ -1015,7 +1002,7 @@ const styles = {
         gap: '0.3rem',
         fontSize: '0.8rem',
         fontWeight: '600',
-        color: '#374151',
+        color: '#293530',
     },
     statusPill: {
         padding: '0.2rem 0.6rem',
@@ -1027,7 +1014,7 @@ const styles = {
     dayEventName: {
         fontSize: '0.9rem',
         fontWeight: '600',
-        color: '#111827',
+        color: '#16211c',
         marginBottom: '0.35rem',
     },
     dayEventMetaRow: {
@@ -1039,8 +1026,8 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.3rem',
-        backgroundColor: colors.borderLight,
-        color: '#6b7280',
+        backgroundColor: adminTokens.hairline,
+        color: '#5d6862',
         padding: '0.2rem 0.5rem',
         borderRadius: '999px',
         fontSize: '0.7rem',
@@ -1083,12 +1070,12 @@ const styles = {
     modalTitle: {
         fontSize: '1.3rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         margin: '0 0 0.3rem 0',
     },
     modalSubtitle: {
         fontSize: '0.85rem',
-        color: '#4b5563',
+        color: '#4f5a54',
         margin: 0,
     },
     modalCloseBtn: {
@@ -1113,16 +1100,16 @@ const styles = {
         justifyContent: 'space-between',
         gap: '1rem',
         padding: '0.75rem 0',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #eef0ec',
     },
     modalFieldLabel: {
         fontSize: '0.8rem',
-        color: '#9ca3af',
+        color: '#5d6862',
     },
     modalFieldValue: {
         fontSize: '0.875rem',
         fontWeight: '500',
-        color: '#111827',
+        color: '#16211c',
         textAlign: 'right',
     },
     modalFooter: {
@@ -1131,7 +1118,7 @@ const styles = {
         alignItems: 'flex-start',
         gap: '0.75rem',
         padding: '1.25rem 1.5rem',
-        borderTop: '1px solid #f3f4f6',
+        borderTop: '1px solid #eef0ec',
     },
     rescheduleBtn: {
         display: 'flex',
@@ -1162,13 +1149,13 @@ const styles = {
         borderRadius: '999px',
         fontSize: '0.75rem',
         fontWeight: '600',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${adminTokens.border}`,
         backgroundColor: 'white',
-        color: colors.textBody,
+        color: adminTokens.body,
     },
     statusActionBtnCurrent: {
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
+        backgroundColor: adminTokens.green,
+        borderColor: adminTokens.green,
         color: 'white',
     },
 };

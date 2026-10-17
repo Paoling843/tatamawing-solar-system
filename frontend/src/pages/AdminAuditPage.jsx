@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import LoadingState from '../components/LoadingState';
+import { adminText, adminUi } from '../styles/adminTheme';
 import api from '../api/axios';
 import { ShieldIcon, ClockIcon, UserIcon, FileTextIcon } from '../components/Icons';
 
 const statusColor = {
     quotation_approved: '#16a34a',
-    quotation_rejected: '#dc2626',
+    quotation_rejected: '#a4302a',
     schedule_created: '#2563eb',
     purchase_confirmed: '#7c3aed',
     faq_created: '#f59e0b',
@@ -47,13 +49,13 @@ export default function AdminAuditPage() {
             <div style={styles.card}>
                 <div style={styles.cardHeader}>
                     <div style={styles.headerTitleWrap}>
-                        <ShieldIcon size={18} color="#0f172a" />
+                        <ShieldIcon size={18} color="#16211c" />
                         <h2 style={styles.cardTitle}>Security Activity</h2>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div style={styles.loading}>Loading activity...</div>
+                    <LoadingState label="Loading activity..." />
                 ) : logs.length === 0 ? (
                     <div style={styles.empty}>No audit activity recorded yet.</div>
                 ) : (
@@ -72,7 +74,7 @@ export default function AdminAuditPage() {
                                     <span
                                         style={{
                                             ...styles.badge,
-                                            backgroundColor: statusColor[log.action] || '#64748b',
+                                            backgroundColor: statusColor[log.action] || '#5d6862',
                                             color: '#fff',
                                         }}
                                     >
@@ -81,23 +83,26 @@ export default function AdminAuditPage() {
                                 </div>
 
                                 <div style={{ flex: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <UserIcon size={14} color="#64748b" />
+                                    <UserIcon size={14} color="#5d6862" />
                                     <span style={styles.metaText}>{log.actor_id || 'System'}</span>
                                 </div>
 
                                 <div style={{ flex: 1.8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <FileTextIcon size={14} color="#64748b" />
+                                    <FileTextIcon size={14} color="#5d6862" />
                                     <span style={styles.metaText}>{log.target_label || 'N/A'}</span>
                                 </div>
 
-                                <div style={{ flex: 2.2, color: '#374151', fontSize: 14 }}>
+                                <div style={{ flex: 2.2, color: '#293530', fontSize: 14 }}>
                                     {log.description || 'No description provided.'}
                                 </div>
 
                                 <div style={{ flex: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <ClockIcon size={14} color="#64748b" />
+                                    <ClockIcon size={14} color="#5d6862" />
                                     <span style={styles.metaText}>
-                                        {new Date(log.created_at).toLocaleString()}
+                                        {new Date(log.created_at).toLocaleString('en-PH', {
+                                            month: 'short', day: 'numeric', year: 'numeric',
+                                            hour: 'numeric', minute: '2-digit',
+                                        })}
                                     </span>
                                 </div>
                             </div>
@@ -116,28 +121,19 @@ const styles = {
         justifyContent: 'space-between',
         marginBottom: 24,
     },
-    pageTitle: {
-        margin: 0,
-        fontSize: 32,
-        fontWeight: 800,
-        color: '#0f172a',
-    },
-    pageSubtitle: {
-        margin: '8px 0 0',
-        color: '#64748b',
-        fontSize: 14,
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: adminText.pageSubtitle,
     card: {
         backgroundColor: '#fff',
-        border: '1px solid #e2e8f0',
+        border: '1px solid #e6e8e2',
         borderRadius: 18,
         overflow: 'hidden',
         boxShadow: '0 8px 30px rgba(15, 23, 42, 0.04)',
     },
     cardHeader: {
         padding: '18px 20px',
-        borderBottom: '1px solid #e2e8f0',
-        backgroundColor: '#f8fafc',
+        borderBottom: '1px solid #e6e8e2',
+        backgroundColor: '#f9faf8',
     },
     headerTitleWrap: {
         display: 'flex',
@@ -148,7 +144,7 @@ const styles = {
         margin: 0,
         fontSize: 18,
         fontWeight: 700,
-        color: '#0f172a',
+        color: '#16211c',
     },
     tableWrap: {
         display: 'flex',
@@ -158,9 +154,9 @@ const styles = {
         display: 'flex',
         gap: 12,
         padding: '14px 20px',
-        backgroundColor: '#f8fafc',
-        borderBottom: '1px solid #e2e8f0',
-        color: '#475569',
+        backgroundColor: '#f9faf8',
+        borderBottom: '1px solid #e6e8e2',
+        color: '#4f5a54',
         fontSize: 12,
         fontWeight: 700,
         textTransform: 'uppercase',
@@ -182,25 +178,13 @@ const styles = {
         letterSpacing: '0.02em',
     },
     metaText: {
-        color: '#475569',
+        color: '#4f5a54',
         fontSize: 13,
-    },
-    loading: {
-        padding: 28,
-        textAlign: 'center',
-        color: '#64748b',
     },
     empty: {
         padding: 30,
         textAlign: 'center',
-        color: '#64748b',
+        color: '#5d6862',
     },
-    error: {
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fecaca',
-        color: '#b91c1c',
-        borderRadius: 12,
-        padding: '12px 14px',
-        marginBottom: 16,
-    },
+    error: adminUi.errorBanner,
 };

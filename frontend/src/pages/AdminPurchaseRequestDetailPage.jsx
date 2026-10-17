@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 import { DownloadIcon } from '../components/Icons';
 import api from '../api/axios';
-import { colors, typography } from '../styles/theme';
+import { formatOrderRef } from '../utils/references';
+import { statusColors } from '../styles/theme';
+
+// Same wording as the purchase request list
+const PROCUREMENT_LABELS = {
+    pending: 'Pending',
+    confirmed: 'Approved',
+    partially_available: 'Partial',
+    unavailable: 'Not available',
+};
 
 export default function AdminPurchaseRequestDetailPage() {
     const { id } = useParams();
@@ -134,13 +145,10 @@ export default function AdminPurchaseRequestDetailPage() {
         });
     };
 
+    // Same colours as the status badges on every other page
     const getAvailabilityStyle = (availability) => {
-        const styles = {
-            available: { backgroundColor: '#dcfce7', color: '#16a34a' },
-            limited: { backgroundColor: '#ffedd5', color: '#ea580c' },
-            out_of_stock: { backgroundColor: '#fef2f2', color: '#dc2626' },
-        };
-        return styles[availability] || styles.available;
+        const tone = statusColors[availability] || statusColors.available;
+        return { backgroundColor: tone.bg, color: tone.text };
     };
 
     if (loading) {
@@ -154,7 +162,7 @@ export default function AdminPurchaseRequestDetailPage() {
     if (error && !purchaseRequest) {
         return (
             <AdminLayout active="Purchase Request">
-                <div style={{ textAlign: 'center', padding: '3rem', color: '#dc2626' }}>
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#a4302a' }}>
                     {error}
                 </div>
             </AdminLayout>
@@ -173,7 +181,7 @@ export default function AdminPurchaseRequestDetailPage() {
 
             <div style={styles.pageHeader}>
                 <h1 style={styles.pageTitle}>
-                    Purchase Request #{purchaseRequest?.id}
+                    Purchase Request {purchaseRequest && formatOrderRef(purchaseRequest.id)}
                 </h1>
                 <button
                     className="btn-secondary"
@@ -219,10 +227,10 @@ export default function AdminPurchaseRequestDetailPage() {
                     <div style={styles.infoItem}>
                         <span style={styles.infoLabel}>Current Status</span>
                         <span style={styles.infoValue}>
-                            {purchaseRequest?.procurement_status
-                                ?.split('_')
-                                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                                .join(' ')}
+                            <Badge
+                                status={purchaseRequest?.procurement_status}
+                                label={PROCUREMENT_LABELS[purchaseRequest?.procurement_status]}
+                            />
                         </span>
                     </div>
                 </div>
@@ -341,7 +349,7 @@ export default function AdminPurchaseRequestDetailPage() {
 const styles = {
     backBtn: {
         backgroundColor: 'transparent',
-        color: colors.primary,
+        color: adminTokens.green,
         border: 'none',
         cursor: 'pointer',
         fontSize: '0.875rem',
@@ -357,10 +365,7 @@ const styles = {
         gap: '0.75rem',
         marginBottom: '1.5rem',
     },
-    pageTitle: {
-        ...typography.h1,
-        margin: 0,
-    },
+    pageTitle: adminText.pageTitle,
     pdfBtn: {
         display: 'flex',
         alignItems: 'center',
@@ -368,38 +373,31 @@ const styles = {
         whiteSpace: 'nowrap',
     },
     success: {
-        backgroundColor: colors.primaryTint,
-        color: colors.primary,
+        backgroundColor: adminTokens.greenTint,
+        color: adminTokens.green,
         padding: '1rem',
         borderRadius: '8px',
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
-    error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    error: adminUi.errorBanner,
     card: {
         backgroundColor: 'white',
         borderRadius: '16px',
         padding: '1.5rem',
         marginBottom: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        border: '1px solid #eef0ec',
     },
     cardTitle: {
         fontSize: '1rem',
         fontWeight: '700',
-        color: '#111827',
+        color: '#16211c',
         marginTop: 0,
         marginBottom: '0.5rem',
     },
     cardDesc: {
-        color: '#6b7280',
+        color: '#5d6862',
         fontSize: '0.875rem',
         marginBottom: '1rem',
     },
@@ -413,13 +411,13 @@ const styles = {
     },
     infoLabel: {
         fontSize: '0.75rem',
-        color: '#6b7280',
+        color: '#5d6862',
         textTransform: 'uppercase',
         fontWeight: '600',
     },
     infoValue: {
         fontSize: '1rem',
-        color: '#111827',
+        color: '#16211c',
         fontWeight: '500',
     },
     itemHeader: {
@@ -427,31 +425,31 @@ const styles = {
         gap: '0.5rem',
         marginBottom: '0.5rem',
         fontSize: '0.75rem',
-        color: '#6b7280',
+        color: '#5d6862',
         fontWeight: '600',
         textTransform: 'uppercase',
         paddingBottom: '0.5rem',
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: '1px solid #e6e8e2',
     },
     itemRow: {
         display: 'flex',
         gap: '0.5rem',
         padding: '0.5rem 0',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #eef0ec',
         alignItems: 'center',
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
     },
     itemInput: {
         width: '100%',
         padding: '0.375rem 0.5rem',
-        border: '1px solid #d1d5db',
+        border: '1px solid #dcdfd8',
         borderRadius: '6px',
         fontSize: '0.875rem',
         boxSizing: 'border-box',
     },
     saveBtn: {
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
         padding: '0.625rem 1.25rem',
@@ -467,19 +465,19 @@ const styles = {
         display: 'block',
         marginBottom: '0.25rem',
         fontSize: '0.875rem',
-        color: '#374151',
+        color: '#293530',
         fontWeight: '500',
     },
     select: {
         width: '100%',
         padding: '0.625rem',
-        border: '1px solid #d1d5db',
+        border: '1px solid #dcdfd8',
         borderRadius: '8px',
         fontSize: '1rem',
         boxSizing: 'border-box',
     },
     confirmBtn: {
-        backgroundColor: colors.primary,
+        backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
         padding: '0.75rem 1.5rem',

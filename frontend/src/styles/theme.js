@@ -6,7 +6,7 @@ export const colors = {
     textDark: '#111827',
     textBody: '#374151',
     textMuted: '#6b7280',
-    textFaint: '#dbe7e1',
+    textFaint: '#878f8a',   // icons only (3.3:1, enough for non-text)
 
     bgPage: '#f8f9fb',
     bgSubtle: '#f9fafb',
@@ -54,19 +54,32 @@ export const shadows = {
 };
 
 
-export const statusColors = {
-    pending:              { bg: colors.warningTint, text: colors.warning },
-    approved:             { bg: colors.successTint, text: colors.success },
-    confirmed:            { bg: colors.successTint, text: colors.success },
-    available:            { bg: colors.successTint, text: colors.success },
-    rejected:             { bg: colors.dangerTint, text: colors.danger },
-    unavailable:          { bg: colors.dangerTint, text: colors.danger },
-    out_of_stock:         { bg: colors.dangerTint, text: colors.danger },
-    partially_available:  { bg: colors.orangeTint, text: colors.orange },
-    draft:                { bg: colors.borderLight, text: colors.textMuted },
-    scheduled:            { bg: colors.primaryTint, text: colors.primary },
-    in_progress:          { bg: colors.warningTint, text: colors.warning },
-    completed:            { bg: colors.successTint, text: colors.success },
-    delayed:              { bg: colors.dangerTint, text: colors.danger },
+// One set of status colours for every page (used by <Badge> and the
+// schedule calendar). Each text colour has at least 4.5:1 contrast on its
+// background.
+const tone = {
+    waiting:  { bg: '#fdf4dc', text: '#8a6a12', border: '#f3e3ad' },
+    good:     { bg: '#e4ede8', text: '#0f3b2c', border: '#cfe0d7' },
+    bad:      { bg: '#fbeae7', text: '#a4302a', border: '#f0d0cb' },
+    partial:  { bg: '#fdeee0', text: '#9a4a10', border: '#f5d6bb' },
+    planned:  { bg: '#e8eef8', text: '#2f5fb8', border: '#cfdcf2' },
+    neutral:  { bg: '#f1f3ef', text: '#4f5a54', border: '#e6e8e2' },
+};
 
+export const statusColors = {
+    pending:              tone.waiting,
+    pending_review:       tone.waiting,
+    in_progress:          tone.waiting,
+    approved:             tone.good,
+    confirmed:            tone.good,
+    available:            tone.good,
+    completed:            tone.good,
+    rejected:             tone.bad,
+    unavailable:          tone.bad,
+    out_of_stock:         tone.bad,
+    delayed:              tone.bad,
+    partially_available:  tone.partial,
+    limited:              tone.partial,
+    scheduled:            tone.planned,
+    draft:                tone.neutral,
 };

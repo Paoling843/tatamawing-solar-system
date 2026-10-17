@@ -7,7 +7,7 @@ import {
 } from '../components/Icons';
 import api from '../api/axios';
 import logo from '../assets/logo.jpg';
-import { adminTokens } from '../styles/adminTheme';
+import { adminTokens, adminText } from '../styles/adminTheme';
 
 const NAV_COUNT_KEYS = {
     Quotations: 'quotations',
@@ -556,16 +556,6 @@ const styles = {
     pageHeading: {
         marginBottom: '16px',
     },
-    pageTitle: {
-        fontSize: '30px',
-        fontWeight: 800,
-        letterSpacing: '-.03em',
-        color: adminTokens.ink,
-        margin: 0,
-    },
-    pageSubtitle: {
-        fontSize: '14px',
-        color: adminTokens.muted,
-        margin: '6px 0 0',
-    },
+    pageTitle: adminText.pageTitle,
+    pageSubtitle: adminText.pageSubtitle,
 };

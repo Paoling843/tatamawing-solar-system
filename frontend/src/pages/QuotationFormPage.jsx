@@ -7,6 +7,7 @@ import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
 import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
+    recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize,
 } from '../services/solarEngine';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
@@ -50,6 +51,17 @@ function withPreviousMonth([recent, earlier]) {
 // Screen → step number reported to the anonymous analytics tracker
 const STEP_NUMBERS = { load: 1, compute: 2, package: 3 };
 const NO_CHOICE = { pkg: null, panels: null, battery: null };
+
+// What Step 3 would recommend for these appliance rows: the inverter
+// package, the battery and the panel count, as one comparable string
+function recommendationFor(rows) {
+    const load = computeLoad(rows);
+    return [
+        recommendPackageIndex(load.inverterSize),
+        recommendBatteryIndex(load.night),
+        panelsForInverterSize(load.inverterSize),
+    ].join('|');
+}
 
 
 // A new, empty appliance row. The id only exists so React can tell rows apart.
@@ -161,11 +173,22 @@ export default function QuotationFormPage() {
     };
 
     // ----- Step 1: appliance rows -----
+    // Every change to the appliance list goes through here. If the change
+    // moves the recommendation, the customer's Step 3 picks are dropped so
+    // Step 3 starts again from the new recommended inverter, panels and
+    // battery instead of keeping picks made for the old appliance list.
+    const updateRows = (nextRows) => {
+        if (recommendationFor(nextRows) !== recommendationFor(rows)) {
+            setChoice(NO_CHOICE);
+        }
+        setRows(nextRows);
+    };
+
     const handleRowChange = (id, key, rawValue) => {
         // Watts and quantity are whole numbers, so strip anything else as they type
         const value = key === 'watts' || key === 'qty' ? rawValue.replace(/[^0-9]/g, '') : rawValue;
 
-        setRows((prev) => prev.map((row) => {
+        updateRows(rows.map((row) => {
             if (row.id !== id) return row;
             const next = { ...row, [key]: value };
 
@@ -188,8 +211,8 @@ export default function QuotationFormPage() {
         setTouched((prev) => ({ ...prev, [`${id}:${key}`]: true }));
     };
 
-    const handleAddRow = () => setRows((prev) => [...prev, newRow()]);
-    const handleRemoveRow = (id) => setRows((prev) => prev.filter((row) => row.id !== id));
+    const handleAddRow = () => updateRows([...rows, newRow()]);
+    const handleRemoveRow = (id) => updateRows(rows.filter((row) => row.id !== id));
 
     const handleContinue = () => {
         if (loadReady) {
