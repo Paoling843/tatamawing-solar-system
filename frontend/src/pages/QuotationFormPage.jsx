@@ -17,6 +17,7 @@ import ApplianceLoadStep from './quote-builder/ApplianceLoadStep';
 import ComputationStep from './quote-builder/ComputationStep';
 import PackageStep from './quote-builder/PackageStep';
 import RequestQuoteDialog from './quote-builder/RequestQuoteDialog';
+import LocationDialog from './quote-builder/LocationDialog';
 import { C, SANS, s } from './quote-builder/engineStyles';
 import './quote-builder/engine.css';
 
@@ -80,17 +81,26 @@ function newRow() {
     };
 }
 
-export default function QuotationFormPage() {
+// embedded: true when the calculator sits on the home page (LandingPage),
+// below the hero, instead of being its own page at /quotation/new
+export default function QuotationFormPage({ embedded = false }) {
     const { user, loading: authLoading, logout } = useAuth();
     const navigate = useNavigate();
+    const rootRef = useRef(null);
 
     // Every visit is a new session: saved inputs only come back when this
-    // visit is the guest's return from the login/register page. (Read only —
-    // React may call this twice in development, so nothing is changed here.)
+    // visit is the guest's return from the login/register page, which always
+    // lands on /quotation/new — so the home page never restores them.
+    // (Read only — React may call this twice in development.)
     const [draft] = useState(() => {
+        if (embedded) return null;
         const saved = loadDraft();
         return saved?.awaitingLogin ? saved : null;
     });
+
+    // On the home page every visitor sees Step 1, so a visit only counts as
+    // using the calculator (analytics) once they start filling it in
+    const [engaged, setEngaged] = useState(!embedded);
 
     // ----- State -----
     const [screen, setScreen] = useState(draft?.screen ?? 'load');   // load | compute | package
@@ -101,7 +111,8 @@ export default function QuotationFormPage() {
     const [rows, setRows] = useState(() => draft?.rows ?? [newRow()]);
     const [bills, setBills] = useState(() => withPreviousMonth(draft?.bills ?? [EMPTY_BILL, EMPTY_BILL]));
 
-    // Where the system will be installed (top of Step 1)
+    // Where the system will be installed. Only asked for when a logged-in
+    // customer presses "Request quotation" (LocationDialog), never in Step 1.
     const [location, setLocation] = useState(() => ({ ...EMPTY_LOCATION, ...(draft?.location ?? {}) }));
 
     // The customer's Step 3 picks. null means "use the recommended default".
@@ -128,6 +139,9 @@ export default function QuotationFormPage() {
     // Step 3 UI state
     const [selectedCost, setSelectedCost] = useState(null);
     const [authPromptOpen, setAuthPromptOpen] = useState(false);
+    const [locationOpen, setLocationOpen] = useState(false);
+    // True once "Send request" was pressed, so a missing barangay shows its message
+    const [locationAttempted, setLocationAttempted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
@@ -136,10 +150,8 @@ export default function QuotationFormPage() {
     const selection = resolveSelection(load, choice);
     const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
     const savings = computeSavings(load.grand, selection.panels, quote.total, bills);
-    const appliancesReady = rows.length > 0 && rows.every(isRowComplete);
-    const locationReady = isLocationComplete(location);
-    // Step 1 is done when the location and every appliance row are filled in
-    const loadReady = appliancesReady && locationReady;
+    // Step 1 is done when every appliance row is filled in
+    const loadReady = rows.length > 0 && rows.every(isRowComplete);
 
     // Logged-in customers use the engine inside their sidebar layout
     const isCustomer = user?.role === 'customer';
@@ -147,8 +159,8 @@ export default function QuotationFormPage() {
     // Which screen to actually show:
     // - a draft saved before the landing moved to the home page may still
     //   say 'landing'; start those at Step 1
-    // - Steps 2 and 3 need a valid location and appliance list; if they
-    //   aren't (e.g. every row was removed), fall back to Step 1
+    // - Steps 2 and 3 need a complete appliance list; if it isn't (e.g.
+    //   every row was removed), fall back to Step 1
     let activeScreen = screen;
     if (activeScreen === 'landing') activeScreen = 'load';
     if ((activeScreen === 'compute' || activeScreen === 'package') && !loadReady) activeScreen = 'load';
@@ -163,13 +175,18 @@ export default function QuotationFormPage() {
     // Anonymous analytics: report how far this visit got (see quoteTracker.js).
     // Admins trying the calculator aren't counted.
     useEffect(() => {
-        if (authLoading || (user && user.role !== 'customer')) return;
+        if (!engaged || authLoading || (user && user.role !== 'customer')) return;
         trackStep(STEP_NUMBERS[activeScreen] ?? 1, Boolean(user));
-    }, [activeScreen, user, authLoading]);
+    }, [engaged, activeScreen, user, authLoading]);
 
     const goTo = (next) => {
         setScreen(next);
-        window.scrollTo(0, 0);
+        if (embedded) {
+            // Back to the top of the calculator, not the top of the home page
+            rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            window.scrollTo(0, 0);
+        }
     };
 
     // ----- Step 1: appliance rows -----
@@ -178,6 +195,7 @@ export default function QuotationFormPage() {
     // Step 3 starts again from the new recommended inverter, panels and
     // battery instead of keeping picks made for the old appliance list.
     const updateRows = (nextRows) => {
+        setEngaged(true);
         if (recommendationFor(nextRows) !== recommendationFor(rows)) {
             setChoice(NO_CHOICE);
         }
@@ -204,7 +222,7 @@ export default function QuotationFormPage() {
         }));
     };
 
-    // ----- Step 1: installation location -----
+    // ----- Installation location (LocationDialog) -----
     const handleLocationChange = (key, value) => setLocation((prev) => ({ ...prev, [key]: value }));
 
     const handleTouch = (id, key) => {
@@ -228,6 +246,7 @@ export default function QuotationFormPage() {
         // Bill 2's month can't be picked — it always follows bill 1's
         if (index === 1 && key === 'period') return;
 
+        setEngaged(true);
         const input = event.target;
         const value = key === 'period' ? input.value : input.value.replace(/[^0-9.]/g, '');
         const next = bills.map((bill) => ({ ...bill }));
@@ -259,6 +278,19 @@ export default function QuotationFormPage() {
             return;
         }
 
+        // Logged-in customer: ask where the system will be installed
+        setLocationAttempted(false);
+        setLocationOpen(true);
+    };
+
+    // "Send request" in LocationDialog
+    const handleSendRequest = async () => {
+        setSubmitError('');
+        if (!isLocationComplete(location)) {
+            setLocationAttempted(true);
+            return;
+        }
+
         setSubmitting(true);
         try {
             // Only raw inputs and choices are sent; the server recomputes all totals
@@ -286,6 +318,10 @@ export default function QuotationFormPage() {
     };
 
     const closeAuthPrompt = useCallback(() => setAuthPromptOpen(false), []);
+    const closeLocation = useCallback(() => {
+        setLocationOpen(false);
+        setSubmitError('');
+    }, []);
 
     // Signed in as the admin: log out (which clears the saved inputs), then
     // save them again and go to the login page — same hand-off as a guest
@@ -299,7 +335,7 @@ export default function QuotationFormPage() {
     let resumeNotice = null;
     if (awaitingLogin && user && activeScreen === 'package') {
         resumeNotice = user.role === 'customer'
-            ? `Welcome back, ${user.name}. Press Request quotation below to send it.`
+            ? `Welcome back, ${user.name}. Press Request quotation below, add where the system will be installed, and send it.`
             : STAFF_SIGNED_IN;
     }
 
@@ -328,10 +364,6 @@ export default function QuotationFormPage() {
                     onAddRow={handleAddRow}
                     onRemoveRow={handleRemoveRow}
                     onBillChange={handleBillChange}
-                    location={location}
-                    locationReady={locationReady}
-                    appliancesReady={appliancesReady}
-                    onLocationChange={handleLocationChange}
                     onContinue={handleContinue}
                 />
             )}
@@ -353,7 +385,8 @@ export default function QuotationFormPage() {
                     savings={savings}
                     selectedCost={selectedCost}
                     submitting={submitting}
-                    submitError={submitError}
+                    // While the location pop-up is open, its own box shows the error
+                    submitError={locationOpen ? '' : submitError}
                     resumeNotice={resumeNotice}
                     onSwitchAccount={signedInAsStaff ? handleSwitchAccount : null}
                     onPickPackage={handlePickPackage}
@@ -367,6 +400,47 @@ export default function QuotationFormPage() {
         </>
     );
 
+    // Pop-ups for Step 3: guests are asked to log in, customers for the site
+    const dialogs = (
+        <>
+            {authPromptOpen && (
+                <RequestQuoteDialog
+                    summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.battery.ah} Ah`}
+                    inverterSize={load.inverterSize}
+                    onClose={closeAuthPrompt}
+                    onLogin={() => sendToAuth('/login')}
+                    onRegister={() => sendToAuth('/register')}
+                />
+            )}
+            {locationOpen && (
+                <LocationDialog
+                    location={location}
+                    seen={(key) => Boolean(touched[`location:${key}`]) || locationAttempted}
+                    submitting={submitting}
+                    error={submitError}
+                    onChange={handleLocationChange}
+                    onTouch={(key) => handleTouch('location', key)}
+                    onClose={closeLocation}
+                    onSubmit={handleSendRequest}
+                />
+            )}
+        </>
+    );
+
+    // ----- Home page: the steps as a section below the hero -----
+    // LandingPage already provides the header and the .se-root wrapper
+    if (embedded) {
+        return (
+            <section id="calculator" ref={rootRef} className="se-landing-calculator">
+                <div className="se-landing-calculator-nav" style={styles.landingNav}>
+                    <EngineStepNav screen={activeScreen} />
+                </div>
+                {steps}
+                {dialogs}
+            </section>
+        );
+    }
+
     // ----- Logged-in customer: steps inside the customer sidebar layout -----
     if (isCustomer) {
         return (
@@ -377,6 +451,8 @@ export default function QuotationFormPage() {
                     </div>
                     {steps}
                 </div>
+
+                {dialogs}
             </CustomerLayout>
         );
     }
@@ -392,15 +468,7 @@ export default function QuotationFormPage() {
 
             {steps}
 
-            {authPromptOpen && (
-                <RequestQuoteDialog
-                    summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.battery.ah} Ah`}
-                    inverterSize={load.inverterSize}
-                    onClose={closeAuthPrompt}
-                    onLogin={() => sendToAuth('/login')}
-                    onRegister={() => sendToAuth('/register')}
-                />
-            )}
+            {dialogs}
         </div>
     );
 }
@@ -409,6 +477,11 @@ export default function QuotationFormPage() {
 const STAFF_SIGNED_IN = "You're signed in as the admin. Log out and sign in as a customer to send this. Your inputs will be kept.";
 
 const styles = {
+    // Step indicator above the calculator on the home page, lined up with Step 1
+    landingNav: {
+        maxWidth: '1480px', margin: '0 auto', padding: '32px 40px 0', width: '100%',
+        display: 'flex', justifyContent: 'flex-end',
+    },
     // Inside CustomerLayout the layout already provides the page background
     // and height, so only the engine's font and text colour are set here
     embedded: {

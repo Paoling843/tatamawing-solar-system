@@ -8,6 +8,7 @@ use App\Models\QuoteSession;
 use App\Models\QuotationRequest;
 use App\Services\SolarComputationService;
 use App\Services\AuditLogger;
+use App\Services\Notifier;
 use App\Support\BulanBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -232,6 +233,8 @@ class QuotationRequestController extends Controller
             'Quotation Request #' . $quotationRequest->id
         );
 
+        Notifier::newQuotationRequest($quotationRequest);
+
         return response()->json([
             'message' => 'Quotation request submitted for review.',
             'quotation_request' => $quotationRequest->load([
@@ -269,6 +272,8 @@ class QuotationRequestController extends Controller
             $quotationRequest->id,
             'Quotation Request #' . $quotationRequest->id
         );
+
+        Notifier::newQuotationRequest($quotationRequest);
 
         return response()->json([
             'message' => 'Quotation submitted for admin review.',

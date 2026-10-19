@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\RejectQuotationRequest;
 use App\Mail\QuotationApproved;
 use App\Services\AuditLogger;
+use App\Services\Notifier;
 use Illuminate\Http\Request;
 use App\Models\Quotation;
 use App\Models\QuotationRequest;
@@ -136,6 +137,8 @@ class AdminQuotationController extends Controller
                 report($e);
             }
 
+        Notifier::quotationApproved($quotation);
+
 
         AuditLogger::log(
             'quotation_approved',
@@ -170,6 +173,8 @@ class AdminQuotationController extends Controller
             'status' => 'rejected',
             'notes' => trim($request->rejection_reason),
         ]);
+
+        Notifier::quotationRejected($quotationRequest);
 
         AuditLogger::log(
             'quotation_rejected',

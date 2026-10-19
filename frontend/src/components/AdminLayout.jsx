@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import {
     GridIcon, DocumentIcon, MessageIcon, HelpIcon, ShieldIcon,
-    SearchIcon, BellIcon, MenuIcon, LogOutIcon, CalendarIcon,
+    SearchIcon, MenuIcon, LogOutIcon, CalendarIcon,
 } from '../components/Icons';
 import api from '../api/axios';
-import logo from '../assets/logo.jpg';
+import NotificationBell from './NotificationBell';
+import BrandLogo from './BrandLogo';
 import { adminTokens, adminText } from '../styles/adminTheme';
 
 const NAV_COUNT_KEYS = {
@@ -167,11 +168,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
 
                 <button style={styles.brandBtn} onClick={() => handleNavigate('/admin/dashboard')} aria-label="Go to dashboard">
-                    <img src={logo} alt="" style={styles.brandLogo} />
-                    <div className="sidebar-label" style={styles.brandText}>
-                        <div style={styles.brandName}>TataMawing</div>
-                        <div style={styles.brandSub}>Solar &middot; Admin</div>
-                    </div>
+                    <BrandLogo size={40} fontSize={15} tag="Admin" textClassName="sidebar-label" />
                 </button>
 
                 <nav style={styles.nav}>
@@ -249,10 +246,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                     </div>
 
                     <div style={styles.topBarRight}>
-                        <button style={styles.iconBtn} aria-label="Notifications">
-                            <BellIcon size={18} color={adminTokens.muted} />
-                            {counts.messages > 0 && <span style={styles.bellDot} />}
-                        </button>
+                        <NotificationBell iconColor={adminTokens.muted} />
 
                         {actions}
                     </div>
@@ -331,33 +325,6 @@ const styles = {
         cursor: 'pointer',
         textAlign: 'left',
         width: '100%',
-    },
-    brandLogo: {
-        height: '44px',
-        width: '44px',
-        objectFit: 'contain',
-        flexShrink: 0,
-        borderRadius: '8px',
-    },
-    brandText: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
-        minWidth: 0,
-    },
-    brandName: {
-        fontSize: '14.5px',
-        fontWeight: 700,
-        color: adminTokens.green,
-        lineHeight: 1.2,
-        whiteSpace: 'nowrap',
-    },
-    brandSub: {
-        fontSize: '11.5px',
-        fontWeight: 600,
-        color: adminTokens.faint,
-        lineHeight: 1.2,
-        whiteSpace: 'nowrap',
     },
     nav: {
         flex: 1,
@@ -526,26 +493,6 @@ const styles = {
         gap: '0.9rem',
         marginLeft: 'auto',
         flexShrink: 0,
-    },
-    iconBtn: {
-        position: 'relative',
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '0.25rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    bellDot: {
-        position: 'absolute',
-        top: 2,
-        right: 2,
-        width: '7px',
-        height: '7px',
-        borderRadius: '50%',
-        backgroundColor: adminTokens.danger,
-        border: `1.5px solid ${adminTokens.surface}`,
     },
     main: {
         flex: 1,

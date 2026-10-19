@@ -110,3 +110,20 @@
 @media (max-width: 480px) {
     .se-bill-fields { grid-template-columns: 1fr !important; }
 }
+
+/* Calculator on the home page: stop below the sticky 72px header when
+   "Get Started" (or a step change) scrolls to it */
+.se-landing-calculator {
+    scroll-margin-top: 72px;
+    border-top: 1px solid #e6e8e2;
+}
+
+@media (max-width: 760px) {
+    .se-landing-calculator-nav { padding: 24px 16px 0 !important; }
+}
+
+/* Phones: the header has no room for Get Started next to the logo (it ran
+   over the name for logged-in users); the hero's Get Started is right below */
+@media (max-width: 560px) {
+    .se-header-start { display: none !important; }
+}
