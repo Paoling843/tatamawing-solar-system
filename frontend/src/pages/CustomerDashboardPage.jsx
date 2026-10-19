@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
+import QuotationDetailsModal from '../components/QuotationDetailsModal';
 import LoadingState from '../components/LoadingState';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import {
     DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
-    EyeIcon, DownloadIcon, HelpIcon,
+    EyeIcon,
 } from '../components/Icons';
 import { colors, typography, statusColors } from '../styles/theme';
 
@@ -24,10 +25,8 @@ export default function CustomerDashboardPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('Newest first');
     const [sortOpen, setSortOpen] = useState(false);
-    const [openMenuId, setOpenMenuId] = useState(null);
-    const [expandedId, setExpandedId] = useState(null);
-    const [rejectionFor, setRejectionFor] = useState(null);
-    const [rejectionShown, setRejectionShown] = useState(false);
+    // The quotation shown in the details modal, or null
+    const [detailsFor, setDetailsFor] = useState(null);
 
     const fetchDashboardData = useCallback(async () => {
         setLoading(true);
@@ -54,35 +53,13 @@ export default function CustomerDashboardPage() {
         Promise.resolve().then(fetchDashboardData);
     }, [fetchDashboardData]);
 
-    // Any open dropdown closes on the next click anywhere else on the page.
+    // The sort dropdown closes on the next click anywhere else on the page.
     useEffect(() => {
-        if (openMenuId === null && !sortOpen) return;
-        const closeAll = () => {
-            setOpenMenuId(null);
-            setSortOpen(false);
-        };
-        document.addEventListener('click', closeAll);
-        return () => document.removeEventListener('click', closeAll);
-    }, [openMenuId, sortOpen]);
-
-    // The modal mounts hidden, then flips to shown on the next painted frame
-    // so the browser has a "from" state to transition away from.
-    useEffect(() => {
-        if (!rejectionFor) return;
-        let inner;
-        const outer = requestAnimationFrame(() => {
-            inner = requestAnimationFrame(() => setRejectionShown(true));
-        });
-        return () => {
-            cancelAnimationFrame(outer);
-            if (inner) cancelAnimationFrame(inner);
-        };
-    }, [rejectionFor]);
-
-    const closeRejection = () => {
-        setRejectionShown(false);
-        setTimeout(() => setRejectionFor(null), 240);
-    };
+        if (!sortOpen) return;
+        const close = () => setSortOpen(false);
+        document.addEventListener('click', close);
+        return () => document.removeEventListener('click', close);
+    }, [sortOpen]);
 
     const handleDownloadQuotation = async (quotationId) => {
         try {
@@ -142,16 +119,11 @@ export default function CustomerDashboardPage() {
     const rowValue = (qr) =>
         parseFloat(qr.quotation?.total_amount || qr.solar_computation?.estimated_cost || 0);
 
-    const toggleMenu = (event, id) => {
-        event.stopPropagation();
+    const openDetails = (qr) => {
         setSortOpen(false);
-        setOpenMenuId(openMenuId === id ? null : id);
+        setDetailsFor(qr);
     };
-
-    const toggleDetails = (id) => {
-        setOpenMenuId(null);
-        setExpandedId(expandedId === id ? null : id);
-    };
+    const closeDetails = useCallback(() => setDetailsFor(null), []);
 
     const filteredQuotations = statusFilter === 'all'
         ? quotationRequests
@@ -271,7 +243,6 @@ export default function CustomerDashboardPage() {
                                         }}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setOpenMenuId(null);
                                             setSortOpen(!sortOpen);
                                         }}
                                     >
@@ -325,12 +296,26 @@ export default function CustomerDashboardPage() {
                                 ) : (
                                     visibleQuotations.map((qr) => {
                                         const badge = statusColors[qr.status] || statusColors.draft;
-                                        const canDownload =
-                                            qr.status === 'approved' && !!qr.quotation;
 
                                         return (
                                             <div key={qr.id}>
-                                                <div style={styles.tableRow}>
+                                                {/* Clicking anywhere on the row opens the details
+                                                    (with the PDF download and any rejection reason) */}
+                                                <div
+                                                    className="mq-row-toggle"
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    aria-label={`View details of ${formatReference(qr.id, qr.created_at)}`}
+                                                    onClick={() => openDetails(qr)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.target !== e.currentTarget) return;
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            openDetails(qr);
+                                                        }
+                                                    }}
+                                                    style={{ ...styles.tableRow, cursor: 'pointer' }}
+                                                >
                                                     <div style={styles.refCell}>
                                                         <span style={styles.referenceText}>
                                                             {formatReference(qr.id, qr.created_at)}
@@ -370,136 +355,15 @@ export default function CustomerDashboardPage() {
                                                         )}
                                                     </div>
 
+                                                    {/* Looks like a button, but the whole row is the
+                                                        button, so this is only a visual cue */}
                                                     <div style={styles.actionCell}>
-                                                        <button
-                                                            style={{
-                                                                ...styles.actionDots,
-                                                                backgroundColor: openMenuId === qr.id
-                                                                    ? colors.borderLight : 'transparent',
-                                                            }}
-                                                            onClick={(e) => toggleMenu(e, qr.id)}
-                                                            aria-label="Row actions"
-                                                        >
-                                                            ⋯
-                                                        </button>
-
-                                                        <div
-                                                            className={`menu-pop${openMenuId === qr.id ? ' menu-open' : ''}`}
-                                                            style={styles.rowDropdown}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                                <button
-                                                                    style={styles.dropdownItem}
-                                                                    onClick={() => toggleDetails(qr.id)}
-                                                                >
-                                                                    <span style={styles.itemIcon}>
-                                                                        <EyeIcon size={14} color={colors.textMuted} />
-                                                                    </span>
-                                                                    <span>
-                                                                        {expandedId === qr.id
-                                                                            ? 'Hide Details' : 'View Details'}
-                                                                    </span>
-                                                                </button>
-
-                                                                <button
-                                                                    style={{
-                                                                        ...styles.dropdownItem,
-                                                                        opacity: canDownload ? 1 : 0.45,
-                                                                        cursor: canDownload
-                                                                            ? 'pointer' : 'not-allowed',
-                                                                    }}
-                                                                    disabled={!canDownload}
-                                                                    onClick={() => {
-                                                                        setOpenMenuId(null);
-                                                                        handleDownloadQuotation(qr.quotation.id);
-                                                                    }}
-                                                                >
-                                                                    <span style={styles.itemIcon}>
-                                                                        <DownloadIcon size={14} color={colors.textMuted} />
-                                                                    </span>
-                                                                    <span>Download PDF</span>
-                                                                </button>
-
-                                                                {qr.status === 'rejected' && (
-                                                                    <button
-                                                                        style={styles.dropdownItem}
-                                                                        onClick={() => {
-                                                                            setOpenMenuId(null);
-                                                                            setRejectionFor(qr);
-                                                                        }}
-                                                                    >
-                                                                        <span style={styles.itemIcon}>
-                                                                            <HelpIcon size={14} color={colors.textMuted} />
-                                                                        </span>
-                                                                        <span>View rejection reason</span>
-                                                                    </button>
-                                                                )}
-                                                        </div>
+                                                        <span className="qd-view" style={styles.viewBtn} aria-hidden="true">
+                                                            <EyeIcon size={14} color={colors.primary} />
+                                                            View
+                                                        </span>
                                                     </div>
                                                 </div>
-
-                                                {expandedId === qr.id && (
-                                                    <div
-                                                        className="details-reveal"
-                                                        style={styles.detailsPanel}
-                                                    >
-                                                        <div className="responsive-grid-4" style={styles.detailsGrid}>
-                                                            <div style={styles.detailItem}>
-                                                                <span style={styles.detailLabel}>Total Load</span>
-                                                                <span style={styles.detailValue}>
-                                                                    {qr.solar_computation?.total_load_watts
-                                                                        ? `${qr.solar_computation.total_load_watts} W`
-                                                                        : '—'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={styles.detailItem}>
-                                                                <span style={styles.detailLabel}>Panel Capacity</span>
-                                                                <span style={styles.detailValue}>
-                                                                    {qr.solar_computation?.panel_capacity_kw
-                                                                        ? `${qr.solar_computation.panel_capacity_kw} kW`
-                                                                        : '—'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={styles.detailItem}>
-                                                                <span style={styles.detailLabel}>Inverter</span>
-                                                                <span style={styles.detailValue}>
-                                                                    {qr.solar_computation?.inverter_specification || '—'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={styles.detailItem}>
-                                                                <span style={styles.detailLabel}>Battery Capacity</span>
-                                                                <span style={styles.detailValue}>
-                                                                    {qr.solar_computation?.battery_capacity_ah
-                                                                        ? `${qr.solar_computation.battery_capacity_ah} Ah`
-                                                                        : '—'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-
-                                                        {qr.quotation && (
-                                                            <div style={styles.costRow}>
-                                                                <span style={styles.detailLabel}>
-                                                                    Labor Fee
-                                                                    <span style={styles.costValue}>
-                                                                        {formatCurrency(qr.quotation.labor_fee)}
-                                                                    </span>
-                                                                </span>
-                                                                <span style={styles.detailLabel}>
-                                                                    Transportation
-                                                                    <span style={styles.costValue}>
-                                                                        {formatCurrency(qr.quotation.transportation_fee)}
-                                                                    </span>
-                                                                </span>
-                                                                <span style={styles.detailLabel}>
-                                                                    Total Amount
-                                                                    <span style={styles.costValue}>
-                                                                        {formatCurrency(qr.quotation.total_amount)}
-                                                                    </span>
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     })
@@ -538,89 +402,17 @@ export default function CustomerDashboardPage() {
                 </>
             )}
 
-            {rejectionFor && (
-                <div
-                    className={`overlay-fade${rejectionShown ? ' overlay-open' : ''}`}
-                    style={styles.modalOverlay}
-                    onClick={closeRejection}
-                >
-                    <div
-                        className={`modal-pop${rejectionShown ? ' modal-open' : ''}`}
-                        style={styles.modal}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div style={styles.modalHeader}>
-                            <div>
-                                <div style={styles.modalTag}>
-                                    <span style={{
-                                        ...styles.statusBadge,
-                                        backgroundColor: statusColors.rejected.bg,
-                                        color: statusColors.rejected.text,
-                                    }}>
-                                        Rejected
-                                    </span>
-                                    <span style={styles.modalRef}>
-                                        {formatReference(rejectionFor.id, rejectionFor.created_at)}
-                                    </span>
-                                </div>
-                                <h3 style={styles.modalTitle}>
-                                    Why this quotation was rejected
-                                </h3>
-                                <div style={styles.modalSubtitle}>
-                                    Reviewed by the TataMawing estimating team ·{' '}
-                                    {formatDate(rejectionFor.updated_at || rejectionFor.created_at)}
-                                </div>
-                            </div>
-                            <button
-                                style={styles.modalClose}
-                                onClick={closeRejection}
-                                aria-label="Close"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={styles.modalBody}>
-                            <div style={styles.modalNote}>
-                                <div style={styles.modalNoteLabel}>Reason Given</div>
-                                <div style={styles.modalNoteBody}>
-                                    {rejectionFor.notes || 'No reason provided.'}
-                                </div>
-                            </div>
-                            <div style={styles.modalNote}>
-                                <div style={styles.modalNoteLabel}>System Requested</div>
-                                <div style={styles.modalNoteBody}>
-                                    {systemLabel(rejectionFor.solar_system_type)}
-                                    {rejectionFor.solar_computation?.panel_capacity_kw
-                                        ? ` · ${rejectionFor.solar_computation.panel_capacity_kw} kW array`
-                                        : ''}
-                                </div>
-                            </div>
-                            <div style={styles.modalNote}>
-                                <div style={styles.modalNoteLabel}>Submitted</div>
-                                <div style={styles.modalNoteBody}>
-                                    {formatDate(rejectionFor.submission_date || rejectionFor.created_at)}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={styles.modalActions}>
-                            <button
-                                className="btn-primary"
-                                style={styles.modalPrimaryBtn}
-                                onClick={() => {
-                                    closeRejection();
-                                    navigate('/quotation/new');
-                                }}
-                            >
-                                Request a new quotation
-                            </button>
-                            <span style={styles.modalHint}>
-                                Notes are kept with the quotation record
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            {detailsFor && (
+                <QuotationDetailsModal
+                    qr={detailsFor}
+                    reference={formatReference(detailsFor.id, detailsFor.created_at)}
+                    submitted={formatDate(detailsFor.submission_date || detailsFor.created_at)}
+                    onDownload={detailsFor.status === 'approved' && detailsFor.quotation
+                        ? () => handleDownloadQuotation(detailsFor.quotation.id)
+                        : null}
+                    onRequestNew={() => navigate('/quotation/new')}
+                    onClose={closeDetails}
+                />
             )}
         </CustomerLayout>
     );
@@ -797,19 +589,6 @@ const styles = {
         padding: '6px',
         zIndex: 20,
     },
-    rowDropdown: {
-        position: 'absolute',
-        top: '2.125rem',
-        right: 0,
-        width: '224px',
-        backgroundColor: colors.bgCard,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '11px',
-        boxShadow: '0 12px 28px rgba(0,0,0,0.14)',
-        padding: '6px',
-        zIndex: 30,
-        textAlign: 'left',
-    },
     dropdownItem: {
         display: 'flex',
         alignItems: 'center',
@@ -825,11 +604,6 @@ const styles = {
         textAlign: 'left',
         cursor: 'pointer',
     },
-    itemIcon: {
-        display: 'flex',
-        alignItems: 'center',
-        opacity: 0.7,
-    },
     checkMark: {
         marginLeft: 'auto',
         color: colors.primary,
@@ -838,7 +612,7 @@ const styles = {
 
     tableHeader: {
         display: 'grid',
-        gridTemplateColumns: '150px 1fr 130px 160px 56px',
+        gridTemplateColumns: '150px 1fr 130px 160px 88px',
         gap: '1rem',
         padding: '0.625rem 1.375rem',
         borderTop: `1px solid ${colors.borderLight}`,
@@ -852,7 +626,7 @@ const styles = {
     },
     tableRow: {
         display: 'grid',
-        gridTemplateColumns: '150px 1fr 130px 160px 56px',
+        gridTemplateColumns: '150px 1fr 130px 160px 88px',
         gap: '1rem',
         alignItems: 'center',
         padding: '1rem 1.375rem',
@@ -905,61 +679,18 @@ const styles = {
         justifyContent: 'flex-end',
         position: 'relative',
     },
-    actionDots: {
-        width: '30px',
-        height: '30px',
-        border: 'none',
+    viewBtn: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.35rem',
+        padding: '0.4rem 0.75rem',
         borderRadius: '8px',
-        fontSize: '1.15rem',
-        lineHeight: 1,
-        cursor: 'pointer',
-        color: colors.textMuted,
-    },
-
-    detailsPanel: {
-        padding: '1.125rem 1.375rem',
-        backgroundColor: colors.bgSubtle,
-        borderBottom: `1px solid ${colors.borderLight}`,
-    },
-    detailsGrid: {
-        gap: '1rem',
-    },
-    detailItem: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    detailLabel: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-        fontSize: '0.7rem',
+        border: `1px solid ${colors.primaryBorder}`,
+        backgroundColor: colors.primaryTint,
+        color: colors.primary,
+        fontSize: '0.8rem',
         fontWeight: 600,
-        color: colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-    },
-    detailValue: {
-        fontSize: '0.875rem',
-        fontWeight: 600,
-        color: colors.textDark,
-        textTransform: 'none',
-        letterSpacing: 'normal',
-    },
-    costRow: {
-        display: 'flex',
-        gap: '2rem',
-        flexWrap: 'wrap',
-        marginTop: '1rem',
-        paddingTop: '1rem',
-        borderTop: `1px solid ${colors.border}`,
-    },
-    costValue: {
-        fontSize: '0.875rem',
-        fontWeight: 600,
-        color: colors.textDark,
-        textTransform: 'none',
-        letterSpacing: 'normal',
+        whiteSpace: 'nowrap',
     },
 
     emptyState: {
@@ -984,119 +715,6 @@ const styles = {
         fontWeight: 600,
         color: colors.primary,
         cursor: 'pointer',
-    },
-
-    modalOverlay: {
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(17,24,39,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        zIndex: 300,
-    },
-    modal: {
-        width: '560px',
-        maxWidth: '100%',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        backgroundColor: colors.bgCard,
-        borderRadius: '14px',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
-    },
-    modalHeader: {
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: '1.25rem',
-        padding: '1.5rem 1.625rem 1.25rem',
-        borderBottom: `1px solid ${colors.borderLight}`,
-    },
-    modalTag: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.625rem',
-    },
-    modalRef: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
-    },
-    modalTitle: {
-        ...typography.h2,
-        fontSize: '1.25rem',
-        margin: '0.75rem 0 0',
-    },
-    modalSubtitle: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
-        marginTop: '0.375rem',
-    },
-    modalClose: {
-        flex: 'none',
-        width: '32px',
-        height: '32px',
-        borderRadius: '9px',
-        border: `1px solid ${colors.border}`,
-        backgroundColor: colors.bgCard,
-        color: colors.textMuted,
-        fontSize: '1rem',
-        cursor: 'pointer',
-    },
-    modalBody: {
-        padding: '0.5rem 1.625rem 0.25rem',
-    },
-    modalNote: {
-        display: 'grid',
-        gridTemplateColumns: '150px 1fr',
-        gap: '1.25rem',
-        padding: '1rem 0',
-        borderBottom: `1px solid ${colors.borderLight}`,
-    },
-    modalNoteLabel: {
-        fontSize: '0.7rem',
-        fontWeight: 600,
-        letterSpacing: '0.08em',
-        color: colors.textMuted,
-        textTransform: 'uppercase',
-        paddingTop: '0.15rem',
-    },
-    modalNoteBody: {
-        fontSize: '0.875rem',
-        color: colors.textBody,
-        lineHeight: 1.55,
-    },
-    modalActions: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.625rem',
-        flexWrap: 'wrap',
-        padding: '1.125rem 1.625rem 1.375rem',
-    },
-    modalPrimaryBtn: {
-        padding: '0.7rem 1.125rem',
-        backgroundColor: colors.primary,
-        color: 'white',
-        border: 'none',
-        borderRadius: '9px',
-        fontSize: '0.825rem',
-        fontWeight: 700,
-        cursor: 'pointer',
-    },
-    modalSecondaryBtn: {
-        padding: '0.7rem 1.125rem',
-        backgroundColor: colors.bgCard,
-        color: colors.textBody,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '9px',
-        fontSize: '0.825rem',
-        fontWeight: 600,
-        cursor: 'pointer',
-    },
-    modalHint: {
-        marginLeft: 'auto',
-        fontSize: '0.75rem',
-        color: colors.textMuted,
     },
 
     footer: {

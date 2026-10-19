@@ -8,6 +8,7 @@ use App\Http\Controllers\QuotationRequestController;
 use App\Http\Controllers\InstallationScheduleController;
 use App\Http\Controllers\ExternalInstallationRequestController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
@@ -61,6 +62,17 @@ Route::get('/external-installation-requests/{externalInstallationRequest}/status
 
 // How to reach the business owner (shown on the Privacy Policy / Terms pages)
 Route::get('/contact', [InboxSettingsController::class, 'contact'])->middleware('throttle:60,1');
+
+
+// ============================================================
+// Notifications (the bell) — admins and customers
+// ============================================================
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:120,1');
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+});
 
 
 // ============================================================

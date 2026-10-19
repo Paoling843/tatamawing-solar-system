@@ -4,10 +4,12 @@ import { useAuth } from '../context/auth-context';
 import {
     GridIcon, EditIcon, DocumentIcon, CalendarIcon,
     HelpIcon, DownloadIcon,
-    BellIcon, PlusIcon, MenuIcon, LogOutIcon,
+    PlusIcon, MenuIcon, LogOutIcon,
 } from './Icons';
 import { colors } from '../styles/theme';
 import SupportMessagePanel from './SupportMessagePanel';
+import NotificationBell from './NotificationBell';
+import BrandLogo from './BrandLogo';
 export default function CustomerLayout({ children, active }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -46,7 +48,9 @@ return (
         />
 
         <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
-            <div className="sidebar-label" style={styles.sidebarLogo}>TataMawing Solar</div>
+            <button style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
+                <BrandLogo size={40} fontSize={15} textClassName="sidebar-label" />
+            </button>
 
             <nav style={styles.nav}>
                 {navItems.map((item) => (
@@ -96,9 +100,7 @@ return (
                 <div style={styles.topBarRight}>
                     <SupportMessagePanel />
 
-                    <button style={styles.iconBtn}>
-                        <BellIcon size={18} color={colors.textMuted} />
-                    </button>
+                    <NotificationBell iconColor={colors.textMuted} />
 
                     <button className="btn-secondary" style={styles.logoutBtn} onClick={handleLogout}>
                             <LogOutIcon size={15} color={colors.danger} />
@@ -139,11 +141,13 @@ const styles = {
         padding: '1rem 0',
     },
     sidebarLogo: {
-        padding: '0.25rem 1.25rem 1.5rem',
-        fontSize: '1rem',
-        fontWeight: '700',
-        color: colors.primary,
-        whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0.25rem 0.75rem 1.25rem',
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+        textAlign: 'left',
     },
     nav: {
         flex: 1,
@@ -239,15 +243,6 @@ const styles = {
         alignItems: 'center',
         gap: '0.75rem',
         flexShrink: 0,
-    },
-    iconBtn: {
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '0.25rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     logoutBtn: {
         display: 'flex',

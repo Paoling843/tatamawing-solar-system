@@ -4,7 +4,6 @@ import {
     recommendationReason,
 } from '../../services/solarEngine';
 import { C, NUM, SANS, s } from './engineStyles';
-import LocationCard from './LocationCard';
 
 // Column widths shared by the table header and every appliance row
 const GRID = 'minmax(0,1.9fr) minmax(0,0.85fr) minmax(0,0.8fr) minmax(0,0.5fr) minmax(0,1.7fr) minmax(0,1.7fr) 34px';
@@ -16,7 +15,6 @@ export default function ApplianceLoadStep({
     rows, load, selection, timeFormat, touched, attempted, loadReady,
     bills, onTimeFormatChange, onRowChange, onTouch, onAddRow, onRemoveRow,
     onBillChange, onContinue,
-    location, locationReady, appliancesReady, onLocationChange,
 }) {
     const hour = (h) => formatHour(h, timeFormat);
 
@@ -43,15 +41,7 @@ export default function ApplianceLoadStep({
                 Fields marked with <span style={{ ...s.requiredMark, marginLeft: 0 }}>*</span> are required.
             </p>
 
-            {/* ================= Installation location ================= */}
-            <LocationCard
-                location={location}
-                seen={(key) => Boolean(touched[`location:${key}`]) || attempted}
-                onChange={onLocationChange}
-                onTouch={(key) => onTouch('location', key)}
-            />
-
-            <div style={{ ...styles.layout, marginTop: '28px' }}>
+            <div style={{ ...styles.layout, marginTop: '36px' }}>
                 {/* ================= Appliance list ================= */}
                 <div className="se-load-list" style={styles.listCard}>
                     <div style={styles.listHead}>
@@ -176,11 +166,9 @@ export default function ApplianceLoadStep({
                 </button>
                 {!loadReady && attempted && (
                     <span style={{ fontSize: '13.5px', color: C.errorText }}>
-                        {!locationReady
-                            ? 'Enter where the system will be installed to continue.'
-                            : !appliancesReady && rows.length
-                                ? 'Fill in the wattage and quantity on every appliance to continue.'
-                                : 'Add at least one appliance to continue.'}
+                        {rows.length
+                            ? 'Fill in the wattage and quantity on every appliance to continue.'
+                            : 'Add at least one appliance to continue.'}
                     </span>
                 )}
             </div>

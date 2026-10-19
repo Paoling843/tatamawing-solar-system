@@ -4,6 +4,7 @@ import { useAuth } from '../context/auth-context';
 import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
 import { MessengerIcon } from './MessengerLinkCard';
+import logo from '../assets/logo.jpg';
 
 // Customer's chat with TataMawing Support: a floating "Chat with us" button
 // (bottom-right) opens a panel that slides in from the right. Look from
@@ -282,7 +283,7 @@ export default function SupportMessagePanel() {
                     >
                         <div style={styles.header}>
                             <div style={styles.logo}>
-                                T
+                                <img src={logo} alt="" style={styles.logoImage} />
                                 <span style={styles.onlineDot} />
                             </div>
                             <div style={styles.headerText}>
@@ -440,12 +441,15 @@ const styles = {
         height: '38px',
         flex: 'none',
         borderRadius: '50%',
-        background: T.green,
-        color: T.yellow,
-        display: 'grid',
-        placeItems: 'center',
-        fontSize: '13px',
-        fontWeight: 700,
+        border: `1px solid ${T.border}`,
+    },
+    // The same logo as the site header, as a round avatar
+    logoImage: {
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        borderRadius: '50%',
+        objectFit: 'cover',
     },
     onlineDot: {
         position: 'absolute',

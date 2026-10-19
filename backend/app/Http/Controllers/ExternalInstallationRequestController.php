@@ -10,6 +10,7 @@ use App\Mail\ExternalInstallationRequestStatusUpdated;
 use App\Models\ExternalInstallationRequest;
 use App\Models\InstallationSchedule;
 use App\Services\AuditLogger;
+use App\Services\Notifier;
 use App\Support\BulanBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,8 @@ class ExternalInstallationRequestController extends Controller
         } catch (\Throwable $e) {
             report($e);
         }
+
+        Notifier::newExternalRequest($requestRecord);
             return response()->json([
                 'message' => 'Your installation request was submitted and is pending review.',
                 'request' => [

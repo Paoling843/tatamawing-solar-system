@@ -9,6 +9,7 @@ use App\Models\InstallationSchedule;
 use App\Models\Quotation;
 use App\Models\Customer;
 use App\Services\AuditLogger;
+use App\Services\Notifier;
 
 class InstallationScheduleController extends Controller
 {
@@ -47,6 +48,8 @@ class InstallationScheduleController extends Controller
         }
 
         $schedule = InstallationSchedule::create($scheduleData);
+
+        Notifier::installationScheduled($schedule, true);
 
         AuditLogger::log(
             'installation_schedule_created',
@@ -103,6 +106,11 @@ class InstallationScheduleController extends Controller
             'assigned_technician' => trim($request->assigned_technician),
         ]);
 
+        // The customer only needs to know when the date or time moved
+        if ($installationSchedule->wasChanged(['scheduled_date', 'scheduled_time'])) {
+            Notifier::installationScheduled($installationSchedule, false);
+        }
+
         AuditLogger::log(
             'installation_schedule_updated',
             'Updated an installation schedule.',
@@ -135,6 +143,10 @@ class InstallationScheduleController extends Controller
         $installationSchedule->update([
             'status' => $request->status,
         ]);
+
+        if ($installationSchedule->wasChanged('status')) {
+            Notifier::installationStatusChanged($installationSchedule);
+        }
 
         AuditLogger::log(
             'installation_schedule_status_updated',

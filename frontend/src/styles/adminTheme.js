@@ -13,7 +13,7 @@ export const adminTokens = {
     hairline: '#eef0ec',
     hairline2: '#f1f3ef',
     danger: '#c0392b',
-    fontUI: "'Figtree', sans-serif",
+    fontUI: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif",
     fontMono: "'IBM Plex Mono', monospace",
 };
 

@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import { safeRedirect } from '../utils/safeRedirect';
 import { useBusinessContact } from '../services/businessContact';
-import logo from '../assets/logo.jpg';
+import BrandLogo from '../components/BrandLogo';
 import './AuthPage.css';
 
 // =====================================================================
@@ -38,7 +38,7 @@ const T = {
     successBg: '#e4ede8',
     track: '#f2f4f0',
 };
-const SANS = "'Figtree', Helvetica, Arial, sans-serif";
+const SANS = "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif";
 const MONO = "'IBM Plex Mono', monospace";
 
 const EMPTY_VALUES = {
@@ -286,12 +286,7 @@ export default function AuthPage({ initialMode = 'login' }) {
         <div className="auth-root" style={styles.page}>
             {/* ================= Header ================= */}
             <header className="auth-header" style={styles.header}>
-                <div style={styles.brand}>
-                    <img src={logo} alt="" style={styles.logo} />
-                    <div style={styles.wordmark}>
-                        TataMawing <span style={{ fontWeight: 600, color: T.muted }}>Solar</span>
-                    </div>
-                </div>
+                <BrandLogo />
                 <div style={styles.headerRight}>
                     {contact.email && (
                         <a href={`mailto:${contact.email}`} className="auth-header-phone auth-link" style={styles.phone}>{contact.email}</a>
@@ -611,9 +606,6 @@ const styles = {
         borderBottom: `1px solid ${T.border}`, padding: '0 40px', display: 'flex',
         alignItems: 'center', justifyContent: 'space-between', gap: '20px',
     },
-    brand: { display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 },
-    logo: { height: '52px', width: 'auto', display: 'block', borderRadius: '8px' },
-    wordmark: { fontSize: '17px', fontWeight: 700, color: T.ink, whiteSpace: 'nowrap' },
     headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
     phone: { fontFamily: MONO, fontSize: '13px', color: T.muted, whiteSpace: 'nowrap', textDecoration: 'none' },
 

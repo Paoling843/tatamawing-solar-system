@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 import { useBusinessContact } from '../services/businessContact';
 
 // Shared page shell for the Privacy Policy and Terms of Service: a simple
@@ -13,9 +14,8 @@ export default function LegalLayout({ title, updated, intro, children }) {
     return (
         <div style={styles.page}>
             <header style={styles.header}>
-                <Link to="/" style={styles.brand}>
-                    <span style={styles.logo}>T</span>
-                    <span>TataMawing Solar</span>
+                <Link to="/" style={styles.brand} aria-label="TataMawing Solar home">
+                    <BrandLogo size={36} fontSize={15} />
                 </Link>
                 <nav style={styles.nav}>
                     <Link to="/privacy" style={styles.navLink}>Privacy Policy</Link>
@@ -89,7 +89,7 @@ const styles = {
         minHeight: '100vh',
         background: '#f5f5f2',
         color: '#1b2420',
-        fontFamily: "'Figtree', Helvetica, Arial, sans-serif",
+        fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif",
         display: 'flex',
         flexDirection: 'column',
     },
@@ -104,10 +104,6 @@ const styles = {
         borderBottom: '1px solid #ebebe6',
     },
     brand: { display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: '#1b2420', fontWeight: 700, fontSize: '15px' },
-    logo: {
-        width: '32px', height: '32px', borderRadius: '9px', background: GREEN, color: '#f3d36b',
-        display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: '14px',
-    },
     nav: { display: 'flex', gap: '18px', flexWrap: 'wrap' },
     navLink: { color: '#4a524e', textDecoration: 'none', fontSize: '14px', fontWeight: 500 },
     main: {

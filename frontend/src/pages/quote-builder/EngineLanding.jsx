@@ -12,28 +12,36 @@ const HERO_STEPS = [
     { num: '03', title: 'Get your package', body: 'The smallest inverter that covers your total load plus the buffer, panels to match it, and a battery sized to your nighttime draw.' },
 ];
 
-// Intro screen shown before Step 1. It only explains the engine; nothing is
-// entered here.
+// Registrations listed on the business's Facebook page
+const CREDENTIALS = ['BIR official receipt', "Mayor's permit", 'DTI approved'];
+
+// Top of the home page: explains the engine. The calculator itself follows
+// right below it (LandingPage); "Get Started" scrolls down to it.
 export default function EngineLanding({ onStart, onSetInstallation }) {
     return (
         <div>
             {/* ----- Dark green hero ----- */}
             <section style={styles.hero}>
                 <div className="se-hero-copy" style={styles.heroCopy}>
+                    {/* Wording from the business's Facebook page bio */}
                     <div style={styles.pill}>
                         <span style={styles.pillDot} />
-                        <span style={styles.pillText}>SIZED FROM YOUR OWN APPLIANCES</span>
+                        <span style={styles.pillText}>SOLAR INSTALLER WITHIN SORSOGON AND NEARBY PROVINCES</span>
                     </div>
+                    <ul style={styles.credentials} aria-label="Business credentials">
+                        {CREDENTIALS.map((item) => (
+                            <li key={item} style={styles.credential}>
+                                <span style={styles.credentialCheck} aria-hidden="true">✓</span>
+                                {item}
+                            </li>
+                        ))}
+                    </ul>
                     <h1 className="se-hero-title" style={styles.heroTitle}>
-                        Find the system your household actually needs.
+                        Find the system your household needs.
                     </h1>
-                    <p style={styles.heroLead}>
-                        Tell us what you run and for how long, day and night. We compute the load, add a
-                        safety buffer, and recommend the smallest hybrid package that carries it.
-                    </p>
                     <div style={styles.ctaRow}>
                         <button className="se-btn-yellow" onClick={onStart} style={styles.yellowButton}>
-                            Get Started <span style={{ fontSize: '17px' }}>→</span>
+                            Get Started <span style={{ fontSize: '17px' }}>↓</span>
                         </button>
                         <div style={styles.installCta}>
                             <span style={styles.installNote}>Already have a quotation?</span>
@@ -83,9 +91,6 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                         <div style={styles.eyebrow}>BEFORE YOU START</div>
                         <h2 style={styles.sectionTitle}>Two things worth having to hand.</h2>
                     </div>
-                    <button className="se-btn-primary" onClick={onStart} style={styles.darkButton}>
-                        Start the computation <span style={{ fontSize: '17px' }}>→</span>
-                    </button>
                 </div>
                 <div style={styles.tipGrid}>
                     <div style={styles.tipCard}>
@@ -117,11 +122,16 @@ const styles = {
     },
     heroCopy: { padding: '76px 48px 76px 40px', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
     pill: {
-        display: 'inline-flex', alignItems: 'center', gap: '9px', alignSelf: 'flex-start',
+        display: 'inline-flex', alignItems: 'center', gap: '9px', alignSelf: 'flex-start', maxWidth: '100%',
         border: '1px solid rgba(244,197,66,.4)', borderRadius: '20px', padding: '6px 13px',
     },
-    pillDot: { width: '6px', height: '6px', borderRadius: '50%', background: C.yellow },
-    pillText: { fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: C.yellow },
+    pillDot: { flex: 'none', width: '6px', height: '6px', borderRadius: '50%', background: C.yellow },
+    pillText: { fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', lineHeight: 1.4, color: C.yellow },
+    credentials: {
+        listStyle: 'none', margin: '14px 0 0', padding: 0, display: 'flex', flexWrap: 'wrap', gap: '8px 18px',
+    },
+    credential: { display: 'flex', alignItems: 'center', gap: '7px', fontSize: '14px', fontWeight: 600, color: C.onDark },
+    credentialCheck: { color: C.yellow, fontWeight: 800 },
     heroTitle: {
         margin: '26px 0 0', fontSize: '54px', lineHeight: 1.05, fontWeight: 800, letterSpacing: '-.035em',
         color: '#fff', textWrap: 'balance',
@@ -164,10 +174,6 @@ const styles = {
     sectionTitle: {
         margin: '14px 0 0', fontSize: '32px', fontWeight: 800, letterSpacing: '-.028em', color: C.ink,
         maxWidth: '560px', textWrap: 'balance',
-    },
-    darkButton: {
-        display: 'flex', alignItems: 'center', gap: '10px', background: C.green, color: '#fff', border: 'none',
-        borderRadius: '10px', padding: '15px 24px', fontFamily: SANS, fontSize: '15px', fontWeight: 700, cursor: 'pointer',
     },
     tipGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '20px', marginTop: '32px' },
     tipCard: { background: '#fff', border: `1px solid ${C.border}`, borderRadius: '13px', padding: '26px 28px' },

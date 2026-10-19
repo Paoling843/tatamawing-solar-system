@@ -263,7 +263,7 @@ const styles = {
     },
     pageFooterLinks: { display: 'flex', gap: '18px', flexWrap: 'wrap' },
     pageFooterLink: { color: colors.primary, fontWeight: 600, textDecoration: 'none' },
-    page: { minHeight: '100vh', background: '#f6f7f4', padding: '48px 20px', fontFamily: "'Figtree', Helvetica, Arial, sans-serif", color: colors.textDark },
+    page: { minHeight: '100vh', background: '#f6f7f4', padding: '48px 20px', fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif", color: colors.textDark },
     card: { maxWidth: '780px', margin: '0 auto', padding: '36px', background: 'white', border: '1px solid #e6e8e2', borderRadius: '14px', boxShadow: '0 12px 40px rgba(15,59,44,.08)' },
     backButton: { border: 'none', background: 'transparent', color: colors.primary, padding: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 700 },
     eyebrow: { ...typography.label, marginTop: '32px', color: colors.primary },

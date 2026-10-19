@@ -36,10 +36,10 @@ export const C = {
     warnIcon: '#8a6100',
 };
 
-// Inter: sturdy letters and a tall x-height, so small text stays readable.
-// Numbers use the same font; engine.css turns on tabular (equal-width)
-// digits so figures in tables and totals still line up.
-export const SANS = "'Inter', Helvetica, Arial, sans-serif";
+// Source Sans 3: compact and professional, the same font as the rest of
+// the app. Numbers use the same font; engine.css turns on tabular
+// (equal-width) digits so figures in tables and totals still line up.
+export const SANS = "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif";
 export const NUM = SANS;
 
 // Colours for the stacked price bar, darkest for the biggest cost
