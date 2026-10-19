@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import EngineHeader from './quote-builder/EngineHeader';
 import EngineLanding from './quote-builder/EngineLanding';
+import LandingFooter from './quote-builder/LandingFooter';
 import QuotationFormPage from './QuotationFormPage';
 import { s } from './quote-builder/engineStyles';
 import './quote-builder/engine.css';
@@ -34,6 +35,7 @@ export default function LandingPage() {
             />
             <EngineLanding onStart={start} onSetInstallation={setInstallation} />
             <QuotationFormPage embedded />
+            <LandingFooter user={user} onStart={start} />
         </div>
     );
 }

@@ -8,7 +8,8 @@ import { C } from '../pages/quote-builder/engineStyles';
 //   fontSize       wordmark size in px
 //   tag            small line under the name, e.g. "Admin"
 //   textClassName  e.g. "sidebar-label", so a collapsed sidebar hides the text
-export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName }) {
+//   light          white text, for dark green backgrounds (home page footer)
+export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName, light = false }) {
     return (
         <span style={styles.wrap}>
             <img
@@ -17,10 +18,10 @@ export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName
                 style={{ ...styles.image, height: `${size}px`, width: `${size}px` }}
             />
             <span className={textClassName} style={styles.text}>
-                <span style={{ ...styles.name, fontSize: `${fontSize}px` }}>
-                    TataMawing <span style={styles.solar}>Solar</span>
+                <span style={{ ...styles.name, fontSize: `${fontSize}px`, color: light ? '#fff' : C.ink }}>
+                    TataMawing <span style={{ ...styles.solar, color: light ? C.onDarkMuted : C.muted }}>Solar</span>
                 </span>
-                {tag && <span style={styles.tag}>{tag}</span>}
+                {tag && <span style={{ ...styles.tag, color: light ? C.onDarkMuted : C.muted }}>{tag}</span>}
             </span>
         </span>
     );
