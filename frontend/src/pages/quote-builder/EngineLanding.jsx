@@ -1,4 +1,5 @@
 import { C, NUM, SANS } from './engineStyles';
+import { CREDENTIALS, SERVICE_AREA } from './businessInfo';
 
 const HERO_STATS = [
     { value: '2 min', label: 'To a sized system' },
@@ -12,9 +13,6 @@ const HERO_STEPS = [
     { num: '03', title: 'Get your package', body: 'The smallest inverter that covers your total load plus the buffer, panels to match it, and a battery sized to your nighttime draw.' },
 ];
 
-// Registrations listed on the business's Facebook page
-const CREDENTIALS = ['BIR official receipt', "Mayor's permit", 'DTI approved'];
-
 // Top of the home page: explains the engine. The calculator itself follows
 // right below it (LandingPage); "Get Started" scrolls down to it.
 export default function EngineLanding({ onStart, onSetInstallation }) {
@@ -26,7 +24,7 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                     {/* Wording from the business's Facebook page bio */}
                     <div style={styles.pill}>
                         <span style={styles.pillDot} />
-                        <span style={styles.pillText}>SOLAR INSTALLER WITHIN SORSOGON AND NEARBY PROVINCES</span>
+                        <span style={styles.pillText}>{SERVICE_AREA.toUpperCase()}</span>
                     </div>
                     <ul style={styles.credentials} aria-label="Business credentials">
                         {CREDENTIALS.map((item) => (

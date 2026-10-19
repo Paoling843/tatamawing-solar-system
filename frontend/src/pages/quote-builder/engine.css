@@ -127,3 +127,26 @@
 @media (max-width: 560px) {
     .se-header-start { display: none !important; }
 }
+
+/* Home page footer (dark green): links underline on hover/focus */
+.se-footer a:hover,
+.se-footer .se-footer-link:hover {
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+}
+.se-footer a:focus-visible,
+.se-footer button:focus-visible {
+    outline: 2px solid #f4c542;
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+/* Home page footer: four columns, then two, then one on phones */
+@media (max-width: 960px) {
+    .se-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .se-footer-grid > :first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+    .se-footer-grid { grid-template-columns: 1fr !important; padding: 36px 16px 28px !important; gap: 28px !important; }
+    .se-footer-bottom { padding: 16px 16px 24px !important; }
+}
