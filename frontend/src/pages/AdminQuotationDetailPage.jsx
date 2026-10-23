@@ -598,14 +598,14 @@ export default function AdminQuotationDetailPage() {
                                         </span>
                                     </div>
                                     <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>Payback Period</span>
+                                        <span style={styles.resultLabel}>ROI (Payback Period)</span>
                                         <span style={styles.resultValue}>{payback !== null ? `${payback} years` : '—'}</span>
                                     </div>
                                     <div style={styles.resultBox}>
                                         <span style={styles.resultLabel}>Electricity Rate</span>
                                         <span style={styles.resultValue}>
                                             {formatCurrency(computation.electricity_rate)}/kWh
-                                            {computation.rate_source === 'bill' ? ' (from bill)' : ' (default)'}
+                                            {computation.rate_source === 'bill' ? ' (from bill)' : ' (SORECO rate)'}
                                         </span>
                                     </div>
                                     <div style={styles.resultBox}>

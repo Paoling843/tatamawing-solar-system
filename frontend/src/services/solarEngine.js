@@ -81,12 +81,12 @@ export const BATTERIES = [
 // counted as usable.
 export const BATTERY_WH_PER_AH = 40.96;
 
-// Savings estimate.
-// Rate used when the customer's bills don't give both amount and kWh (₱/kWh)
-export const DEFAULT_RATE_PER_KWH = 12;
-// Average full-sun hours per day in the Philippines
-export const PEAK_SUN_HOURS = 4.5;
-// Share of the panels' rating that reaches the outlets (wiring, heat, inverter losses)
+// Savings estimate (the client's formula).
+// SORECO's rate, used when the customer's bills don't give both amount and kWh (₱/kWh)
+export const DEFAULT_RATE_PER_KWH = 13;
+// Peak sun hours per day (the client's figure for Bulan)
+export const PEAK_SUN_HOURS = 6;
+// Share of the panels' output counted, since heavy clouds sometimes block the sun
 export const SYSTEM_DERATE = 0.8;
 export const DAYS_PER_MONTH = 30;
 // Years the system is expected to keep saving (typical panel warranty)
@@ -372,20 +372,43 @@ export function buildQuote(pkg, panels, battery) {
 // STEP 3: SAVINGS ESTIMATE
 // ---------------------------------------------------------------------
 
-// Estimated savings for the chosen system:
-//   production = panels × 610 W ÷ 1000 × 4.5 sun hours × 0.8 × 30 days (kWh/month)
-//   usage      = grand total Wh ÷ 1000 × 30 days (kWh/month)
-//   rate       = average amount ÷ kWh of the bills that have both, else ₱12
-//   savings    = min(usage, production) × rate, never more than the bill
-//   payback    = total price ÷ annual savings
-//   ROA        = annual savings ÷ total price × 100 (the system is the asset,
-//                its yearly savings are the return)
-//   net gain   = savings over 25 years − total price
-// kWh is optional on a bill: a bill with only an amount still caps the
-// savings and gives the estimated new bill, but the default rate is used.
-export function computeSavings(grandWh, panels, total, bills) {
-    const productionKwh = arrayKwp(panels) * PEAK_SUN_HOURS * SYSTEM_DERATE * DAYS_PER_MONTH;
-    const usageKwh = (grandWh / 1000) * DAYS_PER_MONTH;
+// Estimated savings for the chosen system — the client's formula.
+//
+// Daytime first: the panels power the daytime appliances, and what's left
+// over charges the battery.
+//   production = 610 W × panels × 6 peak hours × 80% (Wh/day)
+//   left over  = production − daytime Wh (never below 0)
+//
+// Nighttime: the battery covers the night up to its size, and only as much
+// as the left-over charge allowed. The rest is bought from SORECO.
+//   night covered = smaller of (nighttime Wh, battery Wh, left over)
+//   grid          = daytime the panels couldn't cover + nighttime not covered (Wh/day)
+//   new bill      = grid ÷ 1000 × 30 days × rate
+//
+// Savings and ROI:
+//   savings     = monthly bill − new bill, kept between ₱0 and the bill
+//   ROI (years) = total price ÷ monthly savings ÷ 12 months (the payback period)
+//   ROA         = annual savings ÷ total price × 100
+//   net gain    = savings over 25 years − total price
+//
+// rate = average amount ÷ kWh of the bills that have both, else SORECO's ₱13.
+// Without a bill amount, the bill is estimated as all the appliances' energy
+// at that rate (so savings = the energy solar covers × rate); monthlyBill and
+// newMonthlyBill then stay null, as no real bill was given.
+export function computeSavings(dayWh, nightWh, panels, batteryWhUsable, total, bills) {
+    const productionWh = PANEL_WATTS * panels * PEAK_SUN_HOURS * SYSTEM_DERATE;
+
+    // Daytime first; what's left over charges the battery
+    const dayCoveredWh = Math.min(dayWh, productionWh);
+    const leftOverWh = Math.max(0, productionWh - dayWh);
+
+    // The battery covers the night up to its size and its charge
+    const nightCoveredWh = Math.min(nightWh, batteryWhUsable, leftOverWh);
+    const gridWh = (dayWh - dayCoveredWh) + (nightWh - nightCoveredWh);
+
+    const productionKwh = (productionWh / 1000) * DAYS_PER_MONTH;
+    const usageKwh = ((dayWh + nightWh) / 1000) * DAYS_PER_MONTH;
+    const gridKwh = (gridWh / 1000) * DAYS_PER_MONTH;
 
     const rates = [];
     const amounts = [];
@@ -404,9 +427,14 @@ export function computeSavings(grandWh, panels, total, bills) {
     const rate = rates.length ? average(rates) : DEFAULT_RATE_PER_KWH;
     const monthlyBill = amounts.length ? average(amounts) : null;
 
-    let monthlySavings = Math.min(usageKwh, productionKwh) * rate;
-    if (monthlyBill !== null) monthlySavings = Math.min(monthlySavings, monthlyBill);
+    // What's still bought from SORECO each month with solar
+    const gridCost = gridKwh * rate;
 
+    // No bill entered → estimate it from the appliances at the same rate.
+    // Never below ₱0 (when the listed appliances' grid cost is more than the
+    // bill); never above the bill, since the grid cost is never negative.
+    const billForSavings = monthlyBill ?? usageKwh * rate;
+    const monthlySavings = Math.max(0, billForSavings - gridCost);
     const annualSavings = monthlySavings * 12;
 
     return {
@@ -414,13 +442,18 @@ export function computeSavings(grandWh, panels, total, bills) {
         rateSource: rates.length ? 'bill' : 'default',
         productionKwh,
         usageKwh,
+        dayCoveredWh,
+        leftOverWh,
+        nightCoveredWh,
+        gridKwh,
         monthlyBill,
         // How many bill amounts went into monthlyBill (2 means it's an average)
         billCount: amounts.length,
         monthlySavings,
-        newMonthlyBill: monthlyBill !== null ? Math.max(0, monthlyBill - monthlySavings) : null,
+        newMonthlyBill: monthlyBill !== null ? monthlyBill - monthlySavings : null,
         annualSavings,
-        paybackYears: annualSavings > 0 ? total / annualSavings : null,
+        // The client's "years ROI": price ÷ monthly savings ÷ 12
+        paybackYears: monthlySavings > 0 ? total / monthlySavings / 12 : null,
         ...computeReturn(annualSavings, total),
     };
 }

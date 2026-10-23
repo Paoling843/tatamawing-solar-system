@@ -96,12 +96,12 @@ class SolarComputationService
     // is counted as usable.
     public const BATTERY_WH_PER_AH = 40.96;
 
-    // Savings estimate.
-    // Rate used when the customer's bills don't give both amount and kWh (₱/kWh)
-    public const DEFAULT_RATE_PER_KWH = 12;
-    // Average full-sun hours per day in the Philippines
-    public const PEAK_SUN_HOURS = 4.5;
-    // Share of the panels' rating that reaches the outlets (wiring, heat, inverter losses)
+    // Savings estimate (the client's formula).
+    // SORECO's rate, used when the customer's bills don't give both amount and kWh (₱/kWh)
+    public const DEFAULT_RATE_PER_KWH = 13;
+    // Peak sun hours per day (the client's figure for Bulan)
+    public const PEAK_SUN_HOURS = 6;
+    // Share of the panels' output counted, since heavy clouds sometimes block the sun
     public const SYSTEM_DERATE = 0.8;
     public const DAYS_PER_MONTH = 30;
     // Years the system is expected to keep saving (typical panel warranty)
@@ -365,24 +365,45 @@ class SolarComputationService
     // ===================================================================
 
     /**
-     * Estimated savings for the chosen system.
-     *   production  = panels × 610 W ÷ 1000 × 4.5 sun hours × 0.8 × 30 days (kWh/month)
-     *   usage       = grand total Wh ÷ 1000 × 30 days (kWh/month)
-     *   rate        = average amount ÷ kWh of the bills that have both, else ₱12
-     *   savings     = min(usage, production) × rate, never more than the bill
-     *   payback     = total price ÷ annual savings
-     *   ROA         = annual savings ÷ total price × 100 (the system is the asset,
-     *                 its yearly savings are the return)
+     * Estimated savings for the chosen system — the client's formula.
+     *
+     * Daytime first: the panels power the daytime appliances, and what's
+     * left over charges the battery.
+     *   production  = 610 W × panels × 6 peak hours × 80% (Wh/day)
+     *   left over   = production − daytime Wh (never below 0)
+     *
+     * Nighttime: the battery covers the night up to its size, and only as
+     * much as the left-over charge allowed. The rest is bought from SORECO.
+     *   night covered = smaller of (nighttime Wh, battery Wh, left over)
+     *   grid          = daytime the panels couldn't cover + nighttime not covered (Wh/day)
+     *   new bill      = grid ÷ 1000 × 30 days × rate
+     *
+     * Savings and ROI:
+     *   savings     = monthly bill − new bill, kept between ₱0 and the bill
+     *   ROI (years) = total price ÷ monthly savings ÷ 12 months  (the payback period)
+     *   ROA         = annual savings ÷ total price × 100
      *   net gain    = savings over 25 years − total price
      *
-     * kWh is optional on a bill: a bill with only an amount still caps the
-     * savings and gives the estimated new bill, but the default rate is used.
+     * rate = average amount ÷ kWh of the bills that have both, else SORECO's ₱13.
+     * Without a bill amount, the bill is estimated as all the appliances'
+     * energy at that rate (so savings = the energy solar covers × rate);
+     * monthly_bill and new_monthly_bill then stay empty, as no real bill was given.
      */
-    public function computeSavings(float $grandTotalWh, int $panels, float $total, array $bills = []): array
+    public function computeSavings(float $dayWh, float $nightWh, int $panels, float $batteryWh, float $total, array $bills = []): array
     {
-        $productionKwh = $panels * self::PANEL_WATTS / 1000
-            * self::PEAK_SUN_HOURS * self::SYSTEM_DERATE * self::DAYS_PER_MONTH;
-        $usageKwh = $grandTotalWh / 1000 * self::DAYS_PER_MONTH;
+        $productionWh = self::PANEL_WATTS * $panels * self::PEAK_SUN_HOURS * self::SYSTEM_DERATE;
+
+        // Daytime first; what's left over charges the battery
+        $dayCoveredWh = min($dayWh, $productionWh);
+        $leftOverWh = max(0, $productionWh - $dayWh);
+
+        // The battery covers the night up to its size and its charge
+        $nightCoveredWh = min($nightWh, $batteryWh, $leftOverWh);
+        $gridWh = ($dayWh - $dayCoveredWh) + ($nightWh - $nightCoveredWh);
+
+        $productionKwh = $productionWh / 1000 * self::DAYS_PER_MONTH;
+        $usageKwh = ($dayWh + $nightWh) / 1000 * self::DAYS_PER_MONTH;
+        $gridKwh = $gridWh / 1000 * self::DAYS_PER_MONTH;
 
         $rates = [];
         $amounts = [];
@@ -403,12 +424,14 @@ class SolarComputationService
         $rate = $rates ? array_sum($rates) / count($rates) : self::DEFAULT_RATE_PER_KWH;
         $monthlyBill = $amounts ? array_sum($amounts) / count($amounts) : null;
 
-        $monthlySavings = min($usageKwh, $productionKwh) * $rate;
+        // What's still bought from SORECO each month with solar
+        $gridCost = $gridKwh * $rate;
 
-        if ($monthlyBill !== null) {
-            $monthlySavings = min($monthlySavings, $monthlyBill);
-        }
-
+        // No bill entered → estimate it from the appliances at the same rate
+        $billForSavings = $monthlyBill ?? $usageKwh * $rate;
+        // Never below ₱0 (when the listed appliances' grid cost is more than the
+        // bill); never above the bill, since the grid cost is never negative
+        $monthlySavings = max(0, $billForSavings - $gridCost);
         $annualSavings = $monthlySavings * 12;
 
         return [
@@ -416,13 +439,18 @@ class SolarComputationService
             'rate_source' => $rates ? 'bill' : 'default',
             'production_kwh' => $productionKwh,
             'usage_kwh' => $usageKwh,
+            'day_covered_wh' => $dayCoveredWh,
+            'left_over_wh' => $leftOverWh,
+            'night_covered_wh' => $nightCoveredWh,
+            'grid_kwh' => $gridKwh,
             'monthly_bill' => $monthlyBill,
             // How many bill amounts went into monthly_bill (2 means it's an average)
             'bill_count' => count($amounts),
             'monthly_savings' => $monthlySavings,
-            'new_monthly_bill' => $monthlyBill !== null ? max(0, $monthlyBill - $monthlySavings) : null,
+            'new_monthly_bill' => $monthlyBill !== null ? $monthlyBill - $monthlySavings : null,
             'annual_savings' => $annualSavings,
-            'payback_years' => $annualSavings > 0 ? $total / $annualSavings : null,
+            // The client's "years ROI": price ÷ monthly savings ÷ 12
+            'payback_years' => $monthlySavings > 0 ? $total / $monthlySavings / 12 : null,
         ] + $this->computeReturn($annualSavings, $total);
     }
 
@@ -520,7 +548,14 @@ class SolarComputationService
             'battery' => $battery,
             'battery_wh' => $this->batteryWh($battery['ah']),
             'quote' => $quote,
-            'savings' => $this->computeSavings($load['grand_total_wh'], $panelCount, $quote['total'], $bills),
+            'savings' => $this->computeSavings(
+                $load['total_day_wh'],
+                $load['total_night_wh'],
+                $panelCount,
+                $this->batteryWh($battery['ah']),
+                $quote['total'],
+                $bills
+            ),
         ];
     }
 

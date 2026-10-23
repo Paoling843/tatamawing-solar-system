@@ -250,7 +250,7 @@
                     <div class="label">Electricity Rate</div>
                     <div class="value">
                         PHP{{ number_format($computation->electricity_rate, 2) }}/kWh
-                        ({{ $computation->rate_source === 'bill' ? 'from your bill' : 'default rate' }})
+                        ({{ $computation->rate_source === 'bill' ? 'from your bill' : 'SORECO rate' }})
                     </div>
                 </td>
                 <td>
@@ -268,7 +268,7 @@
                     <div class="value">PHP{{ number_format($computation->annual_savings, 2) }}</div>
                 </td>
                 <td>
-                    <div class="label">Payback Period</div>
+                    <div class="label">ROI (Payback Period)</div>
                     <div class="value">{{ $paybackYears !== null ? number_format($paybackYears, 1) . ' years' : '—' }}</div>
                 </td>
                 @if($computation->new_monthly_bill !== null)
@@ -301,8 +301,9 @@
         <div style="font-size: 10px; color: #5d6862;">
             ROA is the share of the system price that comes back as savings each year.
             The {{ $lifeYears }}-year figures assume the system keeps saving at today's rate for its expected life.
-            Savings are an estimate based on {{ \App\Services\SolarComputationService::PEAK_SUN_HOURS }} average sun hours a day
-            and your appliance list. Actual savings depend on weather, usage and your utility's rates.
+            Savings are an estimate based on {{ \App\Services\SolarComputationService::PEAK_SUN_HOURS }} peak sun hours a day
+            and your appliance list: daytime use is powered first, the rest charges the battery for the night, and any
+            use the battery can't cover is bought from SORECO. Actual savings depend on weather, usage and your utility's rates.
         </div>
         @endif
 

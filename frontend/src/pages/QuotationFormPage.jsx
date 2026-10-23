@@ -7,7 +7,7 @@ import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
 import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
-    recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize,
+    recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize, batteryWh,
 } from '../services/solarEngine';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
@@ -149,7 +149,7 @@ export default function QuotationFormPage({ embedded = false }) {
     const load = useMemo(() => computeLoad(rows), [rows]);
     const selection = resolveSelection(load, choice);
     const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
-    const savings = computeSavings(load.grand, selection.panels, quote.total, bills);
+    const savings = computeSavings(load.day, load.night, selection.panels, batteryWh(selection.battery.ah), quote.total, bills);
     // Step 1 is done when every appliance row is filled in
     const loadReady = rows.length > 0 && rows.every(isRowComplete);
 
