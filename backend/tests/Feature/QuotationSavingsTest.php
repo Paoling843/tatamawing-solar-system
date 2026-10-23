@@ -20,7 +20,8 @@ class QuotationSavingsTest extends TestCase
         ]);
 
         // Freezer 1,500 W × 3 night hours = 4,500 Wh/day → 135 kWh/month
-        // Bill: 3,000 ÷ 250 kWh = ₱12/kWh → 135 × 12 = 1,620 savings, new bill 1,380
+        // 10 panels make 29,280 Wh/day, so the 205 Ah battery (8,396.8 Wh) is fully
+        // charged and covers the whole night: nothing from SORECO, the ₱3,000 bill is saved
         $response = $this->actingAs($user, 'sanctum')->postJson('/api/quotation-requests', [
             'appliances' => [[
                 'appliance_type' => 'freezer',
@@ -46,9 +47,9 @@ class QuotationSavingsTest extends TestCase
             'electricity_rate' => 12,
             'monthly_usage_kwh' => 135,
             'monthly_bill' => 3000,
-            'monthly_savings' => 1620,
-            'new_monthly_bill' => 1380,
-            'annual_savings' => 19440,
+            'monthly_savings' => 3000,
+            'new_monthly_bill' => 0,
+            'annual_savings' => 36000,
             // Sizing: 1,500 W + 2,000 = 3,500 W → 5 kW recommended (8 kW is an upgrade);
             // 3,500 ÷ 610 = 5 panels → raised to the 8 kW minimum of 10
             'total_load_w' => 1500,

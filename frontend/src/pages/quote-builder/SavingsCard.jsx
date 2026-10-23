@@ -1,16 +1,17 @@
 import {
-    DEFAULT_RATE_PER_KWH, PEAK_SUN_HOURS, SYSTEM_LIFE_YEARS,
+    DEFAULT_RATE_PER_KWH, PEAK_SUN_HOURS, SYSTEM_LIFE_YEARS, DAYS_PER_MONTH,
     formatWhole, formatDecimal, peso,
 } from '../../services/solarEngine';
 import { C, s } from './engineStyles';
 
 // STEP 3 — "Your estimated savings" card, from the Solar Savings Card design.
 //   Left:   monthly savings, and how much of the current bill solar covers
-//   Right:  payback period, with a chart of total savings vs. the system cost
-//   Bottom: annual return (ROA), solar produced/used, sun hours
+//   Right:  ROI in years (the payback period), with a chart of total savings vs. the system cost
+//   Bottom: annual return (ROA), solar produced/used, bought from SORECO, sun hours
 // savings comes from computeSavings() in solarEngine.js; total is the quote total.
 export default function SavingsCard({ savings, total }) {
-    const usedKwh = Math.min(savings.usageKwh, savings.productionKwh);
+    // Energy solar covers: the daytime it powers plus the night the battery carries
+    const usedKwh = ((savings.dayCoveredWh + savings.nightCoveredWh) / 1000) * DAYS_PER_MONTH;
     const roundOne = (n) => formatDecimal(Math.round(n * 10) / 10);
 
     return (
@@ -18,7 +19,7 @@ export default function SavingsCard({ savings, total }) {
             <header style={styles.header}>
                 <h2 style={styles.title}>Your estimated savings</h2>
                 <span style={styles.ratePill}>
-                    {savings.rateSource === 'bill' ? 'Your rate' : 'Typical rate'}:{' '}
+                    {savings.rateSource === 'bill' ? 'Your rate' : 'SORECO rate'}:{' '}
                     <strong style={{ fontWeight: 600 }}>₱{savings.rate.toFixed(2)}/kWh</strong>
                 </span>
             </header>
@@ -37,7 +38,7 @@ export default function SavingsCard({ savings, total }) {
 
                 <div style={{ ...styles.column, gap: '16px' }}>
                     <Figure
-                        label="Payback period"
+                        label="ROI (payback period)"
                         value={savings.paybackYears !== null ? roundOne(savings.paybackYears) : '—'}
                         unit={savings.paybackYears !== null ? 'years' : null}
                     />
@@ -64,13 +65,16 @@ export default function SavingsCard({ savings, total }) {
                 <Stat label="Annual return (ROA)" value={savings.roaPercent !== null ? `${roundOne(savings.roaPercent)}%` : '—'} />
                 <Stat label="Solar produced" value={formatWhole(savings.productionKwh)} unit="kWh/mo" />
                 <Stat label="Solar used" value={formatWhole(usedKwh)} unit="kWh/mo" />
+                <Stat label="Still from SORECO" value={formatWhole(savings.gridKwh)} unit="kWh/mo" />
                 <Stat label="Sun hours" value={formatDecimal(PEAK_SUN_HOURS)} unit="per day" />
             </div>
 
             <footer style={styles.footer}>
-                Estimate only. Savings can't exceed your bill, and weather and usage will vary.
+                Estimate only. Daytime use is powered first; what's left charges the battery for the night.
+                Night use the battery can't cover is bought from SORECO. Savings can't exceed your bill, and
+                weather and usage will vary.
                 {savings.rateSource === 'default' && (
-                    <> Using a typical ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add a bill amount and kWh in Step 1 to
+                    <> Using SORECO's ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add a bill amount and kWh in Step 1 to
                         use yours.</>
                 )}
             </footer>

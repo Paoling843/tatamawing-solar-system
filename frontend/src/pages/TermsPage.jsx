@@ -18,8 +18,8 @@ export default function TermsPage() {
                 <List>
                     <li>
                         The recommended system, price, estimated savings, and return figures are estimates based on
-                        what you enter and on typical values — for example ₱12 per kWh when you don’t give your kWh,
-                        and an average of 4.5 hours of strong sun a day.
+                        what you enter and on typical values — for example SORECO’s ₱13 per kWh when you don’t give
+                        your kWh, and 6 peak sun hours a day.
                     </li>
                     <li>
                         Your real savings depend on your actual electricity use, the weather, your roof, and your

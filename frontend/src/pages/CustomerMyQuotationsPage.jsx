@@ -402,7 +402,7 @@ function MonthlyBill({ info }) {
             {info.rate !== null && (
                 <p style={styles.hint}>
                     Based on {peso(info.rate)}/kWh
-                    {info.rateFromBill ? ', worked out from your bill.' : ', a typical rate (no kWh was entered).'}
+                    {info.rateFromBill ? ', worked out from your bill.' : ', SORECO’s rate (no kWh was entered).'}
                 </p>
             )}
         </section>
@@ -432,7 +432,7 @@ function WorthIt({ info, paybackColor, paybackText }) {
             <h3 style={styles.sectionTitle}>Is it worth it?</h3>
             <p style={styles.sectionNote}>Over the {SYSTEM_LIFE_YEARS}-year system life</p>
 
-            <div style={{ fontSize: '13px', color: C.muted, marginBottom: '6px' }}>Pays for itself in</div>
+            <div style={{ fontSize: '13px', color: C.muted, marginBottom: '6px' }}>ROI — pays for itself in</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: paybackColor }}>{paybackText}</div>
             <div style={{ ...styles.track, margin: '12px 0 6px' }}>
                 <div style={{ ...styles.trackFill, width: `${paybackPct}%`, background: paybackColor }} />

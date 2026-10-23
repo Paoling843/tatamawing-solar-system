@@ -95,7 +95,7 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                         {d.hasSavings && (
                             <div style={styles.heroStats}>
                                 <HeroStat label="Saves about" value={`${peso(d.monthlySavings, 0)}`} unit="/ month" />
-                                <HeroStat label="Pays for itself in" value={d.payback !== null ? num(d.payback, 1) : '—'} unit="years" />
+                                <HeroStat label="ROI — pays for itself in" value={d.payback !== null ? num(d.payback, 1) : '—'} unit="years" />
                             </div>
                         )}
                     </div>

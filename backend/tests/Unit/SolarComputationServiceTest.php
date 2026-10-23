@@ -193,67 +193,104 @@ class SolarComputationServiceTest extends TestCase
         $this->engine->evaluate($rows, 5, 4, 150);
     }
 
-    public function test_savings_use_the_rate_from_the_bills(): void
+    public function test_savings_follow_the_clients_day_then_battery_formula(): void
     {
-        // 4 panels → 2.44 kWp × 4.5 h × 0.8 × 30 = 263.52 kWh/month made
-        // 5,000 Wh/day → 150 kWh/month used
-        // Rates: 3,000 ÷ 250 = 12 and 2,200 ÷ 200 = 11 → average 11.5
-        // Savings: 150 × 11.5 = 1,725 (under the 2,600 average bill)
-        $savings = $this->engine->computeSavings(5000, 4, 207000, [
-            ['amount' => 3000, 'kwh' => 250],
-            ['amount' => 2200, 'kwh' => 200],
-        ]);
-
-        $this->assertEqualsWithDelta(263.52, $savings['production_kwh'], 0.0001);
-        $this->assertEqualsWithDelta(150, $savings['usage_kwh'], 0.0001);
-        $this->assertEqualsWithDelta(11.5, $savings['rate'], 0.0001);
-        $this->assertSame('bill', $savings['rate_source']);
-        $this->assertEqualsWithDelta(2600, $savings['monthly_bill'], 0.0001);
-        $this->assertEqualsWithDelta(1725, $savings['monthly_savings'], 0.0001);
-        $this->assertEqualsWithDelta(875, $savings['new_monthly_bill'], 0.0001);
-        $this->assertEqualsWithDelta(20700, $savings['annual_savings'], 0.0001);
-        $this->assertEqualsWithDelta(10, $savings['payback_years'], 0.0001); // 207,000 ÷ 20,700
-    }
-
-    public function test_savings_fall_back_to_the_default_rate_without_kwh(): void
-    {
-        // Bill amount only → default ₱12/kWh. 150 kWh × 12 = 1,800, under the 2,000 bill.
-        $savings = $this->engine->computeSavings(5000, 4, 100000, [
-            ['amount' => 2000, 'kwh' => null],
+        // The client's example: 10 panels, 8,560 Wh day, 7,120 Wh night, 205 Ah (8,396.8 Wh)
+        //   production  = 610 × 10 × 6 h × 80% = 29,280 Wh/day
+        //   left over   = 29,280 − 8,560 = 20,720 Wh → charges the battery
+        //   night       = 7,120 − 8,396.8 → fully covered, nothing from SORECO
+        // Bill amount only → SORECO's ₱13; savings = the whole ₱6,575 bill
+        // ROI = 408,600 ÷ 6,575 ÷ 12 = 5.18 years
+        $savings = $this->engine->computeSavings(8560, 7120, 10, 8396.8, 408600, [
+            ['amount' => 6575, 'kwh' => null],
             ['amount' => '', 'kwh' => ''],
         ]);
 
+        $this->assertEqualsWithDelta(878.4, $savings['production_kwh'], 0.0001); // 29,280 × 30 ÷ 1000
+        $this->assertEqualsWithDelta(8560, $savings['day_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(20720, $savings['left_over_wh'], 0.0001);
+        $this->assertEqualsWithDelta(7120, $savings['night_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(0, $savings['grid_kwh'], 0.0001);
         $this->assertEqualsWithDelta(SolarComputationService::DEFAULT_RATE_PER_KWH, $savings['rate'], 0.0001);
         $this->assertSame('default', $savings['rate_source']);
-        $this->assertEqualsWithDelta(2000, $savings['monthly_bill'], 0.0001);
-        $this->assertEqualsWithDelta(1800, $savings['monthly_savings'], 0.0001);
-        $this->assertEqualsWithDelta(200, $savings['new_monthly_bill'], 0.0001);
-    }
-
-    public function test_savings_never_exceed_the_bill(): void
-    {
-        // 20,000 Wh/day → 600 kWh; 10 panels make 658.8 kWh → 600 × 12 = 7,200,
-        // but the bill is only 5,000, so savings stop at 5,000 and the new bill is 0.
-        $savings = $this->engine->computeSavings(20000, 10, 100000, [['amount' => 5000, 'kwh' => null]]);
-
-        $this->assertEqualsWithDelta(5000, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(6575, $savings['monthly_savings'], 0.0001);
         $this->assertEqualsWithDelta(0, $savings['new_monthly_bill'], 0.0001);
+        $this->assertEqualsWithDelta(408600 / 6575 / 12, $savings['payback_years'], 0.0001);
     }
 
-    public function test_savings_are_limited_by_what_the_panels_make(): void
+    public function test_a_small_battery_leaves_part_of_the_night_on_the_grid(): void
     {
-        // 600 kWh used but 4 panels only make 263.52 kWh → 263.52 × 12 = 3,162.24.
-        // No bills → no bill cap and no new bill.
-        $savings = $this->engine->computeSavings(20000, 4, 100000);
+        // Same house with a 100 Ah battery (4,096 Wh):
+        //   night not covered = 7,120 − 4,096 = 3,024 Wh/day → 90.72 kWh/month × ₱13 = ₱1,179.36
+        //   savings = 6,575 − 1,179.36 = ₱5,395.64
+        $savings = $this->engine->computeSavings(8560, 7120, 10, 4096, 354000, [['amount' => 6575, 'kwh' => null]]);
 
-        $this->assertEqualsWithDelta(3162.24, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(4096, $savings['night_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(90.72, $savings['grid_kwh'], 0.0001);
+        $this->assertEqualsWithDelta(5395.64, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(1179.36, $savings['new_monthly_bill'], 0.0001);
+    }
+
+    public function test_the_battery_only_charges_from_what_the_panels_leave_over(): void
+    {
+        // 4 panels make 610 × 4 × 6 × 0.8 = 11,712 Wh; 8,000 Wh day leaves 3,712 Wh,
+        // so a 205 Ah battery only covers 3,712 of the 6,000 Wh night.
+        // Night from SORECO: 2,288 Wh/day → 68.64 kWh × ₱13 = ₱892.32
+        // No bill → it's estimated: 14,000 Wh/day → 420 kWh × ₱13 = ₱5,460
+        $savings = $this->engine->computeSavings(8000, 6000, 4, 8396.8, 100000);
+
+        $this->assertEqualsWithDelta(3712, $savings['night_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(68.64, $savings['grid_kwh'], 0.0001);
+        $this->assertEqualsWithDelta(5460 - 892.32, $savings['monthly_savings'], 0.0001);
         $this->assertNull($savings['monthly_bill']);
         $this->assertNull($savings['new_monthly_bill']);
     }
 
+    public function test_daytime_the_panels_cannot_cover_is_bought_from_the_grid(): void
+    {
+        // 20,000 Wh day but 4 panels make only 11,712 Wh → 8,288 Wh/day from SORECO,
+        // nothing left over for the battery. Bill rate: 3,000 ÷ 250 = ₱12.
+        //   grid = 248.64 kWh × 12 = 2,983.68 → savings = 3,000 − 2,983.68 = 16.32
+        $savings = $this->engine->computeSavings(20000, 0, 4, 4096, 100000, [['amount' => 3000, 'kwh' => 250]]);
+
+        $this->assertEqualsWithDelta(11712, $savings['day_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(0, $savings['left_over_wh'], 0.0001);
+        $this->assertEqualsWithDelta(248.64, $savings['grid_kwh'], 0.0001);
+        $this->assertSame('bill', $savings['rate_source']);
+        $this->assertEqualsWithDelta(16.32, $savings['monthly_savings'], 0.0001);
+    }
+
+    public function test_savings_never_go_below_zero(): void
+    {
+        // Same 8,288 Wh/day from the grid at ₱13 = ₱3,232.32, more than the ₱1,000 bill
+        $savings = $this->engine->computeSavings(20000, 0, 4, 4096, 100000, [['amount' => 1000, 'kwh' => null]]);
+
+        $this->assertEqualsWithDelta(0, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(1000, $savings['new_monthly_bill'], 0.0001);
+        $this->assertNull($savings['payback_years']);
+    }
+
+    public function test_savings_use_the_rate_from_the_bills(): void
+    {
+        // Rates: 3,000 ÷ 250 = 12 and 2,200 ÷ 200 = 11 → average 11.5; bill average 2,600.
+        // 4 panels cover the whole 5,000 Wh day → nothing from the grid → savings = 2,600
+        $savings = $this->engine->computeSavings(5000, 0, 4, 4096, 207000, [
+            ['amount' => 3000, 'kwh' => 250],
+            ['amount' => 2200, 'kwh' => 200],
+        ]);
+
+        $this->assertEqualsWithDelta(150, $savings['usage_kwh'], 0.0001);
+        $this->assertEqualsWithDelta(11.5, $savings['rate'], 0.0001);
+        $this->assertSame('bill', $savings['rate_source']);
+        $this->assertEqualsWithDelta(2600, $savings['monthly_bill'], 0.0001);
+        $this->assertEqualsWithDelta(2600, $savings['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(31200, $savings['annual_savings'], 0.0001);
+        $this->assertEqualsWithDelta(207000 / 2600 / 12, $savings['payback_years'], 0.0001);
+    }
+
     public function test_no_payback_when_there_are_no_savings(): void
     {
-        $savings = $this->engine->computeSavings(0, 4, 100000);
+        $savings = $this->engine->computeSavings(0, 0, 4, 4096, 100000);
 
         $this->assertEqualsWithDelta(0, $savings['monthly_savings'], 0.0001);
         $this->assertNull($savings['payback_years']);
@@ -282,24 +319,38 @@ class SolarComputationServiceTest extends TestCase
 
     public function test_savings_include_the_return(): void
     {
-        // Same inputs as test_savings_use_the_rate_from_the_bills: 20,700 a year on 207,000
-        $savings = $this->engine->computeSavings(5000, 4, 207000, [['amount' => 3000, 'kwh' => 250], ['amount' => 2200, 'kwh' => 200]]);
+        // Same inputs as test_savings_use_the_rate_from_the_bills: 31,200 a year on 207,000
+        // ROA = 31,200 ÷ 207,000 × 100; net gain = 31,200 × 25 − 207,000 = 573,000
+        $savings = $this->engine->computeSavings(5000, 0, 4, 4096, 207000, [['amount' => 3000, 'kwh' => 250], ['amount' => 2200, 'kwh' => 200]]);
 
-        $this->assertEqualsWithDelta(10, $savings['roa_percent'], 0.0001);
-        $this->assertEqualsWithDelta(310500, $savings['net_gain'], 0.0001);
+        $this->assertEqualsWithDelta(31200 / 207000 * 100, $savings['roa_percent'], 0.0001);
+        $this->assertEqualsWithDelta(573000, $savings['net_gain'], 0.0001);
     }
 
     public function test_evaluate_includes_savings(): void
     {
+        // 1,500 W freezer for 3 night hours = 4,500 Wh; 10 panels leave plenty to
+        // charge the 205 Ah battery, so the night is covered and the whole ₱3,000 bill is saved
         $rows = [['appliance_type' => 'freezer', 'watts' => 1500, 'qty' => 1, 'night_from' => 16, 'night_to' => 19]];
         $result = $this->engine->evaluate($rows, 8, 10, 205, [['amount' => 3000, 'kwh' => 250]]);
 
-        // 4,500 Wh/day → 135 kWh × ₱12 = 1,620
-        $this->assertEqualsWithDelta(1620, $result['savings']['monthly_savings'], 0.0001);
+        $this->assertEqualsWithDelta(4500, $result['savings']['night_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(3000, $result['savings']['monthly_savings'], 0.0001);
         $this->assertEqualsWithDelta(
-            $result['quote']['total'] / (1620 * 12),
+            $result['quote']['total'] / 3000 / 12,
             $result['savings']['payback_years'],
             0.0001
         );
+    }
+
+    public function test_evaluate_uses_the_battery_the_customer_picked(): void
+    {
+        // Same freezer, but the 100 Ah battery (4,096 Wh) leaves 404 Wh of the night
+        // on the grid: 12.12 kWh × ₱12 = ₱145.44 → savings 3,000 − 145.44 = 2,854.56
+        $rows = [['appliance_type' => 'freezer', 'watts' => 1500, 'qty' => 1, 'night_from' => 16, 'night_to' => 19]];
+        $result = $this->engine->evaluate($rows, 8, 10, 100, [['amount' => 3000, 'kwh' => 250]]);
+
+        $this->assertEqualsWithDelta(4096, $result['savings']['night_covered_wh'], 0.0001);
+        $this->assertEqualsWithDelta(2854.56, $result['savings']['monthly_savings'], 0.0001);
     }
 }
