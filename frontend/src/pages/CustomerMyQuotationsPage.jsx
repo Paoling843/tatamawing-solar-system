@@ -330,7 +330,10 @@ function WhatYouGet({ qr }) {
     const rows = [
         ['Solar panels', computation.panel_capacity_kw ? `${number(computation.panel_capacity_kw)} kW` : '—'],
         ['Inverter', computation.inverter_specification || '—'],
-        ['Battery storage', computation.battery_capacity_ah ? `${number(computation.battery_capacity_ah)} Ah` : '—'],
+        ['Battery storage', computation.battery_capacity_ah
+            ? `${computation.battery_qty > 1 ? `${computation.battery_qty} × ` : ''}${number(computation.battery_capacity_ah)} Ah`
+                + (computation.extra_battery_ah ? ` + ${number(computation.extra_battery_ah)} Ah` : '')
+            : '—'],
     ];
     // total_load_w (watts × qty) only exists on newer quotations
     if (computation.total_load_w != null) rows.push(['Your total load', `${number(computation.total_load_w)} W`]);

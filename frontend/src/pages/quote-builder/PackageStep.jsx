@@ -1,9 +1,13 @@
 import {
     PACKAGES, BATTERIES, PANEL_WATTS,
-    arrayKwp, batteryWh, panelOptions, panelsForInverterSize, formatWhole, formatDecimal, peso, recommendationReason,
+    arrayKwp, batteryBank, bankWh, bankLabel, panelOptions, panelsForInverterSize,
+    formatWhole, formatDecimal, peso, recommendationReason,
 } from '../../services/solarEngine';
 import { C, NUM, SANS, COST_RAMP, s } from './engineStyles';
 import SavingsCard from './SavingsCard';
+import {
+    BoltIcon, SunIcon, WrenchIcon, GridIcon, ShieldIcon, BatteryIcon,
+} from '../../components/Icons';
 
 // STEP 3 — the recommended package. The customer can:
 //   - move the inverter UP from the recommended package (never below)
@@ -14,10 +18,15 @@ export default function PackageStep({
     load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice, onSwitchAccount,
     onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onRequestQuote,
 }) {
-    const { pkg, pkgIndex, recommendedPkgIndex, recommendedPanels, panels, battery, batteryIndex, recommendedBatteryIndex } = selection;
+    const {
+        pkg, pkgIndex, recommendedPkgIndex, recommendedPanels, panels,
+        batteryIndex, batteryLabel, batteryWhTotal, recommendedBatteryIndex, recommendedBank, recommendedBatteryLabel,
+    } = selection;
     const largest = PACKAGES[PACKAGES.length - 1];
     const exceedsMax = load.inverterSize > largest.watts;
-    const usableWh = batteryWh(battery.ah);
+    // The whole battery bank (e.g. 314 Ah + 100 Ah when the night needs it)
+    const usableWh = batteryWhTotal;
+    const recommendedIsBank = recommendedBank.qty > 1 || recommendedBank.extra !== null;
 
     // Inverter size ÷ 610 W before it's kept inside the package's panel range
     const sizedPanels = panelsForInverterSize(load.inverterSize);
@@ -45,7 +54,7 @@ export default function PackageStep({
         { k: 'Inverter', v: `${pkg.kw} kW hybrid` },
         { k: 'Panels', v: `${panels} × 610 W` },
         { k: 'Array size', v: `${formatDecimal(arrayKwp(panels))} kWp` },
-        { k: 'Battery', v: `${battery.ah} Ah @ 51.2 V` },
+        { k: 'Battery', v: `${batteryLabel} @ 51.2 V` },
         { k: 'Usable storage', v: `${formatDecimal(usableWh)} Wh` },
         { k: 'Inverter size', v: `${formatWhole(load.inverterSize)} W` },
         { k: 'Estimated total', v: peso(quote.total) },
@@ -66,7 +75,7 @@ export default function PackageStep({
                 <div>
                     <h1 className="se-h1" style={{ ...s.h1, margin: 0 }}>{pkg.kw} kW hybrid, sized to your load.</h1>
                     <p style={{ ...s.lead, maxWidth: '640px' }}>
-                        {recommendationReason(load)} You can pick a bigger inverter, but not a smaller one.
+                        Sized from your appliance list. You can pick a bigger inverter, add panels, or change the battery.
                     </p>
                 </div>
                 <div style={styles.adjustedBox}>
@@ -99,8 +108,19 @@ export default function PackageStep({
                         <span style={s.cardEyebrow}>INVERTER</span>
                         <span style={s.tag(C.mint, C.green)}>UPGRADE ONLY</span>
                     </div>
-                    <div style={styles.bigLabel}>{pkg.kw} kW</div>
-                    <div style={{ fontSize: '13.5px', color: C.muted, marginTop: '4px' }}>Hybrid, DEYE or SOLIS</div>
+                    <div style={styles.figureRow}>
+                        <span style={styles.bigNumber}>{pkg.kw}</span>
+                        <span style={{ fontSize: '13.5px', color: C.muted }}>kW hybrid · {pkg.brand}</span>
+                        {pkgIndex === recommendedPkgIndex ? (
+                            <RecommendedPill />
+                        ) : (
+                            <button type="button" onClick={() => onPickPackage(recommendedPkgIndex)} style={styles.useRecommended}>
+                                Use recommended ({PACKAGES[recommendedPkgIndex].kw} kW)
+                            </button>
+                        )}
+                    </div>
+                    {/* The inverter size that picked the package (was a box at the top of the page) */}
+                    <div style={styles.cardNote}>Sized for {formatWhole(load.inverterSize)} W</div>
                     <div style={styles.optionList}>
                         {PACKAGES.map((p, i) => {
                             const locked = i < recommendedPkgIndex;
@@ -127,6 +147,7 @@ export default function PackageStep({
                             );
                         })}
                     </div>
+                    <p style={styles.cardFootnote}>{recommendationReason(load)}</p>
                 </div>
 
                 {/* ================= Panels ================= */}
@@ -135,7 +156,7 @@ export default function PackageStep({
                         <span style={s.cardEyebrow}>PANELS · {PANEL_WATTS} W EACH</span>
                         <span style={s.tag(C.mint, C.green)}>{pkg.panelDefault}–{pkg.panelMax}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginTop: '14px' }}>
+                    <div style={styles.figureRow}>
                         <span style={styles.bigNumber}>{panels}</span>
                         <span style={{ fontSize: '13.5px', color: C.muted }}>panels · {formatDecimal(arrayKwp(panels))} kWp</span>
                         {panels === recommendedPanels ? (
@@ -146,17 +167,33 @@ export default function PackageStep({
                             </button>
                         )}
                     </div>
-                    <select
-                        value={String(panels)}
-                        onChange={(e) => onPanelsChange(parseInt(e.target.value, 10))}
-                        style={styles.panelSelect}
-                    >
-                        {panelOptions(pkg).map((n) => (
-                            <option key={n} value={String(n)}>
-                                {n} panels · {formatDecimal(arrayKwp(n))} kWp{panelTag(n, recommendedPanels, pkg.panelDefault)}
-                            </option>
-                        ))}
-                    </select>
+                    {/* Client's wording: the recommended count is a floor, not a cap */}
+                    <div style={styles.cardNote}>Minimum recommended, subject to upgrade</div>
+                    {/* Same radio rows as the inverter and battery. A package takes up to
+                        9 counts, so the list scrolls after about 5 rows to keep the three
+                        cards the same height. */}
+                    <div style={{ ...styles.optionList, ...styles.panelList }}>
+                        {panelOptions(pkg).map((n) => {
+                            const active = n === panels;
+                            const recommended = n === recommendedPanels;
+                            return (
+                                <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => onPanelsChange(n)}
+                                    style={{ ...s.option(active, false), ...(recommended ? styles.recommendedRow : {}) }}
+                                >
+                                    <span style={s.radioDot(active)} />
+                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>
+                                        {n} panels · {formatDecimal(arrayKwp(n))} kWp
+                                    </span>
+                                    {recommended
+                                        ? <RecommendedPill />
+                                        : <span style={styles.optionTag(false)}>{n === pkg.panelDefault ? 'minimum' : ''}</span>}
+                                </button>
+                            );
+                        })}
+                    </div>
                     <p style={styles.cardFootnote}>
                         {formatWhole(load.inverterSize)} W ÷ {PANEL_WATTS} W = {recommendedPanels} panels, rounded
                         down{panelNote}.
@@ -169,14 +206,34 @@ export default function PackageStep({
                         <span style={s.cardEyebrow}>BATTERY · 51.2 V</span>
                         <span style={s.tag(C.warnBg, C.warnIcon)}>FREE CHOICE</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '14px' }}>
-                        <span style={styles.bigNumber}>{battery.ah}</span>
-                        <span style={{ fontSize: '13.5px', color: C.muted }}>Ah · {formatDecimal(usableWh)} Wh usable</span>
+                    <div style={styles.figureRow}>
+                        {/* "314 Ah", or a whole bank like "314 Ah + 100 Ah" (a bit smaller so it fits) */}
+                        <span style={{ ...styles.bigNumber, ...(selection.bank.qty > 1 || selection.bank.extra ? styles.bigNumberBank : {}) }}>
+                            {batteryLabel}
+                        </span>
+                        <span style={{ fontSize: '13.5px', color: C.muted }}>{formatDecimal(usableWh)} Wh usable</span>
+                        {batteryIndex === recommendedBatteryIndex ? (
+                            <RecommendedPill />
+                        ) : (
+                            <button type="button" onClick={() => onPickBattery(recommendedBatteryIndex)} style={styles.useRecommended}>
+                                Use recommended ({recommendedBatteryLabel})
+                            </button>
+                        )}
+                    </div>
+                    <div style={styles.cardNote}>
+                        {load.night <= 0
+                            ? 'No nighttime load'
+                            : usableWh >= load.night
+                                ? `Covers ${formatWhole(load.night)} Wh at night`
+                                : `Covers ${formatWhole(usableWh)} of ${formatWhole(load.night)} Wh at night`}
                     </div>
                     <div style={styles.optionList}>
                         {BATTERIES.map((b, i) => {
                             const active = i === batteryIndex;
                             const recommended = i === recommendedBatteryIndex;
+                            // The bank this battery would come as (more than one unit only
+                            // for a 314 Ah on a big night, e.g. "314 Ah + 100 Ah")
+                            const bank = batteryBank(b, load.night);
                             return (
                                 <button
                                     key={b.ah}
@@ -186,7 +243,7 @@ export default function PackageStep({
                                 >
                                     <span style={s.radioDot(active)} />
                                     <span style={{ fontFamily: NUM, fontSize: '14px' }}>
-                                        {b.ah} Ah · {formatDecimal(batteryWh(b.ah))} Wh
+                                        {bankLabel(b, bank)} · {formatDecimal(bankWh(b, bank))} Wh
                                     </span>
                                     {recommended && <RecommendedPill />}
                                 </button>
@@ -195,7 +252,7 @@ export default function PackageStep({
                     </div>
                     <p style={styles.cardFootnote}>
                         {load.night > 0
-                            ? `${formatWhole(load.night)} Wh at night needs at least ${BATTERIES[recommendedBatteryIndex].ah} Ah. Any bank can be picked.`
+                            ? `${formatWhole(load.night)} Wh at night needs at least ${recommendedBatteryLabel}.${recommendedIsBank ? ' One 314 Ah can\'t cover it, so the rest is covered by the cheapest battery that fits.' : ''} Any bank can be picked.`
                             : 'No nighttime load, so the smallest bank is suggested.'}
                     </p>
                 </div>
@@ -237,23 +294,17 @@ export default function PackageStep({
                     const active = selectedCost === item.key;
                     return (
                         <div key={item.key} id={`cost-row-${item.key}`} style={styles.costRow(active, item.color)}>
-                            <div style={{ ...styles.swatch, background: item.color }} />
-                            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                                <div style={styles.costLine}>
-                                    <div style={{ fontSize: '15px', fontWeight: 700, color: C.ink, letterSpacing: '-.012em' }}>{item.label}</div>
-                                    <div style={{ fontFamily: NUM, fontSize: '16px', color: C.ink, whiteSpace: 'nowrap' }}>{peso(item.amount)}</div>
+                            {/* Only the material, its cost and its share of the total */}
+                            <div style={{ ...styles.costLine, flex: '1 1 auto', minWidth: 0, alignItems: 'center' }}>
+                                <div style={styles.materialName}>
+                                    <MaterialIcon itemKey={item.key} color={item.color} />
+                                    <span>{item.label}</span>
                                 </div>
-                                <div style={{ ...styles.costLine, marginTop: '4px' }}>
-                                    <div style={{ fontSize: '13px', lineHeight: 1.5, color: C.muted }}>{item.description}</div>
-                                    <div style={{ fontSize: '12px', color: C.muted, whiteSpace: 'nowrap' }}>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontFamily: NUM, fontSize: '16px', color: C.ink, whiteSpace: 'nowrap' }}>{peso(item.amount)}</div>
+                                    <div style={{ fontSize: '12px', color: C.muted, whiteSpace: 'nowrap', marginTop: '2px' }}>
                                         {Math.round((item.amount / quote.total) * 100)}% of total
                                     </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '7px', flexWrap: 'wrap' }}>
-                                    <span style={styles.qtyChip}>{item.qtyLabel}</span>
-                                    {item.unitLabel && (
-                                        <span style={{ fontSize: '12.5px', color: C.muted, whiteSpace: 'nowrap' }}>{item.unitLabel}</span>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -333,23 +384,37 @@ export default function PackageStep({
     );
 }
 
+// Icon for each quote line, keyed by the line's key from buildQuote()
+const MATERIAL_ICONS = {
+    inverter: BoltIcon,
+    panels: SunIcon,
+    installation: WrenchIcon,
+    mounting: GridIcon,
+    safety: ShieldIcon,
+    battery: BatteryIcon,
+    battery_extra: BatteryIcon,
+};
+
+// The material's icon on a tile in its bar colour. The lightest colour
+// (the yellow) gets a dark icon so it stays visible.
+function MaterialIcon({ itemKey, color }) {
+    const Icon = MATERIAL_ICONS[itemKey] ?? GridIcon;
+    const light = color.toLowerCase() === '#f4c542' || color.toLowerCase() === '#79ac99';
+    return (
+        <span style={{ ...styles.materialIcon, background: color }} aria-hidden="true">
+            <Icon size={18} color={light ? C.ink : '#fff'} />
+        </span>
+    );
+}
+
 // Green pill that marks the option the engine recommends
 function RecommendedPill() {
     return <span style={styles.recommendedPill}>★ RECOMMENDED</span>;
 }
 
-// Label after a panel count in the dropdown, e.g. " (recommended)"
-function panelTag(n, recommended, minimum) {
-    const tags = [];
-    if (n === recommended) tags.push('recommended');
-    if (n === minimum) tags.push('minimum');
-    return tags.length ? ` (${tags.join(', ')})` : '';
-}
 
 const styles = {
     titleRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '36px', flexWrap: 'wrap', marginTop: '16px' },
-    adjustedBox: { background: C.green, borderRadius: '12px', padding: '20px 24px' },
-    adjustedValue: { fontFamily: NUM, fontSize: '28px', fontWeight: 600, letterSpacing: '-.03em', color: C.yellow, marginTop: '8px', whiteSpace: 'nowrap' },
     infoBanner: {
         background: C.mint, border: '1px solid #c7d3cc', borderRadius: '12px', padding: '14px 18px',
         marginTop: '24px', fontSize: '14px', color: C.green, lineHeight: 1.5,
@@ -365,8 +430,15 @@ const styles = {
     cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(272px, 100%), 1fr))', gap: '20px', marginTop: '36px', alignItems: 'start' },
     optionCard: { ...s.card, padding: '24px', display: 'flex', flexDirection: 'column' },
     cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
-    bigLabel: { fontSize: '23px', fontWeight: 800, letterSpacing: '-.025em', color: C.ink, marginTop: '14px' },
+    adjustedBox: { background: C.green, borderRadius: '12px', padding: '20px 24px' },
+    adjustedValue: { fontFamily: NUM, fontSize: '28px', fontWeight: 600, letterSpacing: '-.03em', color: C.yellow, marginTop: '8px', whiteSpace: 'nowrap' },
+    // Every card's top: big number, its unit, then the recommended pill or a "Use recommended" link
+    figureRow: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginTop: '14px' },
+    // Green line under the figure: what the recommendation is based on
+    cardNote: { marginTop: '6px', fontSize: '13px', fontWeight: 600, color: C.green },
     bigNumber: { fontFamily: NUM, fontSize: '30px', fontWeight: 600, letterSpacing: '-.03em', color: C.ink },
+    // A battery bank's label ("314 Ah + 100 Ah") is longer, so it's set a bit smaller
+    bigNumberBank: { fontSize: '24px' },
     optionList: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '20px' },
     // Green ring around the recommended row. A box-shadow, not a thicker
     // border, so the row doesn't change size when it's highlighted.
@@ -385,11 +457,9 @@ const styles = {
         marginLeft: 'auto', fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.06em',
         color: highlight ? C.green : C.dim,
     }),
-    panelSelect: {
-        marginTop: '20px', border: `1px solid ${C.fieldBorder}`, borderRadius: '9px', padding: '13px',
-        fontFamily: NUM, fontSize: '14.5px', color: C.ink, outline: 'none', background: C.fieldBg,
-        cursor: 'pointer', width: '100%',
-    },
+    // About 5 rows tall, then scrolls. The 3px padding keeps the recommended
+    // row's ring (a box-shadow outside the row) from being clipped.
+    panelList: { maxHeight: '262px', overflowY: 'auto', padding: '3px', margin: '17px -3px 0' },
     cardFootnote: { margin: '14px 0 0', fontSize: '13px', lineHeight: 1.55, color: C.muted },
     priceHead: {
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px',
@@ -404,13 +474,20 @@ const styles = {
         filter: selected === null || selected === item.key ? 'none' : 'saturate(.45)',
     }),
     costRow: (active, color) => ({
-        display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '18px 26px',
+        display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 26px',
         borderTop: `1px solid ${C.rowBorder}`, transition: 'background .18s',
         background: active ? '#f6f9f5' : 'transparent', boxShadow: active ? `inset 3px 0 0 ${color}` : 'none',
     }),
-    swatch: { flex: 'none', width: '11px', height: '11px', borderRadius: '3px', marginTop: '5px' },
+    materialName: {
+        display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0,
+        fontSize: '15px', fontWeight: 700, color: C.ink, letterSpacing: '-.012em',
+    },
+    // Rounded tile in the cost's bar colour, so each row matches its band in the bar above
+    materialIcon: {
+        flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: '36px', height: '36px', borderRadius: '10px', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.06)',
+    },
     costLine: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '18px' },
-    qtyChip: { fontSize: '12.5px', color: C.ink, background: C.softBg, borderRadius: '6px', padding: '3px 8px', whiteSpace: 'nowrap' },
     priceFoot: {
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '20px',
         padding: '20px 26px', background: C.fieldBg, flexWrap: 'wrap',

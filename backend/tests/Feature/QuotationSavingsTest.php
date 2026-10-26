@@ -58,4 +58,48 @@ class QuotationSavingsTest extends TestCase
             'recommended_panels' => 10,
         ]);
     }
+
+    public function test_a_big_night_load_adds_a_second_battery_to_the_314_ah(): void
+    {
+        $user = User::factory()->create(['role' => 'customer']);
+        Customer::create([
+            'user_id' => $user->id,
+            'contact_number' => '+639171234567',
+        ]);
+
+        // 2,690 W for 8 night hours = 21,520 Wh, more than one 314 Ah (12,861.44 Wh).
+        // The 8,658.56 Wh left over gets the cheapest battery that holds it, the 280 Ah:
+        // 314 Ah + 280 Ah = 24,330.24 Wh for ₱166,600 + ₱102,200
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/quotation-requests', [
+            'appliances' => [[
+                'appliance_type' => 'other',
+                'custom_name' => 'Night loads',
+                'watts' => 2690,
+                'qty' => 1,
+                'night_from' => 16,
+                'night_to' => 24,
+            ]],
+            'bills' => [
+                ['billing_month' => '2026-09', 'amount' => 9000, 'kwh' => null],
+            ],
+            'location' => ['province' => 'Sorsogon', 'municipality' => 'Bulan', 'barangay' => 'Bical', 'purok' => 'Purok 2'],
+            'package_kw' => 5,
+            'panel_count' => 7,
+            'battery_ah' => 314,
+        ]);
+
+        $response->assertStatus(201);
+
+        $this->assertDatabaseHas('solar_computations', [
+            'quotation_request_id' => $response->json('quotation_request.id'),
+            'battery_ah' => 314,
+            'battery_qty' => 1,
+            'extra_battery_ah' => 280,
+            'battery_wh' => 24330.24,
+        ]);
+
+        $items = collect($response->json('quotation_request.solar_computation.line_items'));
+        $this->assertEquals(166600, $items->firstWhere('key', 'battery')['amount']);
+        $this->assertEquals(102200, $items->firstWhere('key', 'battery_extra')['amount']);
+    }
 }
