@@ -136,6 +136,61 @@ class SolarComputationServiceTest extends TestCase
         $this->assertSame(3, $this->engine->recommendBatteryIndex(50000));   // bigger than all → largest
     }
 
+    public function test_a_big_night_gets_full_314_ah_units_plus_the_cheapest_battery_for_the_rest(): void
+    {
+        [$ah100, $ah205, $ah280, $ah314] = SolarComputationService::BATTERIES;
+        $bank = fn (float $nightWh) => $this->engine->batteryBank($ah314, $nightWh);
+
+        // 15,000 − 12,861.44 = 2,138.56 left → 100 Ah (4,096 Wh) is enough
+        $this->assertSame(['qty' => 1, 'extra' => $ah100], $bank(15000));
+        // Client's example: 21,520 − 12,861.44 = 8,658.56 left → 280 Ah (cheaper than the 205 Ah)
+        $this->assertSame(['qty' => 1, 'extra' => $ah280], $bank(21520));
+        // 25,000 − 12,861.44 = 12,138.56 left → only another 314 Ah holds it → 2 × 314 Ah
+        $this->assertSame(['qty' => 2, 'extra' => null], $bank(25000));
+        // 30,000 − 2 × 12,861.44 = 4,277.12 left → 280 Ah (₱102,200) beats 205 Ah (₱112,000)
+        $this->assertSame(['qty' => 2, 'extra' => $ah280], $bank(30000));
+        // Exactly one or two units → nothing extra
+        $this->assertSame(['qty' => 1, 'extra' => null], $bank(12861.44));
+        $this->assertSame(['qty' => 2, 'extra' => null], $bank(25722.88));
+        // Smaller batteries are never banked
+        $this->assertSame(['qty' => 1, 'extra' => null], $this->engine->batteryBank($ah205, 21520));
+
+        $this->assertEqualsWithDelta(12861.44 + 4096, $this->engine->bankWh($ah314, $bank(15000)), 0.0001);
+        $this->assertSame('314 Ah + 100 Ah', $this->engine->bankLabel($ah314, $bank(15000)));
+        $this->assertSame('2 × 314 Ah + 280 Ah', $this->engine->bankLabel($ah314, $bank(30000)));
+    }
+
+    public function test_quote_charges_every_battery_in_the_bank(): void
+    {
+        [$ah100, , , $ah314] = SolarComputationService::BATTERIES;
+        $quote = $this->engine->buildQuote(SolarComputationService::PACKAGES[0], 7, $ah314, ['qty' => 1, 'extra' => $ah100]);
+        $items = collect($quote['items']);
+
+        $this->assertEquals(166600, $items->firstWhere('key', 'battery')['amount']);
+        $this->assertEquals(57400, $items->firstWhere('key', 'battery_extra')['amount']);
+
+        $double = $this->engine->buildQuote(SolarComputationService::PACKAGES[0], 7, $ah314, ['qty' => 2, 'extra' => null]);
+        $battery = collect($double['items'])->firstWhere('key', 'battery');
+        $this->assertSame(2, $battery['qty']);
+        $this->assertEquals(166600 * 2, $battery['amount']);
+        $this->assertNull(collect($double['items'])->firstWhere('key', 'battery_extra'));
+    }
+
+    public function test_evaluate_banks_the_314_ah_for_a_big_night(): void
+    {
+        // 2,690 W for 8 night hours = 21,520 Wh → 314 Ah + 280 Ah = 24,330.24 Wh
+        // 7 panels make 20,496 Wh, all left over for the battery → 20,496 Wh of the night covered
+        $rows = [['appliance_type' => 'other', 'watts' => 2690, 'qty' => 1, 'night_from' => 16, 'night_to' => 24]];
+        $result = $this->engine->evaluate($rows, 5, 7, 314);
+
+        $this->assertSame(1, $result['battery_qty']);
+        $this->assertSame(280, $result['extra_battery']['ah']);
+        $this->assertSame(280, $result['recommended_extra_battery']['ah']);
+        $this->assertSame('314 Ah + 280 Ah', $result['battery_label']);
+        $this->assertEqualsWithDelta(24330.24, $result['battery_wh'], 0.0001);
+        $this->assertEqualsWithDelta(20496, $result['savings']['night_covered_wh'], 0.0001);
+    }
+
     public function test_itemized_quote(): void
     {
         $package = SolarComputationService::PACKAGES[2];  // 8 kW

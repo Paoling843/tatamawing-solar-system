@@ -233,6 +233,42 @@ export function recommendBatteryIndex(nightWh) {
     return index < 0 ? BATTERIES.length - 1 : index;
 }
 
+// The battery bank the night needs, when the largest battery (314 Ah) is
+// picked and one unit can't cover the nighttime load:
+//   - as many full 314 Ah units as fit the night (rounded down), then
+//   - the cheapest battery that covers what's left over.
+// e.g. 15,000 Wh → 314 Ah + 100 Ah; 21,520 Wh → 314 Ah + 280 Ah.
+// If the left-over needs another 314 Ah, it's counted as one more unit
+// instead (25,000 Wh → 2 × 314 Ah). Any other battery is a single unit.
+//   returns { qty: units of battery, extra: the added battery or null }
+export function batteryBank(battery, nightWh) {
+    const largest = BATTERIES[BATTERIES.length - 1];
+    const unitWh = batteryWh(battery.ah);
+    if (battery.ah !== largest.ah || nightWh <= unitWh) return { qty: 1, extra: null };
+
+    const qty = Math.floor(nightWh / unitWh);
+    const leftOverWh = nightWh - qty * unitWh;
+    if (leftOverWh <= 0) return { qty, extra: null };
+
+    // Cheapest battery that holds the left-over (the 280 Ah costs less than the 205 Ah)
+    const extra = BATTERIES
+        .filter((b) => batteryWh(b.ah) >= leftOverWh)
+        .reduce((best, b) => (best === null || b.price < best.price ? b : best), null);
+
+    return extra.ah === largest.ah ? { qty: qty + 1, extra: null } : { qty, extra };
+}
+
+// Usable Wh of a whole bank: the main battery × its units, plus the extra one
+export function bankWh(battery, bank) {
+    return batteryWh(battery.ah) * bank.qty + (bank.extra ? batteryWh(bank.extra.ah) : 0);
+}
+
+// "314 Ah", "2 × 314 Ah" or "314 Ah + 100 Ah"
+export function bankLabel(battery, bank) {
+    const main = bank.qty > 1 ? `${bank.qty} × ${battery.ah} Ah` : `${battery.ah} Ah`;
+    return bank.extra ? `${main} + ${bank.extra.ah} Ah` : main;
+}
+
 // One-sentence explanation of why the package was recommended
 export function recommendationReason(load) {
     const largest = PACKAGES[PACKAGES.length - 1];
@@ -271,6 +307,11 @@ export function resolveSelection(load, choice) {
 
     const recommendedBatteryIndex = recommendBatteryIndex(load.night);
     const batteryIndex = choice.battery !== null ? choice.battery : recommendedBatteryIndex;
+    const battery = BATTERIES[batteryIndex];
+    // Full 314 Ah units + an extra battery, only for a 314 Ah on a big night load
+    const bank = batteryBank(battery, load.night);
+    const recommendedBattery = BATTERIES[recommendedBatteryIndex];
+    const recommendedBank = batteryBank(recommendedBattery, load.night);
 
     return {
         recommendedPkgIndex,
@@ -279,8 +320,14 @@ export function resolveSelection(load, choice) {
         recommendedPanels,
         panels,
         recommendedBatteryIndex,
+        recommendedBank,
+        recommendedBatteryLabel: bankLabel(recommendedBattery, recommendedBank),
         batteryIndex,
-        battery: BATTERIES[batteryIndex],
+        battery,
+        bank,
+        batteryLabel: bankLabel(battery, bank),
+        // Usable Wh of the whole bank
+        batteryWhTotal: bankWh(battery, bank),
     };
 }
 
@@ -294,8 +341,11 @@ export function resolveSelection(load, choice) {
 //   Installation labour = 5,000 × panels
 //   Mounting kit        = 2,500 × panels
 //   Safety devices      = package safety price (flat, does NOT scale with panels)
-//   Battery storage     = battery price (flat)
-export function buildQuote(pkg, panels, battery) {
+//   Battery storage     = battery price × units (see batteryBank())
+//   Additional battery  = the extra battery's price, when the bank has one
+// bank is batteryBank()'s result; without it, one unit of battery.
+export function buildQuote(pkg, panels, battery, bank = { qty: 1, extra: null }) {
+    const batteryQty = bank.qty;
     const items = [
         {
             key: 'inverter',
@@ -355,15 +405,29 @@ export function buildQuote(pkg, panels, battery) {
         {
             key: 'battery',
             label: 'Battery storage',
-            description: `${battery.ah} Ah at 51.2 V — stores daytime power so you can use it at night.`,
+            description: `${bankLabel(battery, { qty: batteryQty, extra: null })} at 51.2 V — stores daytime power so you can use it at night.`,
             sku: battery.sku,
-            qty: 1,
-            qtyLabel: '1 unit',
+            qty: batteryQty,
+            qtyLabel: batteryQty > 1 ? `${batteryQty} units` : '1 unit',
             unitPrice: battery.price,
-            unitLabel: '',
-            amount: battery.price,
+            unitLabel: batteryQty > 1 ? `${peso(battery.price)} each` : '',
+            amount: battery.price * batteryQty,
         },
     ];
+
+    if (bank.extra) {
+        items.push({
+            key: 'battery_extra',
+            label: 'Additional battery',
+            description: `${bank.extra.ah} Ah at 51.2 V — covers the rest of the night the main battery can't.`,
+            sku: bank.extra.sku,
+            qty: 1,
+            qtyLabel: '1 unit',
+            unitPrice: bank.extra.price,
+            unitLabel: '',
+            amount: bank.extra.price,
+        });
+    }
 
     return { items, total: items.reduce((sum, item) => sum + item.amount, 0) };
 }

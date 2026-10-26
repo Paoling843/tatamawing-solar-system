@@ -32,6 +32,8 @@ class SolarComputation extends Model
         'panel_count',
         'recommended_battery_ah',
         'battery_ah',
+        'battery_qty',
+        'extra_battery_ah',
         'battery_wh',
         'battery_sku',
         'line_items',

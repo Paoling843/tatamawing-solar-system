@@ -135,7 +135,9 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                             <Tile
                                 icon={<BatteryIcon size={18} color={colors.primary} />}
                                 label="Battery"
-                                value={d.batteryAh ? `${num(d.batteryAh)} Ah` : '—'}
+                                value={d.batteryAh
+                                    ? `${d.batteryQty > 1 ? `${d.batteryQty} × ` : ''}${num(d.batteryAh)} Ah${d.extraBatteryAh ? ` + ${num(d.extraBatteryAh)} Ah` : ''}`
+                                    : '—'}
                                 sub={d.batteryWh ? `${num(d.batteryWh)} Wh for night use` : null}
                             />
                             <Tile
@@ -275,6 +277,10 @@ function describe(qr) {
         panelCount: c.panel_count ?? null,
         arrayKwp: toNumber(c.panel_capacity_kw),
         batteryAh: toNumber(c.battery_ah ?? c.battery_capacity_ah),
+        // Units of that battery; older quotations have 1
+        batteryQty: toNumber(c.battery_qty) ?? 1,
+        // A second, smaller battery in the bank (e.g. the 100 Ah in "314 Ah + 100 Ah")
+        extraBatteryAh: toNumber(c.extra_battery_ah),
         batteryWh: toNumber(c.battery_wh),
         // Total load and inverter size only exist on newer quotations
         totalLoadW: toNumber(c.total_load_w),

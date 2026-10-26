@@ -276,6 +276,68 @@ class SolarComputationService
         return count(self::BATTERIES) - 1;
     }
 
+    /**
+     * The battery bank the night needs, when the largest battery (314 Ah) is
+     * picked and one unit can't cover the nighttime load:
+     *   - as many full 314 Ah units as fit the night (rounded down), then
+     *   - the cheapest battery that covers what's left over.
+     * e.g. 15,000 Wh → 314 Ah + 100 Ah; 21,520 Wh → 314 Ah + 280 Ah.
+     * If the left-over needs another 314 Ah, it's counted as one more unit
+     * instead (25,000 Wh → 2 × 314 Ah). Any other battery is a single unit.
+     *
+     * Returns ['qty' => units of $battery, 'extra' => the added battery or null].
+     */
+    public function batteryBank(array $battery, float $nightWh): array
+    {
+        $largest = self::BATTERIES[count(self::BATTERIES) - 1];
+        $unitWh = $this->batteryWh($battery['ah']);
+
+        if ($battery['ah'] !== $largest['ah'] || $nightWh <= $unitWh) {
+            return ['qty' => 1, 'extra' => null];
+        }
+
+        $qty = (int) floor($nightWh / $unitWh);
+        $leftOverWh = $nightWh - $qty * $unitWh;
+
+        if ($leftOverWh <= 0) {
+            return ['qty' => $qty, 'extra' => null];
+        }
+
+        // Cheapest battery that holds the left-over (the 280 Ah costs less than the 205 Ah)
+        $extra = null;
+        foreach (self::BATTERIES as $candidate) {
+            if ($this->batteryWh($candidate['ah']) >= $leftOverWh
+                && ($extra === null || $candidate['price'] < $extra['price'])) {
+                $extra = $candidate;
+            }
+        }
+
+        if ($extra['ah'] === $largest['ah']) {
+            return ['qty' => $qty + 1, 'extra' => null];
+        }
+
+        return ['qty' => $qty, 'extra' => $extra];
+    }
+
+    /**
+     * Usable Wh of a whole bank: the main battery × its units, plus the extra one.
+     */
+    public function bankWh(array $battery, array $bank): float
+    {
+        return $this->batteryWh($battery['ah']) * $bank['qty']
+            + ($bank['extra'] ? $this->batteryWh($bank['extra']['ah']) : 0);
+    }
+
+    /**
+     * "314 Ah", "2 × 314 Ah" or "314 Ah + 100 Ah".
+     */
+    public function bankLabel(array $battery, array $bank): string
+    {
+        $main = $bank['qty'] > 1 ? "{$bank['qty']} × {$battery['ah']} Ah" : "{$battery['ah']} Ah";
+
+        return $bank['extra'] ? "{$main} + {$bank['extra']['ah']} Ah" : $main;
+    }
+
     // ===================================================================
     // STEP 3: ITEMIZED QUOTE
     // ===================================================================
@@ -287,10 +349,17 @@ class SolarComputationService
      *   Installation labour = 5,000 × panels
      *   Mounting kit        = 2,500 × panels
      *   Safety devices      = package safety price (flat)
-     *   Battery storage     = battery price (flat)
+     *   Battery storage     = battery price × units (see batteryBank())
+     *   Additional battery  = the extra battery's price, when the bank has one
+     *
+     * $bank is batteryBank()'s result; without it, one unit of $battery.
      */
-    public function buildQuote(array $package, int $panels, array $battery): array
+    public function buildQuote(array $package, int $panels, array $battery, ?array $bank = null): array
     {
+        $bank ??= ['qty' => 1, 'extra' => null];
+        $batteryQty = $bank['qty'];
+        $batteryText = $batteryQty > 1 ? "{$batteryQty} × {$battery['ah']} Ah" : "{$battery['ah']} Ah";
+
         $items = [
             [
                 'key' => 'inverter',
@@ -345,14 +414,27 @@ class SolarComputationService
             [
                 'key' => 'battery',
                 'label' => 'Battery storage',
-                'description' => $battery['ah'] . ' Ah at 51.2 V — stores daytime power so you can use it at night.',
+                'description' => $batteryText . ' at 51.2 V — stores daytime power so you can use it at night.',
                 'sku' => $battery['sku'],
-                'qty' => 1,
-                'qty_unit' => 'unit',
+                'qty' => $batteryQty,
+                'qty_unit' => $batteryQty > 1 ? 'units' : 'unit',
                 'unit_price' => $battery['price'],
-                'amount' => $battery['price'],
+                'amount' => $battery['price'] * $batteryQty,
             ],
         ];
+
+        if ($bank['extra']) {
+            $items[] = [
+                'key' => 'battery_extra',
+                'label' => 'Additional battery',
+                'description' => $bank['extra']['ah'] . ' Ah at 51.2 V — covers the rest of the night the main battery can\'t.',
+                'sku' => $bank['extra']['sku'],
+                'qty' => 1,
+                'qty_unit' => 'unit',
+                'unit_price' => $bank['extra']['price'],
+                'amount' => $bank['extra']['price'],
+            ];
+        }
 
         return [
             'items' => $items,
@@ -534,7 +616,12 @@ class SolarComputationService
 
         $battery = self::BATTERIES[$batteryIndex];
         $recommendedBattery = self::BATTERIES[$this->recommendBatteryIndex($load['total_night_wh'])];
-        $quote = $this->buildQuote($package, $panelCount, $battery);
+
+        // When one 314 Ah can't cover the night: full 314 Ah units + the cheapest battery for the rest
+        $bank = $this->batteryBank($battery, $load['total_night_wh']);
+        $recommendedBank = $this->batteryBank($recommendedBattery, $load['total_night_wh']);
+        $batteryWh = $this->bankWh($battery, $bank);
+        $quote = $this->buildQuote($package, $panelCount, $battery, $bank);
 
         return [
             'load' => $load,
@@ -545,14 +632,20 @@ class SolarComputationService
             'panel_count' => $panelCount,
             'array_kwp' => $panelCount * self::PANEL_WATTS / 1000,
             'recommended_battery' => $recommendedBattery,
+            'recommended_battery_qty' => $recommendedBank['qty'],
+            'recommended_extra_battery' => $recommendedBank['extra'],
             'battery' => $battery,
-            'battery_wh' => $this->batteryWh($battery['ah']),
+            'battery_qty' => $bank['qty'],
+            'extra_battery' => $bank['extra'],
+            'battery_label' => $this->bankLabel($battery, $bank),
+            // Usable Wh of the whole bank
+            'battery_wh' => $batteryWh,
             'quote' => $quote,
             'savings' => $this->computeSavings(
                 $load['total_day_wh'],
                 $load['total_night_wh'],
                 $panelCount,
-                $this->batteryWh($battery['ah']),
+                $batteryWh,
                 $quote['total'],
                 $bills
             ),
@@ -594,7 +687,11 @@ class SolarComputationService
                 'exceeds_max_package' => $result['exceeds_max_package'],
                 'panel_count' => $result['panel_count'],
                 'recommended_battery_ah' => $result['recommended_battery']['ah'],
+                // battery_ah is per unit (× battery_qty), plus one extra_battery_ah
+                // battery when the bank has one; battery_wh is the whole bank
                 'battery_ah' => $battery['ah'],
+                'battery_qty' => $result['battery_qty'],
+                'extra_battery_ah' => $result['extra_battery']['ah'] ?? null,
                 'battery_wh' => $result['battery_wh'],
                 'battery_sku' => $battery['sku'],
                 'line_items' => $result['quote']['items'],

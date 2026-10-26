@@ -539,8 +539,11 @@ export default function AdminQuotationDetailPage() {
                                     <span style={styles.resultIcon}><BatteryIcon size={22} color={adminTokens.green} /></span>
                                     <span style={styles.resultLabel}>Battery Capacity</span>
                                     <span style={styles.resultValue}>
+                                        {/* A big night load gets a bank: 2 × 314 Ah, or 314 Ah + a smaller one */}
+                                        {quotation?.solar_computation?.battery_qty > 1 && `${quotation.solar_computation.battery_qty} × `}
                                         {parseFloat(quotation?.solar_computation?.battery_capacity_ah
                                         ).toLocaleString()} Ah
+                                        {quotation?.solar_computation?.extra_battery_ah && ` + ${quotation.solar_computation.extra_battery_ah} Ah`}
                                     </span>
                                 </div>
                             )}

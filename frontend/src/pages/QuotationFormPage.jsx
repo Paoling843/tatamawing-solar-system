@@ -7,7 +7,7 @@ import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
 import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
-    recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize, batteryWh,
+    recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize,
 } from '../services/solarEngine';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
@@ -54,12 +54,14 @@ const STEP_NUMBERS = { load: 1, compute: 2, package: 3 };
 const NO_CHOICE = { pkg: null, panels: null, battery: null };
 
 // What Step 3 would recommend for these appliance rows: the inverter
-// package, the battery and the panel count, as one comparable string
+// package, the battery (and the rest of its bank, e.g. "314 Ah + 100 Ah")
+// and the panel count, as one comparable string
 function recommendationFor(rows) {
     const load = computeLoad(rows);
     return [
         recommendPackageIndex(load.inverterSize),
         recommendBatteryIndex(load.night),
+        resolveSelection(load, NO_CHOICE).recommendedBatteryLabel,
         panelsForInverterSize(load.inverterSize),
     ].join('|');
 }
@@ -148,8 +150,8 @@ export default function QuotationFormPage({ embedded = false }) {
     // ----- Derived values (recomputed whenever the inputs change) -----
     const load = useMemo(() => computeLoad(rows), [rows]);
     const selection = resolveSelection(load, choice);
-    const quote = buildQuote(selection.pkg, selection.panels, selection.battery);
-    const savings = computeSavings(load.day, load.night, selection.panels, batteryWh(selection.battery.ah), quote.total, bills);
+    const quote = buildQuote(selection.pkg, selection.panels, selection.battery, selection.bank);
+    const savings = computeSavings(load.day, load.night, selection.panels, selection.batteryWhTotal, quote.total, bills);
     // Step 1 is done when every appliance row is filled in
     const loadReady = rows.length > 0 && rows.every(isRowComplete);
 
@@ -405,7 +407,7 @@ export default function QuotationFormPage({ embedded = false }) {
         <>
             {authPromptOpen && (
                 <RequestQuoteDialog
-                    summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.battery.ah} Ah`}
+                    summaryLine={`${selection.pkg.kw} kW hybrid · ${selection.panels} × 610 W · ${selection.batteryLabel}`}
                     inverterSize={load.inverterSize}
                     onClose={closeAuthPrompt}
                     onLogin={() => sendToAuth('/login')}

@@ -195,7 +195,10 @@
                 @if($sizing->battery_capacity_ah > 0)
                 <td>
                     <div class="label">Battery Capacity</div>
-                    <div class="value">{{ number_format($sizing->battery_capacity_ah) }} Ah</div>
+                    <div class="value">
+                        @if(($sizing->battery_qty ?? 1) > 1){{ $sizing->battery_qty }} × @endif{{ number_format($sizing->battery_capacity_ah) }} Ah
+                        @if($sizing->extra_battery_ah ?? null) + {{ number_format($sizing->extra_battery_ah) }} Ah @endif
+                    </div>
                 </td>
                 @endif
             </tr>
