@@ -358,7 +358,7 @@ export default function AdminDashboardPage() {
                         <MetricCard
                             label="TOTAL REQUESTS"
                             value={totalCount.toLocaleString()}
-                            note="Bulan, Sorsogon"
+                            note="Across Sorsogon"
                             barColor={adminTokens.gold}
                         />
                         <MetricCard

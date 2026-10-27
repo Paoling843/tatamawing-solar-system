@@ -11,7 +11,11 @@ export default function TermsPage() {
             intro="These terms explain how the TataMawing Solar website works and what you can expect from us. By creating an account or sending a request, you agree to them."
         >
             <Section title="Where we work">
-                <p>We currently install solar systems in Bulan, Sorsogon only.</p>
+                <p>
+                    We install solar systems across the province of Sorsogon. For now, online quotation requests
+                    cover addresses in Bulan; if your home or business is in another town, contact us and we’ll
+                    arrange your quotation.
+                </p>
             </Section>
 
             <Section title="The solar calculator gives estimates">
