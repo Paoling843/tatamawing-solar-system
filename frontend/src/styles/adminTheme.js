@@ -20,7 +20,8 @@ export const adminTokens = {
 // Shared text styles, so every admin page heading looks the same
 export const adminText = {
     pageTitle: {
-        fontSize: '30px',
+        // Shrinks on phones so long page titles don't push the header wider than the screen
+        fontSize: 'clamp(22px, 6vw, 30px)',
         fontWeight: 800,
         letterSpacing: '-.03em',
         color: adminTokens.ink,

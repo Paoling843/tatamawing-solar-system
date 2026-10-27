@@ -236,13 +236,13 @@ export default function ScheduleModal({
                         <div style={{ ...styles.column, flex: '1 1 380px', gap: '14px' }}>
                             {intro}
 
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                 <StepLabel n={1} done={Boolean(values.scheduled_date)}>Pick a date</StepLabel>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <button type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)} disabled={!canGoBack} style={styles.navBtn}>
                                         <Chevron dir="left" color={canGoBack ? '#374151' : '#9ca3af'} />
                                     </button>
-                                    <span style={{ fontSize: '15px', fontWeight: 600, minWidth: '112px', textAlign: 'center' }}>
+                                    <span style={{ fontSize: '15px', fontWeight: 600, minWidth: '96px', textAlign: 'center' }}>
                                         {MONTHS[view.month]} {view.year}
                                     </span>
                                     <button type="button" aria-label="Next month" onClick={() => shiftMonth(1)} style={styles.navBtn}>
@@ -403,7 +403,7 @@ export default function ScheduleModal({
                             {summaryParts.length ? summaryParts.join(' · ') : 'Pick a date, time and technician'}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginLeft: 'auto' }}>
                         <button type="button" onClick={onClose} disabled={submitting} style={styles.cancelBtn}>Cancel</button>
                         <button
                             type="submit"
@@ -518,7 +518,7 @@ const styles = {
         color: '#111827', fontVariantNumeric: 'tabular-nums', margin: 0,
     },
     header: {
-        padding: '22px 24px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '22px clamp(16px, 5vw, 24px) 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         gap: '16px', borderBottom: '1px solid #e5e7eb', flexShrink: 0,
     },
     title: { margin: 0, fontSize: '22px', fontWeight: 600, letterSpacing: '-0.01em', color: '#111827' },
@@ -534,7 +534,7 @@ const styles = {
         borderRadius: '10px', padding: '10px 14px', fontSize: '14px',
     },
     columns: { display: 'flex', flexWrap: 'wrap', gap: '1px', background: '#e5e7eb' },
-    column: { background: '#fff', padding: '22px 24px', display: 'flex', flexDirection: 'column', minWidth: 0 },
+    column: { background: '#fff', padding: '22px clamp(16px, 5vw, 24px)', display: 'flex', flexDirection: 'column', minWidth: 0 },
     navBtn: {
         width: '36px', height: '36px', borderRadius: '8px', border: 'none', background: 'transparent',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -560,7 +560,7 @@ const styles = {
         color: '#111827', width: '100%', boxSizing: 'border-box', background: '#fff',
     },
     footer: {
-        padding: '14px 24px', borderTop: '1px solid #e5e7eb', background: '#fafaf9', display: 'flex',
+        padding: '14px clamp(16px, 5vw, 24px)', borderTop: '1px solid #e5e7eb', background: '#fafaf9', display: 'flex',
         justifyContent: 'space-between', alignItems: 'center', gap: '12px 16px', flexWrap: 'wrap', flexShrink: 0,
     },
     cancelBtn: {

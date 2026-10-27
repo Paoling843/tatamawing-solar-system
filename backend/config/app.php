@@ -74,6 +74,10 @@ return [
     // emails are sent from, so a personal sending account isn't published.
     'contact_email' => env('CONTACT_EMAIL'),
 
+    // TataMawing's own address: where suppliers deliver materials when the
+    // admin doesn't pick the installation site on the materials PDF.
+    'business_address' => env('BUSINESS_ADDRESS', 'TataMawing Solar, Bulan, Sorsogon'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

@@ -191,7 +191,7 @@ export default function CustomerDashboardPage() {
                 <>
                     <div className="responsive-grid-4" style={styles.statStrip}>
                         {stats.map((s) => (
-                            <div key={s.label} style={styles.statCell}>
+                            <div key={s.label} className="m-pad" style={styles.statCell}>
                                 <div style={styles.statTop}>
                                     <span style={styles.statLabel}>{s.label}</span>
                                     <span style={styles.statIcon}>{s.icon}</span>
@@ -279,8 +279,9 @@ export default function CustomerDashboardPage() {
                             </div>
                         </div>
 
-                        <div className="table-scroll">
-                            <div>
+                        {/* Scrolls sideways inside the card on narrow screens */}
+                        <div className="scroll-x">
+                            <div style={{ minWidth: '720px' }}>
                                 <div style={styles.tableHeader}>
                                     <div>Reference</div>
                                     <div>System</div>
@@ -371,21 +372,18 @@ export default function CustomerDashboardPage() {
                             </div>
                         </div>
 
-                        <div style={styles.tableFooter}>
+                        <div className="m-wrap" style={styles.tableFooter}>
                             <span style={styles.tableFooterText}>
                                 Showing {visibleQuotations.length} of {totalCount}
                             </span>
-                            <span
-                                style={styles.tableFooterLink}
-                                onClick={() => navigate('/customer/quotations')}
-                            >
+                            <Link to="/customer/quotations" className="m-tap" style={styles.tableFooterLink}>
                                 All quotations →
-                            </span>
+                            </Link>
                         </div>
                     </div>
 
-                    <div style={styles.footer}>
-                        <div style={styles.footerLeft}>
+                    <div className="m-wrap" style={styles.footer}>
+                        <div className="m-wrap" style={styles.footerLeft}>
                             <span style={styles.footerText}>
                                 © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
                             </span>
@@ -449,7 +447,9 @@ const styles = {
     },
 
     statStrip: {
-        backgroundColor: colors.bgCard,
+        // The 1px gaps show this colour, drawing the lines between the boxes
+        // whether they sit four across or two by two on phones
+        backgroundColor: colors.borderLight,
         border: `1px solid ${colors.border}`,
         borderRadius: '12px',
         overflow: 'hidden',
@@ -460,7 +460,6 @@ const styles = {
     statCell: {
         backgroundColor: colors.bgCard,
         padding: '1.25rem 1.375rem',
-        boxShadow: `1px 0 0 ${colors.borderLight}`,
     },
     statTop: {
         display: 'flex',
@@ -482,9 +481,10 @@ const styles = {
         alignItems: 'baseline',
         gap: '0.5rem',
         marginTop: '0.875rem',
+        flexWrap: 'wrap',
     },
     statValue: {
-        fontSize: '2rem',
+        fontSize: 'clamp(1.5rem, 6vw, 2rem)',
         fontWeight: 700,
         letterSpacing: '-0.02em',
         color: colors.textDark,
@@ -531,6 +531,8 @@ const styles = {
     },
     filterTabs: {
         display: 'flex',
+        flexWrap: 'wrap',
+        maxWidth: '100%',
         gap: '0.25rem',
         backgroundColor: colors.bgSubtle,
         border: `1px solid ${colors.border}`,
@@ -580,8 +582,11 @@ const styles = {
     sortDropdown: {
         position: 'absolute',
         top: '2.5rem',
-        right: 0,
+        // Opens to the right of the button, so it stays on screen when the
+        // controls wrap to the left edge on phones
+        left: 0,
         width: '210px',
+        maxWidth: 'calc(100vw - 2rem)',
         backgroundColor: colors.bgCard,
         border: `1px solid ${colors.border}`,
         borderRadius: '11px',
@@ -711,9 +716,12 @@ const styles = {
         color: colors.textMuted,
     },
     tableFooterLink: {
+        display: 'inline-flex',
+        alignItems: 'center',
         fontSize: '0.8rem',
         fontWeight: 600,
         color: colors.primary,
+        textDecoration: 'none',
         cursor: 'pointer',
     },
 

@@ -16,7 +16,7 @@ export default function SavingsCard({ savings, total }) {
 
     return (
         <div style={{ ...s.card, marginTop: '20px', overflow: 'hidden' }}>
-            <header style={styles.header}>
+            <header className="se-pad" style={styles.header}>
                 <h2 style={styles.title}>Your estimated savings</h2>
                 <span style={styles.ratePill}>
                     {savings.rateSource === 'bill' ? 'Your rate' : 'SORECO rate'}:{' '}
@@ -27,7 +27,7 @@ export default function SavingsCard({ savings, total }) {
             {/* 1px gaps on a border-coloured background draw the dividers,
                 whether the two columns sit side by side or stack */}
             <div style={styles.split}>
-                <div style={styles.column}>
+                <div className="se-pad" style={styles.column}>
                     <Figure label="Monthly savings" value={peso(savings.monthlySavings)} accent />
                     <span style={{ fontSize: '15px', color: C.muted, marginTop: '-18px' }}>
                         {peso(savings.annualSavings)} per year
@@ -36,7 +36,7 @@ export default function SavingsCard({ savings, total }) {
                     <BillBar savings={savings} />
                 </div>
 
-                <div style={{ ...styles.column, gap: '16px' }}>
+                <div className="se-pad" style={{ ...styles.column, gap: '16px' }}>
                     <Figure
                         label="ROI (payback period)"
                         value={savings.paybackYears !== null ? roundOne(savings.paybackYears) : '—'}
@@ -69,7 +69,7 @@ export default function SavingsCard({ savings, total }) {
                 <Stat label="Sun hours" value={formatDecimal(PEAK_SUN_HOURS)} unit="per day" />
             </div>
 
-            <footer style={styles.footer}>
+            <footer className="se-pad" style={styles.footer}>
                 Estimate only. Daytime use is powered first; what's left charges the battery for the night.
                 Night use the battery can't cover is bought from SORECO. Savings can't exceed your bill, and
                 weather and usage will vary.
@@ -96,7 +96,7 @@ function Figure({ label, value, unit, accent }) {
 
 function Stat({ label, value, unit }) {
     return (
-        <div style={styles.stat}>
+        <div className="se-pad" style={styles.stat}>
             <span style={{ fontSize: '13px', color: C.muted }}>{label}</span>
             <span style={{ fontSize: '22px', fontWeight: 600, color: C.ink }}>
                 {value}
@@ -244,7 +244,8 @@ const styles = {
         flex: '1 1 340px', background: '#fff', padding: '28px', display: 'flex', flexDirection: 'column',
         gap: '22px', fontVariantNumeric: 'tabular-nums', minWidth: 0,
     },
-    bigNumber: { fontSize: '52px', lineHeight: 1.05, fontWeight: 700, letterSpacing: '-.03em', whiteSpace: 'nowrap' },
+    // Shrinks on phones so a long peso amount isn't cut off
+    bigNumber: { fontSize: 'clamp(34px, 9vw, 52px)', lineHeight: 1.05, fontWeight: 700, letterSpacing: '-.03em', whiteSpace: 'nowrap' },
     bar: { display: 'flex', height: '64px', borderRadius: '10px', overflow: 'hidden' },
     segment: {
         color: C.ink, display: 'flex', flexDirection: 'column', justifyContent: 'center',
@@ -258,7 +259,7 @@ const styles = {
     legendItem: { display: 'flex', alignItems: 'center', gap: '6px' },
     stats: { display: 'flex', flexWrap: 'wrap', gap: '1px', background: C.border, borderTop: `1px solid ${C.border}` },
     stat: {
-        flex: '1 1 200px', background: '#fff', padding: '18px 28px', display: 'flex', flexDirection: 'column',
+        flex: '1 1 140px', background: '#fff', padding: '18px 28px', display: 'flex', flexDirection: 'column',
         gap: '2px', fontVariantNumeric: 'tabular-nums',
     },
     footer: {

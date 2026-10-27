@@ -57,7 +57,7 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* ---------- Header ---------- */}
-                <div style={styles.header}>
+                <div className="m-pad-sm" style={styles.header}>
                     <div style={{ minWidth: 0 }}>
                         <div style={styles.tagRow}>
                             <span style={{ ...styles.badge, backgroundColor: badge.bg, color: badge.text }}>
@@ -68,10 +68,10 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                         <h3 id="qd-title" style={styles.title}>Your solar quotation</h3>
                         <div style={styles.subtitle}>Submitted {submitted}</div>
                     </div>
-                    <button type="button" onClick={close} aria-label="Close" style={styles.close}>×</button>
+                    <button type="button" onClick={close} aria-label="Close" className="m-tap" style={styles.close}>×</button>
                 </div>
 
-                <div style={styles.body}>
+                <div className="m-pad-sm" style={styles.body}>
                     {/* ---------- Why it was rejected ---------- */}
                     {rejected && (
                         <div style={styles.rejection}>
@@ -211,7 +211,7 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                 </div>
 
                 {/* ---------- Footer ---------- */}
-                <div style={styles.footer}>
+                <div className="m-pad-sm" style={styles.footer}>
                     {onDownload && (
                         <button type="button" className="btn-primary" onClick={onDownload} style={styles.primaryBtn}>
                             <DownloadIcon size={15} color="#fff" />
@@ -366,7 +366,7 @@ const styles = {
         alignItems: 'center', justifyContent: 'center', padding: '1rem', zIndex: 300,
     },
     modal: {
-        width: '760px', maxWidth: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+        width: '760px', maxWidth: '100%', maxHeight: '92dvh', display: 'flex', flexDirection: 'column',
         backgroundColor: colors.bgCard, borderRadius: '16px', boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
         overflow: 'hidden',
     },
@@ -425,7 +425,7 @@ const styles = {
     billFill: { display: 'block', height: '100%', borderRadius: '999px' },
     billAmount: { fontSize: '0.88rem', fontWeight: 700, color: colors.textDark, textAlign: 'right' },
 
-    tiles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' },
+    tiles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '0.75rem' },
     tile: {
         padding: '0.9rem', borderRadius: '12px', border: `1px solid ${colors.primaryBorder}`,
         background: colors.primaryTint,

@@ -39,7 +39,6 @@ const T = {
     track: '#f2f4f0',
 };
 const SANS = "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif";
-const MONO = "'IBM Plex Mono', monospace";
 
 const EMPTY_VALUES = {
     email: '',
@@ -607,7 +606,7 @@ const styles = {
         alignItems: 'center', justifyContent: 'space-between', gap: '20px',
     },
     headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-    phone: { fontFamily: MONO, fontSize: '13px', color: T.muted, whiteSpace: 'nowrap', textDecoration: 'none' },
+    phone: { fontFamily: SANS, fontSize: '13px', fontVariantNumeric: 'tabular-nums', color: T.muted, whiteSpace: 'nowrap', textDecoration: 'none' },
 
     body: { flex: 1, width: '100%', maxWidth: '1080px', margin: '0 auto', padding: '48px 40px 72px' },
     card: {
@@ -616,8 +615,8 @@ const styles = {
     },
 
     formCol: { padding: '44px', minWidth: 0 },
-    eyebrow: { fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: T.label },
-    headline: { margin: '12px 0 0', fontSize: '34px', fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.1, color: T.ink },
+    eyebrow: { fontFamily: SANS, fontSize: '12px', fontWeight: 600, letterSpacing: '.08em', color: T.label },
+    headline: { margin: '12px 0 0', fontSize: 'clamp(28px, 7.5vw, 34px)', fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.1, color: T.ink },
     blurb: { margin: '12px 0 0', fontSize: '15px', lineHeight: 1.6, color: T.muted, maxWidth: '460px' },
 
     toggle: {
@@ -634,7 +633,7 @@ const styles = {
     twoCol: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '12px' },
     labelRow: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', marginBottom: '7px' },
     label: {
-        display: 'block', fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em',
+        display: 'block', fontFamily: SANS, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em',
         textTransform: 'uppercase', color: T.label, marginBottom: '7px',
     },
     input: (invalid) => ({
@@ -644,19 +643,20 @@ const styles = {
     }),
     fieldError: { marginTop: '6px', fontSize: '12px', color: T.error },
     showToggle: {
-        background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: '12px',
+        // Bigger tap area; the negative margin keeps it from moving the layout
+        background: 'none', border: 'none', padding: '8px 6px', margin: '-8px -6px', fontFamily: SANS, fontSize: '12px',
         fontWeight: 600, color: T.green, cursor: 'pointer',
     },
     mobileGrid: { display: 'grid', gridTemplateColumns: '120px minmax(0,1fr)', gap: '10px' },
     countryCode: {
         display: 'flex', alignItems: 'center', background: T.track, border: `1px solid ${T.inputBorder}`,
-        borderRadius: '9px', padding: '13px', fontFamily: MONO, fontSize: '14px', color: T.ink,
+        borderRadius: '9px', padding: '13px', fontFamily: SANS, fontSize: '14px', color: T.ink, fontVariantNumeric: 'tabular-nums',
     },
 
     strengthRow: { display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' },
     strengthBars: { display: 'flex', gap: '8px', flex: 1 },
     strengthBar: { flex: 1, height: '5px', borderRadius: '3px', transition: 'background .15s' },
-    strengthLabel: { fontFamily: MONO, fontSize: '11px', letterSpacing: '.06em', color: T.ink, minWidth: '54px', textAlign: 'right' },
+    strengthLabel: { fontFamily: SANS, fontSize: '12px', fontWeight: 600, letterSpacing: '.04em', color: T.ink, minWidth: '54px', textAlign: 'right' },
 
     optionsRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' },
     checkboxLabel: { display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '14px', color: T.ink, cursor: 'pointer', lineHeight: 1.4 },
@@ -667,7 +667,7 @@ const styles = {
         border: `1px solid ${invalid ? T.error : checked ? T.green : '#cfd4cd'}`,
     }),
     forgot: {
-        background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: '13.5px',
+        background: 'none', border: 'none', padding: '8px 4px', margin: '-8px -4px', fontFamily: SANS, fontSize: '13.5px',
         fontWeight: 600, color: T.green, textDecoration: 'underline', cursor: 'pointer', marginLeft: 'auto',
     },
 
@@ -686,7 +686,7 @@ const styles = {
 
     orRow: { display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '520px', margin: '24px 0' },
     hairline: { flex: 1, height: '1px', background: '#eef0ec' },
-    orLabel: { fontFamily: MONO, fontSize: '10.5px', letterSpacing: '.1em', color: T.label },
+    orLabel: { fontFamily: SANS, fontSize: '12px', fontWeight: 600, letterSpacing: '.08em', color: T.label },
     secondaryButton: {
         width: '100%', background: '#fff', color: '#293530', border: `1px solid ${T.inputBorder}`,
         borderRadius: '10px', padding: '13px 16px', fontFamily: SANS, fontSize: '14px', fontWeight: 600, cursor: 'pointer',
@@ -697,7 +697,7 @@ const styles = {
     },
     footerLine: { margin: '24px 0 0', fontSize: '13.5px', color: T.muted },
     inlineLink: {
-        background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: '13.5px',
+        background: 'none', border: 'none', padding: '8px 4px', margin: '-8px -4px', fontFamily: SANS, fontSize: '13.5px',
         fontWeight: 700, color: T.green, textDecoration: 'underline', cursor: 'pointer',
     },
 
@@ -708,7 +708,7 @@ const styles = {
     bullet: { display: 'flex', gap: '10px', fontSize: '13.5px', lineHeight: 1.5, color: T.onDarkBody },
     panelBottom: { marginTop: 'auto', paddingTop: '28px' },
     stats: { display: 'flex', gap: '32px', flexWrap: 'wrap' },
-    statValue: { fontFamily: MONO, fontSize: '22px', fontWeight: 500, color: T.gold, letterSpacing: '-.02em' },
+    statValue: { fontFamily: SANS, fontSize: '22px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: T.gold, letterSpacing: '-.02em' },
     statLabel: { fontSize: '12.5px', color: T.onDarkMuted, marginTop: '4px' },
     panelNote: { margin: '20px 0 0', fontSize: '12.5px', lineHeight: 1.55, color: T.onDarkMuted },
 

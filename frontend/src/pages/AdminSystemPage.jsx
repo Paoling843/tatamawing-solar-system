@@ -70,7 +70,7 @@ export default function AdminSystemPage() {
         {
             id: 1,
             title: 'Policy Updated',
-            desc: 'Admin modified Procurement settings',
+            desc: 'Admin modified Inbox settings',
             time: '14:32 PM • Security',
             color: '#1d4ed8',
         },
@@ -186,7 +186,7 @@ export default function AdminSystemPage() {
                     )}
 
                     {users.length > 0 && (
-                        <div style={styles.paginationRow}>
+                        <div className="m-wrap" style={styles.paginationRow}>
                             <span style={styles.paginationText}>
                                 Showing {users.length} users
                             </span>
@@ -275,6 +275,8 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: '1.25rem',
+        flexWrap: 'wrap',
+        gap: '0.75rem 1rem',
     },
     pageTitle: adminText.pageTitle,
     pageSubtitle: { ...adminText.pageSubtitle, maxWidth: '500px' },

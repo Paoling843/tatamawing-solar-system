@@ -100,9 +100,11 @@ export default function CustomerDownloadsPage() {
                         </button>
                     </div>
                 ) : (
-                <div className="table-scroll">
                 <div>
-                <div style={styles.tableHeader}>
+                {/* Rows wrap on phones instead of scrolling sideways; the column
+                    header is hidden there since each row reads on its own */}
+                <div>
+                <div className="m-hide" style={styles.tableHeader}>
                     <span style={{ flex: 2 }}>REFERENCE</span>
                     <span style={{ flex: 2 }}>DATE SUBMITTED</span>
                     <span style={{ flex: 1, textAlign: 'right' }}>ACTIONS</span>
@@ -113,17 +115,17 @@ export default function CustomerDownloadsPage() {
                         const isDownloading = downloadingId === quotationId;
 
                         return (
-                            <div key={qr.id} style={styles.tableRow}>
+                            <div key={qr.id} className="m-wrap" style={styles.tableRow}>
 
-                                <span style={{ flex: 2 }}>
+                                <span style={{ flex: '2 1 140px' }}>
                                     <span style={styles.referenceText}>{reference}</span>
                                 </span>
 
-                                <span style={{ flex: 2, color: '#6b7280', fontSize: '0.875rem' }}>
+                                <span style={{ flex: '2 1 120px', color: '#6b7280', fontSize: '0.875rem' }}>
                                     {formatDate(qr.submission_date)}
                                 </span>
 
-                                <span style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                                <span style={{ flex: '1 1 120px', display: 'flex', justifyContent: 'flex-end' }}>
                                     <button
                                         className="btn-primary"
                                         style={{
@@ -145,7 +147,7 @@ export default function CustomerDownloadsPage() {
                 )}
             </div>
 
-            <div style={styles.footer}>
+            <div className="m-wrap" style={styles.footer}>
                 <div style={styles.footerLeft}>
                     <span style={styles.footerText}>
                         © {new Date().getFullYear()} TataMawing Solar. All rights reserved.

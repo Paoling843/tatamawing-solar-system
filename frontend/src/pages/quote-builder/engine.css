@@ -150,3 +150,49 @@
     .se-footer-grid { grid-template-columns: 1fr !important; padding: 36px 16px 28px !important; gap: 28px !important; }
     .se-footer-bottom { padding: 16px 16px 24px !important; }
 }
+
+/* Phones: tighter padding inside calculator cards and dialogs */
+@media (max-width: 480px) {
+    .se-pad { padding-left: 16px !important; padding-right: 16px !important; }
+    .se-modal-pane { padding: 20px !important; }
+    .se-dialog-title { font-size: 22px !important; }
+}
+@media (max-width: 560px) {
+    .se-header-right { gap: 12px !important; }
+}
+
+/* ---------- Step 1 appliance list on phones ----------
+   The 7-column table becomes one card per appliance: appliance on top,
+   HP / watts / qty side by side, then the day and night hours, with the
+   remove button in the corner. The small labels replace the hidden header. */
+.se-m-label { display: none; }
+@media (max-width: 640px) {
+    .se-appl-table { min-width: 0 !important; }
+    .se-appl-head { display: none !important; }
+    .se-appl-row {
+        position: relative;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-areas:
+            "name name name"
+            "hp watts qty"
+            "day day day"
+            "night night night";
+        gap: 12px 10px !important;
+        padding: 16px !important;
+    }
+    .se-appl-name { grid-area: name; padding-right: 44px; }
+    .se-appl-hp { grid-area: hp; }
+    .se-appl-watts { grid-area: watts; }
+    .se-appl-qty { grid-area: qty; }
+    .se-appl-day { grid-area: day; }
+    .se-appl-night { grid-area: night; }
+    .se-appl-remove { position: absolute; top: 16px; right: 16px; width: 40px !important; height: 40px !important; }
+    .se-m-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #4f5a54;
+    }
+}

@@ -6,7 +6,7 @@ import {
 import { C, NUM, SANS, s } from './engineStyles';
 
 // Column widths shared by the table header and every appliance row
-const GRID = 'minmax(0,1.9fr) minmax(0,0.85fr) minmax(0,0.8fr) minmax(0,0.5fr) minmax(0,1.7fr) minmax(0,1.7fr) 34px';
+const GRID = 'minmax(0,1.9fr) minmax(0,0.85fr) minmax(0,0.8fr) minmax(0,0.5fr) minmax(0,1.7fr) minmax(0,1.7fr) 38px';
 
 // STEP 1 — the appliance list, a live total on the side, and the two
 // reference bills. All state lives in QuotationFormPage; this component only
@@ -57,10 +57,10 @@ export default function ApplianceLoadStep({
                     </div>
 
                     <div className="se-table-scroll">
-                        {/* Fits a normal laptop screen; on narrower screens the
-                            table scrolls sideways inside this card instead */}
-                        <div style={{ minWidth: '860px' }}>
-                            <div style={styles.tableHead}>
+                        {/* Fits a normal laptop screen; tablets scroll it sideways,
+                            and on phones (engine.css) each row becomes a card */}
+                        <div className="se-appl-table" style={{ minWidth: '860px' }}>
+                            <div className="se-appl-head" style={styles.tableHead}>
                                 <div>APPLIANCE</div>
                                 <div>HP</div>
                                 <div style={{ textAlign: 'right' }}>WATTS<span aria-hidden="true" style={s.requiredMark}>*</span></div>
@@ -215,9 +215,13 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
     const nightToOptions = NIGHT_SLOTS.filter((h) => h > (row.nightFrom === '' ? NIGHT_SLOTS[0] : Number(row.nightFrom)));
 
     return (
-        <div style={{ ...styles.row, borderBottom: isLast ? 'none' : `1px solid ${C.rowBorder}` }}>
+        // On phones (engine.css) this grid row becomes a card: appliance on top,
+        // then HP / watts / qty side by side, then the day and night hours.
+        // The small labels only show there, since the table header is hidden.
+        <div className="se-appl-row" style={{ ...styles.row, borderBottom: isLast ? 'none' : `1px solid ${C.rowBorder}` }}>
             {/* Appliance (+ custom name for "Other") */}
-            <div style={styles.cellStack}>
+            <div className="se-appl-name" style={styles.cellStack}>
+                <span className="se-m-label">Appliance</span>
                 <select value={row.appliance} onChange={(e) => onChange('appliance', e.target.value)} style={s.select}>
                     {APPLIANCES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
                 </select>
@@ -232,19 +236,26 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
             </div>
 
             {/* HP — only for aircon and water pump */}
-            {c.usesHp ? (
-                <select value={row.hp} onChange={(e) => onChange('hp', e.target.value)} style={{ ...s.monoSelect, padding: '10px 9px', fontSize: '13.5px' }}>
-                    {HP_OPTIONS.map((hp) => <option key={hp} value={String(hp)}>{hp} hp</option>)}
-                </select>
-            ) : (
-                <div style={styles.naCell}>n/a</div>
-            )}
+            <div className="se-appl-hp" style={styles.cellStack}>
+                <span className="se-m-label">HP</span>
+                {c.usesHp ? (
+                    <select value={row.hp} onChange={(e) => onChange('hp', e.target.value)} style={{ ...s.monoSelect, padding: '10px 9px', fontSize: '13.5px' }}>
+                        {HP_OPTIONS.map((hp) => <option key={hp} value={String(hp)}>{hp} hp</option>)}
+                    </select>
+                ) : (
+                    <div style={styles.naCell}>n/a</div>
+                )}
+            </div>
 
             {/* Watts — computed from HP, or typed in */}
             {c.usesHp ? (
-                <div style={styles.computedWatts}>{formatWhole(c.watts)} W</div>
+                <div className="se-appl-watts" style={styles.cellStack}>
+                    <span className="se-m-label">Watts</span>
+                    <div style={styles.computedWatts}>{formatWhole(c.watts)} W</div>
+                </div>
             ) : (
-                <div style={{ ...styles.cellStack, gap: '5px' }}>
+                <div className="se-appl-watts" style={{ ...styles.cellStack, gap: '5px' }}>
+                    <span className="se-m-label">Watts<span aria-hidden="true" style={s.requiredMark}>*</span></span>
                     <input
                         value={row.watts}
                         onChange={(e) => onChange('watts', e.target.value)}
@@ -260,7 +271,8 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
             )}
 
             {/* Quantity */}
-            <div style={{ ...styles.cellStack, gap: '5px' }}>
+            <div className="se-appl-qty" style={{ ...styles.cellStack, gap: '5px' }}>
+                <span className="se-m-label">Qty<span aria-hidden="true" style={s.requiredMark}>*</span></span>
                 <input
                     value={row.qty}
                     onChange={(e) => onChange('qty', e.target.value)}
@@ -276,6 +288,8 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
 
             {/* Daytime hours */}
             <HourRange
+                className="se-appl-day"
+                title={`Daytime · ${hour(8)}–${hour(16)}`}
                 from={row.dayFrom}
                 to={row.dayTo}
                 fromOptions={dayFromOptions}
@@ -288,6 +302,8 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
 
             {/* Nighttime hours */}
             <HourRange
+                className="se-appl-night"
+                title={`Nighttime · ${hour(16)}–${hour(8)}`}
                 from={row.nightFrom}
                 to={row.nightTo}
                 fromOptions={nightFromOptions}
@@ -298,18 +314,19 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                 onTo={(value) => onChange('nightTo', value)}
             />
 
-            <button className="se-btn-remove" onClick={onRemove} aria-label="Remove appliance" style={styles.removeButton}>
+            <button className="se-btn-remove se-appl-remove" onClick={onRemove} aria-label="Remove appliance" style={styles.removeButton}>
                 ×
             </button>
         </div>
     );
 }
 
-function HourRange({ from, to, fromOptions, toOptions, label, hours, onFrom, onTo }) {
+function HourRange({ className, title, from, to, fromOptions, toOptions, label, hours, onFrom, onTo }) {
     const selectStyle = { ...s.monoSelect, flex: '1 1 0', textAlign: 'center' };
 
     return (
-        <div style={styles.cellStack}>
+        <div className={className} style={styles.cellStack}>
+            <span className="se-m-label">{title}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0 }}>
                 <select value={from} onChange={(e) => onFrom(e.target.value)} style={selectStyle}>
                     <option value="">—</option>
@@ -425,7 +442,7 @@ const styles = {
         fontFamily: NUM, fontSize: '14px', color: C.muted,
     },
     removeButton: {
-        width: '30px', height: '30px', alignSelf: 'center', borderRadius: '8px', border: `1px solid ${C.border}`,
+        width: '36px', height: '36px', alignSelf: 'center', borderRadius: '8px', border: `1px solid ${C.border}`,
         background: '#fff', color: C.sub, fontSize: '14px', cursor: 'pointer',
     },
     listFoot: {

@@ -28,16 +28,16 @@ export default function RequestQuoteDialog({ summaryLine, inverterSize, onClose,
                 onClick={(e) => e.stopPropagation()}
                 style={styles.dialog}
             >
-                <div style={{ flex: '1 1 440px', minWidth: 0, padding: '34px' }}>
+                <div className="se-modal-pane" style={{ flex: '1 1 440px', minWidth: 0, padding: '34px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px' }}>
                         <div>
                             <div style={s.cardEyebrow}>ONE STEP LEFT</div>
-                            <h3 id="request-quote-title" style={styles.title}>Sign in to request your quotation</h3>
+                            <h3 id="request-quote-title" className="se-dialog-title" style={styles.title}>Sign in to request your quotation</h3>
                             <p style={styles.blurb}>
                                 Your inputs are saved. You'll come right back here after signing in.
                             </p>
                         </div>
-                        <button className="se-btn-secondary" onClick={onClose} aria-label="Close" style={styles.close}>×</button>
+                        <button className="se-btn-secondary m-tap" onClick={onClose} aria-label="Close" style={styles.close}>×</button>
                     </div>
 
                     <button className="se-btn-primary" onClick={onRegister} style={styles.primary}>
@@ -55,7 +55,7 @@ export default function RequestQuoteDialog({ summaryLine, inverterSize, onClose,
                     </button>
                 </div>
 
-                <aside style={styles.aside}>
+                <aside className="se-modal-pane" style={styles.aside}>
                     <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>YOU ARE REQUESTING</div>
                     <div style={styles.summary}>{summaryLine}</div>
                     <div style={{ height: '1px', background: 'rgba(255,255,255,.14)', margin: '22px 0' }} />

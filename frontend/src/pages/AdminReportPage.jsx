@@ -32,8 +32,7 @@ const REPORTS = [
     { key: 'quote-sessions', title: 'Guest vs signed-in quotations', sub: 'Every quote-builder visit and whether the user signed in', file: 'guest-vs-signed-in-quotations.pdf' },
     { key: 'external-requests', title: 'External quotation requests', sub: 'Schedule requests for outside quotations', file: 'external-quotation-requests.pdf' },
     { key: 'quotation-history', title: 'Quotation history', sub: 'All requests with statuses', file: 'quotation-history-report.pdf' },
-    { key: 'quotation-material', title: 'Material report', sub: 'Materials per project', file: 'quotation-material-report.pdf' },
-    { key: 'procurement', title: 'Procurement report', sub: 'Purchase requests and supplier responses', file: 'procurement-report.pdf' },
+    { key: 'quotation-material', title: 'Material report', sub: 'Materials per approved project', file: 'quotation-material-report.pdf' },
 ];
 
 // ₱3,900,000 → "₱3.9M", ₱595,680 → "₱596K"
@@ -309,11 +308,11 @@ function UsersSection({ data, rangeLong }) {
                     style={{ ...styles.monthGrid, height: '190px', alignItems: 'end', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
                 >
                     {data.monthly.map((m) => (
-                        <div key={m.month} style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '4px', height: '100%' }}>
+                        <div key={m.month} style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 'clamp(1px, 0.6vw, 4px)', height: '100%', minWidth: 0 }}>
                             {GROUPS.map((g) => (
                                 <div key={g.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', height: '100%' }}>
-                                    <span style={{ fontSize: '11px', color: g.color }}>{m[g.key]}</span>
-                                    <div style={{ width: '14px', height: `${Math.round((m[g.key] / max) * BAR_MAX)}px`, background: g.color, borderRadius: '4px 4px 0 0' }} />
+                                    <span style={{ fontSize: 'clamp(8px, 2.2vw, 11px)', color: g.color }}>{m[g.key]}</span>
+                                    <div style={{ width: 'clamp(5px, 2vw, 14px)', height: `${Math.round((m[g.key] / max) * BAR_MAX)}px`, background: g.color, borderRadius: '4px 4px 0 0' }} />
                                 </div>
                             ))}
                         </div>
@@ -432,7 +431,7 @@ function LocationsCard({ places }) {
             {places.length === 0 ? (
                 <span style={{ fontSize: '14px', color: '#5d6862' }}>No quotations in this period.</span>
             ) : (
-                places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="150px" />)
+                places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="minmax(0, 40%)" />)
             )}
         </section>
     );
@@ -527,7 +526,7 @@ const styles = {
     headerRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px' },
     title: adminText.pageTitle,
     subtitle: { ...adminText.pageSubtitle, margin: 0 },
-    rangeGroup: { display: 'flex', background: '#FFFFFF', border: '1px solid #dcdfd8', borderRadius: '10px', padding: '3px', gap: '2px' },
+    rangeGroup: { display: 'flex', flexWrap: 'wrap', maxWidth: '100%', background: '#FFFFFF', border: '1px solid #dcdfd8', borderRadius: '10px', padding: '3px', gap: '2px' },
     rangeBtn: {
         height: '36px', padding: '0 14px', borderRadius: '8px', border: 'none', background: 'transparent',
         fontSize: '14px', fontWeight: 500, color: '#293530', cursor: 'pointer', fontFamily: 'inherit',
@@ -548,7 +547,7 @@ const styles = {
         textAlign: 'center', color: '#5d6862', fontSize: '15px',
     },
     hero: {
-        background: ACCENT, borderRadius: '18px', padding: '28px', color: '#FFFFFF', display: 'grid',
+        background: ACCENT, borderRadius: '18px', padding: 'clamp(18px, 4vw, 28px)', color: '#FFFFFF', display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '28px',
     },
     groupGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' },
@@ -556,14 +555,15 @@ const styles = {
         background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '14px',
         padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px',
     },
-    monthGrid: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '12px' },
+    // Bars and gaps shrink on phones so a month's three bars stay inside its column
+    monthGrid: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 'clamp(4px, 1.5vw, 12px)' },
     kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '16px' },
     kpiCard: {
         background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '14px', padding: '18px 20px',
         display: 'flex', flexDirection: 'column', gap: '4px',
     },
     card: {
-        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: '24px',
+        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: 'clamp(16px, 4vw, 24px)',
         display: 'flex', flexDirection: 'column', minWidth: 0,
     },
     cardFoot: { fontSize: '13px', color: '#4f5a54', borderTop: '1px solid #F0F1F0', paddingTop: '12px', marginTop: 'auto' },

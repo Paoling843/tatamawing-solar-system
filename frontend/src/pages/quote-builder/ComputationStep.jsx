@@ -67,8 +67,8 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
 
             {/* ----- Four-box ledger ----- */}
             <div style={styles.ledger}>
-                {ledger.map((box, i) => (
-                    <div key={box.label} style={styles.ledgerBox(box.highlight, i < ledger.length - 1)}>
+                {ledger.map((box) => (
+                    <div key={box.label} style={styles.ledgerBox(box.highlight)}>
                         <div style={{ fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: box.highlight ? C.onDark : C.muted }}>
                             {box.label}
                         </div>
@@ -131,13 +131,16 @@ const styles = {
         display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '16px 20px', background: C.fieldBg,
         fontFamily: NUM, fontSize: '14px',
     },
+    // 1px gaps on a border-coloured background draw the dividers, so boxes
+    // that wrap onto new rows (or stack on phones) never keep a stray border.
+    // Flex items grow to fill each row, so no empty grey cell is left over.
     ledger: {
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', background: '#fff',
+        display: 'flex', flexWrap: 'wrap', gap: '1px', background: C.borderSoft,
         border: `1px solid ${C.border}`, borderRadius: '13px', overflow: 'hidden', marginTop: '20px',
     },
-    ledgerBox: (highlight, hasDivider) => ({
+    ledgerBox: (highlight) => ({
+        flex: '1 1 140px',
         padding: '22px 24px',
-        background: highlight ? C.green : 'transparent',
-        borderRight: hasDivider ? `1px solid ${C.borderSoft}` : 'none',
+        background: highlight ? C.green : '#fff',
     }),
 };

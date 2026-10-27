@@ -19,7 +19,7 @@ export default function EngineHeader({ screen, user, onLogoClick, onGetStarted }
             <div className="se-header-divider" style={styles.divider} />
             <div className="se-header-tagline" style={styles.tagline}>SOLAR COMPUTATION ENGINE</div>
 
-            <div style={styles.right}>
+            <div className="se-header-right" style={styles.right}>
                 {!onLanding && <EngineStepNav screen={screen} />}
 
                 {/* Guests on the landing page can log in to an existing account */}

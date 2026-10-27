@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMaterialsPdfRequest;
 use App\Models\ExternalInstallationRequest;
 use App\Models\Quotation;
 use App\Models\QuotationRequest;
-use App\Models\PurchaseRequest;
 use App\Models\QuoteSession;
 use App\Services\AnalyticsService;
+use App\Services\MessengerFallback;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -84,20 +85,25 @@ class ReportController extends Controller
         return $pdf->download('quotation-history-report.pdf');
     }
 
+    /**
+     * Materials per approved project, from each quote's price lines
+     * (installation labour left out, since it isn't a material).
+     */
     public function quotationMaterialReport(Request $request)
     {
         $days = $this->periodDays($request);
 
-        $purchaseRequests = PurchaseRequest::with([
-            'materialItems',
-            'quotation.quotationRequest.customer.user',
+        $quotations = Quotation::with([
+            'quotationRequest.customer.user',
+            'quotationRequest.solarComputation',
         ])
+        ->whereHas('quotationRequest', fn ($q) => $q->where('status', 'approved'))
         ->when($this->since($days), fn ($q, $since) => $q->where('created_at', '>=', $since))
         ->latest()
         ->get();
 
         $pdf = Pdf::loadView('reports.quotation-material', [
-            'purchaseRequests' => $purchaseRequests,
+            'quotations' => $quotations,
             'generatedAt' => now()->format('F d, Y h:i A'),
             'periodLabel' => $this->periodLabel($days),
         ]);
@@ -107,27 +113,43 @@ class ReportController extends Controller
         return $pdf->download('quotation-material-report.pdf');
     }
 
-    public function procurementReport(Request $request)
+    /**
+     * The materials list for one approved quotation, as a PDF the admin sends
+     * to a supplier on Messenger. The list comes from the admin's form
+     * (pre-filled from the quote, then edited); nothing is saved. It has no
+     * prices and no customer name or phone, only the delivery place.
+     */
+    public function materialsPdf(StoreMaterialsPdfRequest $request, Quotation $quotation, MessengerFallback $messenger)
     {
-        $days = $this->periodDays($request);
+        $quotation->load('quotationRequest.solarComputation');
+        $quotationRequest = $quotation->quotationRequest;
 
-        $purchaseRequests = PurchaseRequest::with([
-            'materialItems',
-            'quotation.quotationRequest.customer.user'
-        ])
-        ->when($this->since($days), fn ($q, $since) => $q->where('created_at', '>=', $since))
-        ->latest()
-        ->get();
+        if ($quotationRequest->status !== 'approved') {
+            return response()->json(['message' => 'Only approved quotations have a materials list.'], 422);
+        }
 
-        $pdf = Pdf::loadView('reports.procurement', [
-            'purchaseRequests' => $purchaseRequests,
-            'generatedAt' => now()->format('F d, Y h:i A'),
-            'periodLabel' => $this->periodLabel($days),
+        $reference = 'Q-' . $quotationRequest->created_at->format('Y') . '-' . str_pad($quotationRequest->id, 3, '0', STR_PAD_LEFT);
+        // TataMawing's own address, or the installation site
+        $deliverTo = $request->deliver_to === 'site'
+            ? ($quotationRequest->installation_address ?? 'Installation site (address to follow)')
+            : config('app.business_address');
+
+        $pdf = Pdf::loadView('reports.materials-request', [
+            'reference' => $reference,
+            'computation' => $quotationRequest->solarComputation,
+            'items' => $request->validated('items'),
+            'deliverToSite' => $request->deliver_to === 'site',
+            'deliverTo' => $deliverTo,
+            'neededBy' => $request->needed_by ? \Carbon\Carbon::parse($request->needed_by)->format('F j, Y') : null,
+            'notes' => $request->notes,
+            'messengerUrl' => $messenger->settings()['messenger_url'],
+            'contactEmail' => filter_var(config('app.contact_email'), FILTER_VALIDATE_EMAIL) ? config('app.contact_email') : null,
+            'generatedAt' => now()->format('F j, Y'),
         ]);
 
-        $pdf->setPaper('a4', 'landscape');
+        $pdf->setPaper('a4', 'portrait');
 
-        return $pdf->download('procurement-report.pdf');
+        return $pdf->download("TataMawing-materials-{$reference}.pdf");
     }
 
     /**
@@ -192,24 +214,5 @@ class ReportController extends Controller
         $pdf->setPaper('a4', 'landscape');
 
         return $pdf->download('external-quotation-requests.pdf');
-    }
-
-    public function purchaseRequestReport($purchaseRequestId)
-    {
-        $purchaseRequest = PurchaseRequest::with([
-            'materialItems',
-            'quotation.quotationRequest.customer.user',
-        ])->findOrFail($purchaseRequestId);
-
-        $this->authorize('view', $purchaseRequest);
-
-        $pdf = Pdf::loadView('reports.purchase-request', [
-            'purchaseRequest' => $purchaseRequest,
-            'generatedAt' => now()->format('F d, Y h:i A'),
-        ]);
-
-        $pdf->setPaper('a4', 'portrait');
-
-        return $pdf->download('purchase-request-' . $purchaseRequest->id . '.pdf');
     }
 }

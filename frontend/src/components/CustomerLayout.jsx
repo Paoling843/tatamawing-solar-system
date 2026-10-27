@@ -86,9 +86,9 @@ return (
         </div>
 
         <div className="app-main" style={styles.rightSide}>
-            <div style={styles.topBar}>
+            <div className="m-pad-sm" style={styles.topBar}>
                 <button
-                    className="sidebar-hamburger"
+                    className="sidebar-hamburger m-tap"
                     style={styles.hamburgerBtn}
                     onClick={() => setSidebarOpen((prev) => !prev)}
                     aria-label="Toggle menu"
@@ -113,7 +113,7 @@ return (
                 </div>
             </div>
 
-            <main style={styles.main}>
+            <main className="m-pad m-chat-space" style={styles.main}>
                 {children}
             </main>
         </div>

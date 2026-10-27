@@ -29,6 +29,8 @@ class InboxSettingsController extends Controller
         return response()->json([
             'messenger_url' => $this->fallback->settings()['messenger_url'],
             'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null,
+            // The business's own address (BUSINESS_ADDRESS), e.g. for the supplier materials PDF
+            'address' => config('app.business_address'),
         ]);
     }
 
