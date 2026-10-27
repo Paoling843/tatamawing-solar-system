@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
@@ -78,6 +78,15 @@ export default function AdminQuotationsPage() {
     const [sortKey, setSortKey] = useState('newest');
     const [searchValue, setSearchValue] = useState('');
     const [selectedId, setSelectedId] = useState(null);
+    // On phones the detail panel stacks below the list, so selecting a
+    // request scrolls down to it (otherwise nothing seems to happen)
+    const detailRef = useRef(null);
+    const selectRequest = (id) => {
+        setSelectedId(id);
+        if (window.matchMedia('(max-width: 640px)').matches) {
+            requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        }
+    };
     const [rejectingQuotation, setRejectingQuotation] = useState(null);
     const [rejectionReason, setRejectionReason] = useState('');
     const [rejectLoading, setRejectLoading] = useState(false);
@@ -219,7 +228,7 @@ export default function AdminQuotationsPage() {
                 </div>
 
                 <div style={styles.headerControls}>
-                    <div style={styles.segmented}>
+                    <div className="m-wrap" style={styles.segmented}>
                         {['all', 'pending', 'approved', 'rejected'].map((tab) => (
                             <button
                                 key={tab}
@@ -278,6 +287,7 @@ export default function AdminQuotationsPage() {
                             {filteredSorted.length > 1 && (
                                 <div style={styles.stepButtons}>
                                     <button
+                                        className="m-tap"
                                         style={styles.stepBtn}
                                         onClick={() => stepSelection(-1)}
                                         aria-label="Previous request"
@@ -285,6 +295,7 @@ export default function AdminQuotationsPage() {
                                         &#8593;
                                     </button>
                                     <button
+                                        className="m-tap"
                                         style={styles.stepBtn}
                                         onClick={() => stepSelection(1)}
                                         aria-label="Next request"
@@ -305,7 +316,7 @@ export default function AdminQuotationsPage() {
                                     return (
                                         <button
                                             key={q.id}
-                                            onClick={() => setSelectedId(q.id)}
+                                            onClick={() => selectRequest(q.id)}
                                             aria-pressed={isSelected}
                                             style={{
                                                 ...styles.listRow,
@@ -341,7 +352,7 @@ export default function AdminQuotationsPage() {
                         </div>
                     </div>
 
-                    <div style={styles.detailPanel}>
+                    <div ref={detailRef} className="m-pad m-static" style={styles.detailPanel}>
                         {!selected ? (
                             <div style={styles.detailEmpty}>Select a request to review it.</div>
                         ) : (
@@ -633,7 +644,7 @@ const styles = {
 
     splitGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
         gap: '14px',
         alignItems: 'start',
     },
@@ -953,7 +964,7 @@ const styles = {
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: '20px',
-        padding: '24px 28px 20px',
+        padding: '24px clamp(16px, 5vw, 28px) 20px',
         backgroundColor: '#fbeae7',
         borderBottom: '1px solid #f0d0cb',
     },
@@ -988,7 +999,7 @@ const styles = {
         cursor: 'pointer',
     },
     rejectModalBody: {
-        padding: '24px 28px 12px',
+        padding: '24px clamp(16px, 5vw, 28px) 12px',
     },
     rejectIntro: {
         margin: '0 0 18px',
@@ -1024,7 +1035,7 @@ const styles = {
         display: 'flex',
         justifyContent: 'flex-end',
         gap: '10px',
-        padding: '16px 28px 22px',
+        padding: '16px clamp(16px, 5vw, 28px) 22px',
         borderTop: `1px solid ${adminTokens.hairline}`,
     },
     modalCancelBtn: {

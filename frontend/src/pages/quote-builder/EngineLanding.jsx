@@ -61,7 +61,7 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                 </div>
 
                 <div className="se-hero-card-wrap" style={styles.heroCardWrap}>
-                    <div style={styles.heroCard}>
+                    <div className="se-pad" style={styles.heroCard}>
                         <div style={{ ...styles.monoLabel, color: C.onDarkMuted }}>WHAT THE ENGINE DOES</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '20px' }}>
                             {HERO_STEPS.map((step) => (
@@ -91,7 +91,7 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                     </div>
                 </div>
                 <div style={styles.tipGrid}>
-                    <div style={styles.tipCard}>
+                    <div className="se-pad" style={styles.tipCard}>
                         <div style={styles.monoLabel}>HORSEPOWER RATINGS</div>
                         <h3 style={styles.tipTitle}>For aircon and water pumps</h3>
                         <p style={styles.tipBody}>
@@ -99,7 +99,7 @@ export default function EngineLanding({ onStart, onSetInstallation }) {
                             have to read the electrical spec.
                         </p>
                     </div>
-                    <div style={styles.tipCard}>
+                    <div className="se-pad" style={styles.tipCard}>
                         <div style={styles.monoLabel}>HOURS OF USE</div>
                         <h3 style={styles.tipTitle}>Split into day and night</h3>
                         <p style={styles.tipBody}>

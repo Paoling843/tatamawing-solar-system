@@ -63,7 +63,7 @@ export default function PackageStep({
     ];
 
     const checks = [
-        { ok: usableWh >= load.night, title: 'Nighttime load', body: `${formatWhole(load.night)} Wh needed, ${formatDecimal(usableWh)} Wh usable in the bank.` },
+        { ok: usableWh >= load.night, title: 'Nighttime load', body: `${formatWhole(load.night)} Wh needed, ${formatDecimal(usableWh)} Wh usable in the battery.` },
         { ok: pkgIndex >= recommendedPkgIndex, title: 'Inverter floor', body: `Cannot go below the recommended ${PACKAGES[recommendedPkgIndex].kw} kW.` },
         { ok: panels >= pkg.panelDefault, title: 'Panel minimum', body: `${pkg.panelDefault} panels ship with this package; ${panels} selected.` },
     ];
@@ -252,15 +252,15 @@ export default function PackageStep({
                     </div>
                     <p style={styles.cardFootnote}>
                         {load.night > 0
-                            ? `${formatWhole(load.night)} Wh at night needs at least ${recommendedBatteryLabel}.${recommendedIsBank ? ' One 314 Ah can\'t cover it, so the rest is covered by the cheapest battery that fits.' : ''} Any bank can be picked.`
-                            : 'No nighttime load, so the smallest bank is suggested.'}
+                            ? `${formatWhole(load.night)} Wh at night needs at least ${recommendedBatteryLabel}.${recommendedIsBank ? ' One 314 Ah can\'t cover it, so the rest is covered by the cheapest battery that fits.' : ''} Any battery can be picked.`
+                            : 'No nighttime load, so the smallest battery is suggested.'}
                     </p>
                 </div>
             </div>
 
             {/* ================= Where the price goes ================= */}
             <div style={{ ...s.card, marginTop: '20px', overflow: 'hidden' }}>
-                <div style={styles.priceHead}>
+                <div className="se-pad" style={styles.priceHead}>
                     <div>
                         <div style={s.cardTitle}>Where the price goes</div>
                         <div style={{ ...s.cardNote, color: C.muted, maxWidth: '560px' }}>
@@ -293,7 +293,7 @@ export default function PackageStep({
                 {ranked.map((item) => {
                     const active = selectedCost === item.key;
                     return (
-                        <div key={item.key} id={`cost-row-${item.key}`} style={styles.costRow(active, item.color)}>
+                        <div key={item.key} id={`cost-row-${item.key}`} className="se-pad" style={styles.costRow(active, item.color)}>
                             {/* Only the material, its cost and its share of the total */}
                             <div style={{ ...styles.costLine, flex: '1 1 auto', minWidth: 0, alignItems: 'center' }}>
                                 <div style={styles.materialName}>
@@ -311,7 +311,7 @@ export default function PackageStep({
                     );
                 })}
 
-                <div style={styles.priceFoot}>
+                <div className="se-pad" style={styles.priceFoot}>
                     <div style={{ fontWeight: 700, color: C.ink, fontSize: '15px' }}>Total installed price</div>
                     <div style={{ fontFamily: NUM, color: C.ink, fontSize: '18px', whiteSpace: 'nowrap' }}>{peso(quote.total)}</div>
                 </div>
@@ -322,7 +322,7 @@ export default function PackageStep({
 
             {/* ================= Summary + coverage check ================= */}
             <div style={{ ...s.card, marginTop: '20px', display: 'flex', flexWrap: 'wrap', overflow: 'hidden' }}>
-                <div style={{ flex: '1 1 480px', minWidth: 0, padding: '26px 28px' }}>
+                <div className="se-pad" style={{ flex: '1 1 480px', minWidth: 0, padding: '26px 28px' }}>
                     <div style={s.cardEyebrow}>CONFIGURATION SUMMARY</div>
                     <div style={styles.summaryGrid}>
                         {summary.map((row) => (
@@ -362,7 +362,7 @@ export default function PackageStep({
                     </div>
                 </div>
 
-                <aside style={styles.coverage}>
+                <aside className="se-pad" style={styles.coverage}>
                     <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>COVERAGE CHECK</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
                         {checks.map((check) => (

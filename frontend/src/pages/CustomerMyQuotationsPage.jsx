@@ -207,7 +207,7 @@ export default function CustomerMyQuotationsPage() {
                     <LoadingState label="Loading your quotations..." />
                 </div>
             ) : quotationRequests.length === 0 ? (
-                <div style={styles.emptyState}>
+                <div className="m-pad" style={styles.emptyState}>
                     <p style={styles.emptyTitle}>No quotations yet</p>
                     <p style={styles.emptyDesc}>You haven't submitted any quotation requests yet.</p>
                     <button className="btn-primary" style={styles.primaryButton} onClick={() => navigate('/quotation/new')}>
@@ -215,7 +215,7 @@ export default function CustomerMyQuotationsPage() {
                     </button>
                 </div>
             ) : filteredQuotations.length === 0 ? (
-                <div style={styles.emptyState}>No quotations in this category yet.</div>
+                <div className="m-pad" style={styles.emptyState}>No quotations in this category yet.</div>
             ) : (
                 <div style={styles.list}>
                     {filteredQuotations.map((qr) => (
@@ -273,7 +273,7 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule }
             </button>
 
             {expanded && (
-                <div style={styles.details}>
+                <div className="m-pad" style={styles.details}>
                     <Notice {...notice(qr, info)} />
 
                     <div style={styles.sections}>
@@ -284,7 +284,7 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule }
                                 <WorthIt info={info} paybackColor={paybackColor} paybackText={paybackText} />
                             </>
                         ) : (
-                            <section style={styles.section}>
+                            <section className="m-pad" style={styles.section}>
                                 <h3 style={styles.sectionTitle}>Savings estimate</h3>
                                 <p style={styles.sectionNote}>
                                     This quotation was made before savings estimates were added, so none is available.
@@ -341,7 +341,7 @@ function WhatYouGet({ qr }) {
     if (computation.total_load_watts != null) rows.push(['Daily energy use', `${number(computation.total_load_watts)} Wh`]);
 
     return (
-        <section style={styles.section}>
+        <section className="m-pad" style={styles.section}>
             <h3 style={styles.sectionTitle}>What you get</h3>
             <p style={styles.sectionNote}>Equipment included in this quote</p>
             {rows.map(([label, value], i) => (
@@ -371,7 +371,7 @@ function MonthlyBill({ info }) {
     const savePct = hasBill ? Math.round((info.monthlySavings / info.currentBill) * 100) : null;
 
     return (
-        <section style={styles.section}>
+        <section className="m-pad" style={styles.section}>
             <h3 style={styles.sectionTitle}>Your monthly bill</h3>
             <p style={styles.sectionNote}>Estimated, before and after solar</p>
 
@@ -431,7 +431,7 @@ function WorthIt({ info, paybackColor, paybackText }) {
     const net = info.ret?.netGain ?? null;
 
     return (
-        <section style={styles.section}>
+        <section className="m-pad" style={styles.section}>
             <h3 style={styles.sectionTitle}>Is it worth it?</h3>
             <p style={styles.sectionNote}>Over the {SYSTEM_LIFE_YEARS}-year system life</p>
 
@@ -505,7 +505,7 @@ const styles = {
         display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between',
         gap: '20px', marginBottom: '24px',
     },
-    pageTitle: { margin: 0, fontSize: '32px', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink },
+    pageTitle: { margin: 0, fontSize: 'clamp(26px, 7vw, 32px)', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink },
     pageLead: { margin: '6px 0 0', color: C.muted, fontSize: '15px' },
     filterTabs: {
         display: 'flex', flexWrap: 'wrap', gap: '4px', background: '#fff', border: `1px solid ${C.border}`,
@@ -535,7 +535,7 @@ const styles = {
         display: 'flex', flexWrap: 'wrap', gap: '12px 28px', alignItems: 'center', padding: '20px 24px',
         fontFamily: 'inherit', color: C.ink,
     },
-    reference: { fontFamily: "'IBM Plex Mono', monospace", fontSize: '15px', fontWeight: 500 },
+    reference: { fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
     smallMuted: { fontSize: '13px', color: C.sub, marginTop: '3px' },
     smallLabel: { fontSize: '12px', color: C.sub },
     rowValue: { fontWeight: 600, fontSize: '15px' },
@@ -571,7 +571,8 @@ const styles = {
     track: { height: '10px', borderRadius: '99px', background: C.track, overflow: 'hidden' },
     trackFill: { height: '10px', borderRadius: '99px' },
     scale: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#6b756f' },
-    saveTiles: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '18px' },
+    // Side by side when there's room, stacked on narrow phones
+    saveTiles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px', marginTop: '18px' },
     saveTile: { background: C.greenSoft, borderRadius: '10px', padding: '12px', minWidth: 0 },
     saveTileLabel: { fontSize: '12px', color: C.greenText },
     saveTileValue: { fontSize: '20px', fontWeight: 700, color: C.green, overflowWrap: 'anywhere' },

@@ -105,7 +105,7 @@ export default function FaqPage() {
                 )}
             </div>
 
-            <div style={styles.footer}>
+            <div className="m-wrap" style={styles.footer}>
                 <div style={styles.footerLeft}>
                     <span style={styles.footerText}>
                         © {new Date().getFullYear()} TataMawing Solar. All rights reserved.

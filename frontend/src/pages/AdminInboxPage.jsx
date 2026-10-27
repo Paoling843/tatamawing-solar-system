@@ -313,7 +313,8 @@ export default function AdminInboxPage() {
                 <span style={styles.summary}>{summary}</span>
             </header>
 
-            <section className="inbox-card" style={{ ...styles.card, gridTemplateColumns: columns }}>
+            {/* On phones the card shows the conversation list or the open thread, not both */}
+            <section className={`inbox-card${current ? ' inbox-has-thread' : ''}`} style={{ ...styles.card, gridTemplateColumns: columns }}>
                 {/* ---------- Conversations ---------- */}
                 <div className="inbox-list" style={styles.listCol}>
                     <div style={styles.listTop}>
@@ -381,6 +382,16 @@ export default function AdminInboxPage() {
                     {current ? (
                         <>
                             <div style={styles.threadHeader}>
+                                {/* Phones only: back to the conversation list */}
+                                <button
+                                    type="button"
+                                    className="inbox-back m-tap"
+                                    onClick={() => setSelectedUserId(null)}
+                                    aria-label="Back to conversations"
+                                    style={styles.backBtn}
+                                >
+                                    ←
+                                </button>
                                 <Avatar id={current.user.id} name={current.user.name} />
                                 <div style={styles.threadWho}>
                                     <span style={styles.threadName}>{current.user.name}</span>
@@ -388,7 +399,7 @@ export default function AdminInboxPage() {
                                         {info.location}{info.reference ? ` · ${info.reference}` : ''}
                                     </span>
                                 </div>
-                                <button type="button" onClick={() => setShowDetails((v) => !v)} style={styles.detailsBtn}>
+                                <button type="button" onClick={() => setShowDetails((v) => !v)} className="m-tap" style={styles.detailsBtn}>
                                     {showDetails ? 'Hide details' : 'Details'}
                                 </button>
                             </div>
@@ -418,6 +429,7 @@ export default function AdminInboxPage() {
                                                 return (
                                                     <div
                                                         key={m.id}
+                                                        className="inbox-bubble"
                                                         style={{
                                                             ...styles.bubbleWrap,
                                                             alignSelf: mine ? 'flex-end' : 'flex-start',
@@ -687,18 +699,22 @@ const styles = {
     threadWho: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
     threadName: { fontSize: '15px', fontWeight: 600 },
     threadSub: { fontSize: '12px', color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    backBtn: {
+        border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', fontSize: '16px',
+        color: T.body, cursor: 'pointer', fontFamily: 'inherit', flex: 'none', alignItems: 'center', justifyContent: 'center',
+    },
     detailsBtn: {
         border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', height: '34px', padding: '0 12px',
         fontSize: '13px', fontWeight: 500, color: T.body, cursor: 'pointer', fontFamily: 'inherit', flex: 'none',
     },
     thread: {
-        flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column',
+        flex: 1, overflow: 'auto', padding: '20px clamp(12px, 4vw, 24px)', display: 'flex', flexDirection: 'column',
         gap: '6px', background: T.threadBg,
     },
     threadEmpty: { margin: 'auto', fontSize: '13px', color: T.faint },
     day: { display: 'flex', flexDirection: 'column', gap: '6px' },
     dayLabel: { alignSelf: 'center', fontSize: '11px', fontWeight: 600, color: T.faint, letterSpacing: '.04em', padding: '4px 0 10px' },
-    bubbleWrap: { maxWidth: '70%', display: 'flex', flexDirection: 'column', gap: '3px' },
+    bubbleWrap: { maxWidth: 'min(70%, 520px)', display: 'flex', flexDirection: 'column', gap: '3px' },
     bubbleMine: {
         background: T.green, color: '#fff', padding: '9px 13px', borderRadius: '14px 14px 4px 14px',
         fontSize: '14px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -715,7 +731,7 @@ const styles = {
     chips: { display: 'flex', gap: '6px', flexWrap: 'wrap' },
     chip: {
         border: '1px solid #e1e6e2', background: '#f4f7f5', color: T.green, borderRadius: '999px',
-        padding: '5px 11px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+        padding: '8px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
     },
     inputRow: {
         display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e1e1db',

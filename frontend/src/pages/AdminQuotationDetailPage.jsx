@@ -8,6 +8,7 @@ import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIco
 import ScheduleModal from '../components/ScheduleModal';
 import api from '../api/axios';
 import { formatQuotationRef } from '../utils/references';
+import { materialsFromComputation, materialRow } from '../utils/materials';
 import { colors } from '../styles/theme';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
@@ -45,19 +46,14 @@ export default function AdminQuotationDetailPage() {
     const [bookedSchedules, setBookedSchedules] = useState([]);
     const [scheduleSuccess, setScheduleSuccess] = useState(false);
     const [scheduleLoading, setScheduleLoading] = useState(false);
-    const [materials, setMaterials] = useState(() => [
-        {
-            id: Date.now(),
-            material_name: '',
-            quantity: 1,
-            unit: '',
-            unit_price: '',
-        }
-    ]);
-    const [showPRForm, setShowPRForm] = useState(false);
-    const [prSuccess, setPRSuccess] = useState(false);
-    const [prLoading, setPRLoading] = useState(false);
-
+    // Materials PDF for the supplier (sent on Messenger; nothing is saved)
+    const [materialsOpen, setMaterialsOpen] = useState(false);
+    const [materials, setMaterials] = useState([]);
+    const [materialsForm, setMaterialsForm] = useState({ deliver_to: 'business', needed_by: '', notes: '' });
+    // TataMawing's own address (BUSINESS_ADDRESS on the server), shown as a delivery option
+    const [businessAddress, setBusinessAddress] = useState('');
+    const [materialsLoading, setMaterialsLoading] = useState(false);
+    const [materialsError, setMaterialsError] = useState('');
 
 
     const fetchQuotation = useCallback(async () => {
@@ -128,55 +124,75 @@ export default function AdminQuotationDetailPage() {
         }
     };
 
-    const addMaterial = () => {
-        setMaterials([
-            ...materials,
-            {
-                id: Date.now(),
-                material_name: '',
-                quantity: 1,
-                unit: '',
-                unit_price: '',
-            }
-        ]);
-    };
-
-    const removeMaterial = (id) => {
-        setMaterials(materials.filter((m) => m.id !== id));
-    };
-
-    const handleMaterialChange = (id, field, value) => {
-        setMaterials(materials.map((m) =>
-        m.id === id ? { ...m, [field]: value } : m
-        ));
-    };
-
-    const handleGeneratePR = async (e) => {
-        e.preventDefault();
-        setPRLoading(true);
-        setError('');
-        setActionSuccess('');
-
-    try{
-        await api.post('/admin/purchase-requests', {
-            quotation_id: quotation?.quotation?.id,
-            materials: materials.map(({ id, ...rest }) => ({
-                ...rest,
-                quantity: parseInt(rest.quantity),
-                unit_price: rest.unit_price ? parseFloat(rest.unit_price) : null,
-            })),
+    // ----- Materials PDF for the supplier -----
+    // Opens the form pre-filled from the approved quote's price lines
+    const openMaterials = () => {
+        setMaterials(materialsFromComputation(quotation?.solar_computation));
+        setMaterialsForm({
+            deliver_to: 'business',
+            // Materials are needed by the installation date, if one is set
+            needed_by: quotation?.quotation?.installation_schedule?.scheduled_date?.slice(0, 10) ?? '',
+            notes: '',
         });
+        setMaterialsError('');
+        setMaterialsOpen(true);
 
-        setActionSuccess('Purchase request generated successfully.');
-        setShowPRForm(false);
-        setPRSuccess(true);
-        fetchQuotation();
-    } catch (err) {
-        setError(err.response?.data?.message || 'Failed to generate purchase request.');
-    } finally {
-        setPRLoading(false);
-    }
-};
+        // TataMawing's address for the "deliver to" choice (fetched once)
+        if (!businessAddress) {
+            api.get('/contact')
+                .then((res) => setBusinessAddress(res.data.address ?? ''))
+                .catch(() => {});
+        }
+    };
+
+    const addMaterial = () => setMaterials([...materials, materialRow()]);
+    const removeMaterial = (rowId) => setMaterials(materials.filter((m) => m.id !== rowId));
+    const handleMaterialChange = (rowId, field, value) => {
+        setMaterials(materials.map((m) => (m.id === rowId ? { ...m, [field]: value } : m)));
+    };
+
+    const handleDownloadMaterials = async (e) => {
+        e.preventDefault();
+        setMaterialsLoading(true);
+        setMaterialsError('');
+
+        try {
+            const res = await api.post(
+                `/admin/quotations/${quotation.quotation.id}/materials-pdf`,
+                {
+                    ...materialsForm,
+                    needed_by: materialsForm.needed_by || null,
+                    notes: materialsForm.notes.trim() || null,
+                    items: materials.map(({ id: _id, ...row }) => ({ ...row, quantity: parseInt(row.quantity, 10) || 0 })),
+                },
+                { responseType: 'blob' },
+            );
+
+            // File name from the server, e.g. TataMawing-materials-Q-2026-050.pdf
+            const disposition = res.headers['content-disposition'] ?? '';
+            const fileName = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? 'TataMawing-materials.pdf';
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            // Errors come back as a Blob because of responseType; read the JSON message inside
+            let message = 'Could not create the materials PDF.';
+            try {
+                const body = JSON.parse(await err.response.data.text());
+                message = Object.values(body.errors ?? {})[0]?.[0] ?? body.message ?? message;
+            } catch {
+                // keep the default message
+            }
+            setMaterialsError(message);
+        } finally {
+            setMaterialsLoading(false);
+        }
+    };
 
     const fetchBookedSchedules = async () => {
         try {
@@ -264,7 +280,6 @@ export default function AdminQuotationDetailPage() {
         );
     }
 
-    const purchaseRequest = quotation?.quotation?.purchase_request;
     const installSchedule = quotation?.quotation?.installation_schedule;
     const isApproved = quotation?.status === 'approved';
     const cycleComplete = Boolean(installSchedule);
@@ -280,13 +295,8 @@ export default function AdminQuotationDetailPage() {
                     ? 'rejected'
                     : 'current',
         },
-        // Materials are arranged with the supplier over Messenger, so this step
-        // is done once a materials list exists (or the job is scheduled) and
-        // never blocks installation
-        {
-            label: 'Procurement',
-            state: purchaseRequest || installSchedule ? 'done' : 'todo',
-        },
+        // Materials are arranged with the supplier over Messenger (the PDF
+        // below), so there's no procurement step to track here
         {
             label: 'Installation',
             state: installSchedule
@@ -307,7 +317,7 @@ export default function AdminQuotationDetailPage() {
             <div style={styles.shell}>
 
                 {/* ---- Sticky header: breadcrumb, title, stepper ---- */}
-                <div style={styles.shellHeader}>
+                <div className="m-pad" style={styles.shellHeader}>
                     <button onClick={() => navigate('/admin/quotations')} style={styles.backBtn}>
                         <span style={styles.backArrow}>←</span>
                         <span>Back to Quotations</span>
@@ -374,7 +384,7 @@ export default function AdminQuotationDetailPage() {
                 </div>
 
                 {/* ---- Body: section nav beside the cards ---- */}
-                <div style={styles.shellContent}>
+                <div className="m-pad" style={styles.shellContent}>
 
                     {actionSuccess && (
                         <div style={styles.success}>
@@ -386,7 +396,7 @@ export default function AdminQuotationDetailPage() {
                     {error && <div style={styles.error}>{error}</div>}
 
                     {/* ---- Customer information ---- */}
-                    <section id="customer" style={styles.card}>
+                    <section id="customer" className="m-pad" style={styles.card}>
                         <h3 style={styles.cardTitle}>Customer Information</h3>
                         <div className="responsive-grid-2" style={styles.infoGrid}>
                             <div style={styles.infoItem}>
@@ -454,7 +464,7 @@ export default function AdminQuotationDetailPage() {
                     </section>
 
                     {/* ---- Appliance list ---- */}
-                    <section id="appliances" style={styles.card}>
+                    <section id="appliances" className="m-pad" style={styles.card}>
                         <h3 style={styles.cardTitle}>Appliance List</h3>
 
                         <div className="table-scroll">
@@ -482,9 +492,9 @@ export default function AdminQuotationDetailPage() {
                     </section>
 
                     {/* ---- Computed solar requirements ---- */}
-                    <section id="requirements" style={styles.card}>
+                    <section id="requirements" className="m-pad" style={styles.card}>
                         <h3 style={styles.cardTitle}>Computed Solar Requirements</h3>
-                        <div className="responsive-grid-2" style={styles.resultGrid}>
+                        <div className="responsive-grid-2 m-two" style={styles.resultGrid}>
                             {/* total_load_watts holds the day's energy (daytime + nighttime Wh) */}
                             <div style={styles.resultBox}>
                                 <span style={styles.resultIcon}><BoltIcon size={22} color={adminTokens.green} /></span>
@@ -585,7 +595,7 @@ export default function AdminQuotationDetailPage() {
                             const ret = computeReturn(annual, parseFloat(total));
 
                             return (
-                                <div className="responsive-grid-2" style={{ ...styles.resultGrid, marginTop: '1rem' }}>
+                                <div className="responsive-grid-2 m-two" style={{ ...styles.resultGrid, marginTop: '1rem' }}>
                                     <div style={styles.resultBox}>
                                         <span style={styles.resultLabel}>Monthly Savings</span>
                                         <span style={styles.resultValue}>{formatCurrency(computation.monthly_savings)}</span>
@@ -632,7 +642,7 @@ export default function AdminQuotationDetailPage() {
 
                     {/* ---- Finalized quotation ---- */}
                     {quotation?.quotation && (
-                        <section id="quotation" style={styles.card}>
+                        <section id="quotation" className="m-pad" style={styles.card}>
                             <h3 style={styles.cardTitle}>Finalized Quotation</h3>
 
                             <div className="responsive-grid-4" style={styles.infoGrid}>
@@ -676,7 +686,7 @@ export default function AdminQuotationDetailPage() {
 
                     {/* ---- Rejection reason ---- */}
                     {quotation?.status === 'rejected' && quotation?.notes && (
-                        <section style={{ ...styles.card, ...styles.cardDanger }}>
+                        <section className="m-pad" style={{ ...styles.card, ...styles.cardDanger }}>
                             <h3 style={{ ...styles.cardTitle, color: adminTokens.danger }}>
                                 Rejection Reason
                             </h3>
@@ -686,7 +696,7 @@ export default function AdminQuotationDetailPage() {
 
                     {/* ---- Approve / reject ---- */}
                     {quotation?.status === 'pending' && !actionSuccess && (
-                        <section id="decision" style={styles.card}>
+                        <section id="decision" className="m-pad" style={styles.card}>
                             <h3 style={styles.cardTitle}>Decision</h3>
 
                             {!showApproveForm && !showRejectForm && (
@@ -867,146 +877,183 @@ export default function AdminQuotationDetailPage() {
                         </section>
                     )}
 
-                    {/* ---- Materials & procurement ---- */}
-                    {quotation?.status === 'approved' && (
-                        <section id="procurement" style={{ ...styles.card, ...styles.cardAccent }}>
-                            <h3 style={styles.cardTitle}>Materials & Procurement</h3>
+                    {/* ---- Materials PDF for the supplier ---- */}
+                    {/* The admin downloads it and sends it on Messenger; nothing is saved or tracked */}
+                    {quotation?.status === 'approved' && quotation?.quotation && (
+                        <section id="materials" className="m-pad" style={{ ...styles.card, ...styles.cardAccent }}>
+                            <h3 style={styles.cardTitle}>Materials for supplier</h3>
 
-                            {purchaseRequest ? (
-                                <div>
-                                    <div style={styles.success}>
-                                        <CheckIcon size={16} color={adminTokens.green} />
-                                        <span>Purchase request has already been generated.</span>
-                                    </div>
-                                    <button
-                                        className="btn-secondary"
-                                        onClick={() => navigate(`/admin/purchase-requests/${purchaseRequest.id}`)}
-                                        style={{ ...styles.cancelBtn, marginTop: '0.75rem' }}
-                                    >
-                                        View purchase request
-                                    </button>
-                                </div>
-                            ) : prSuccess ? (
-                                <div style={styles.success}>
-                                    <CheckIcon size={16} color={adminTokens.green} />
-                                    <span>Purchase request generated. Download its PDF to send to a supplier.</span>
-                                </div>
-                            ) : !showPRForm ? (
+                            {!materialsOpen ? (
                                 <div>
                                     <p style={styles.cardDesc}>
-                                        Generate a purchase request to list the materials
-                                        needed for this project.
+                                        Make a purchase request PDF from this quote's materials, then send it to the
+                                        supplier on Messenger. It has no prices and no customer name.
                                     </p>
-                                    <button
-                                        className="btn-primary"
-                                        onClick={() => setShowPRForm(true)}
-                                        style={styles.approveBtn}
-                                    >
-                                        <span>Generate purchase request</span>
+                                    <button className="btn-primary" onClick={openMaterials} style={styles.approveBtn}>
+                                        <span>Prepare materials PDF</span>
                                     </button>
                                 </div>
                             ) : (
-                                <form onSubmit={handleGeneratePR}>
+                                <form onSubmit={handleDownloadMaterials}>
                                     <div style={styles.field}>
-                                        <label style={styles.label}>Materials Needed</label>
+                                        <label style={styles.label}>Materials</label>
 
-                                        <div className="table-scroll">
-                                            <div style={styles.materialHeader}>
-                                                <span style={{ flex: 3 }}>Material Name</span>
-                                                <span style={{ flex: 1 }}>Qty</span>
-                                                <span style={{ flex: 1 }}>Unit</span>
-                                                <span style={{ flex: 2 }}>Unit Price (₱)</span>
-                                                <span style={{ flex: 1 }}></span>
-                                            </div>
+                                        <div className="scroll-x">
+                                            <div style={{ minWidth: '680px' }}>
+                                                <div style={styles.materialHeader}>
+                                                    <span style={{ flex: 2.2 }}>Item</span>
+                                                    <span style={{ flex: 3 }}>Specification</span>
+                                                    <span style={{ flex: 1.3 }}>Code</span>
+                                                    <span style={{ flex: 0.9 }}>Qty</span>
+                                                    <span style={{ flex: 1 }}>Unit</span>
+                                                    <span style={{ width: '34px' }} />
+                                                </div>
 
-                                            {materials.map((material) => (
-                                                <div key={material.id} style={styles.materialRow}>
-                                                    <input
-                                                        type="text"
-                                                        value={material.material_name}
-                                                        onChange={(e) => handleMaterialChange(
-                                                            material.id, 'material_name', e.target.value
-                                                        )}
-                                                        className="input-field"
-                                                        style={{ ...styles.input, flex: 3 }}
-                                                        placeholder="e.g. Solar Panel 400W"
-                                                        required
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={material.quantity}
-                                                        onChange={(e) => handleMaterialChange(
-                                                            material.id, 'quantity', e.target.value
-                                                        )}
-                                                        className="input-field"
-                                                        style={{ ...styles.input, flex: 1 }}
-                                                        required
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={material.unit}
-                                                        onChange={(e) => handleMaterialChange(
-                                                            material.id, 'unit', e.target.value
-                                                        )}
-                                                        className="input-field"
-                                                        style={{ ...styles.input, flex: 1 }}
-                                                        placeholder="pcs"
-                                                    />
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={material.unit_price}
-                                                        onChange={(e) => handleMaterialChange(
-                                                            material.id, 'unit_price', e.target.value
-                                                        )}
-                                                        className="input-field"
-                                                        style={{ ...styles.input, flex: 2 }}
-                                                        placeholder="Optional"
-                                                    />
-                                                    {materials.length > 1 && (
+                                                {materials.map((material) => (
+                                                    <div key={material.id} style={styles.materialRow}>
+                                                        <input
+                                                            value={material.name}
+                                                            onChange={(e) => handleMaterialChange(material.id, 'name', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ ...styles.input, flex: 2.2 }}
+                                                            placeholder="e.g. PV cable"
+                                                            maxLength={120}
+                                                            aria-label="Item"
+                                                            required
+                                                        />
+                                                        <input
+                                                            value={material.specification}
+                                                            onChange={(e) => handleMaterialChange(material.id, 'specification', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ ...styles.input, flex: 3 }}
+                                                            placeholder="e.g. 6 mm², red"
+                                                            maxLength={160}
+                                                            aria-label="Specification"
+                                                        />
+                                                        <input
+                                                            value={material.code}
+                                                            onChange={(e) => handleMaterialChange(material.id, 'code', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ ...styles.input, flex: 1.3 }}
+                                                            placeholder="Optional"
+                                                            maxLength={40}
+                                                            aria-label="Code"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="999"
+                                                            value={material.quantity}
+                                                            onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ ...styles.input, flex: 0.9 }}
+                                                            aria-label="Quantity"
+                                                            required
+                                                        />
+                                                        <input
+                                                            value={material.unit}
+                                                            onChange={(e) => handleMaterialChange(material.id, 'unit', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ ...styles.input, flex: 1 }}
+                                                            placeholder="pcs"
+                                                            maxLength={20}
+                                                            aria-label="Unit"
+                                                        />
                                                         <button
                                                             type="button"
                                                             onClick={() => removeMaterial(material.id)}
-                                                            style={styles.removeMaterialBtn}
+                                                            disabled={materials.length === 1}
+                                                            style={{ ...styles.removeMaterialBtn, flex: 'none', width: '34px', opacity: materials.length === 1 ? 0.4 : 1 }}
                                                             aria-label="Remove material"
                                                         >
                                                             <XIcon size={14} color={adminTokens.danger} />
                                                         </button>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            onClick={addMaterial}
-                                            style={styles.addMaterialBtn}
-                                        >
-                                            + Add Material
+                                        <button type="button" onClick={addMaterial} style={styles.addMaterialBtn}>
+                                            + Add item
                                         </button>
                                     </div>
+
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                        <div style={styles.field}>
+                                            <span style={styles.label}>Deliver to</span>
+                                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingTop: '0.35rem' }}>
+                                                {[
+                                                    { value: 'business', label: 'TataMawing' },
+                                                    { value: 'site', label: 'Installation site' },
+                                                ].map((option) => (
+                                                    <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="radio"
+                                                            name="deliver_to"
+                                                            value={option.value}
+                                                            checked={materialsForm.deliver_to === option.value}
+                                                            onChange={() => setMaterialsForm({ ...materialsForm, deliver_to: option.value })}
+                                                        />
+                                                        {option.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            {/* The address that will be printed on the PDF */}
+                                            <div style={{ fontSize: '0.8rem', color: adminTokens.muted, marginTop: '0.4rem' }}>
+                                                {materialsForm.deliver_to === 'site'
+                                                    ? quotation?.installation_address || 'No site address on this request yet.'
+                                                    : businessAddress || 'TataMawing address'}
+                                            </div>
+                                        </div>
+                                        <div style={{ ...styles.field, maxWidth: '220px' }}>
+                                            <label htmlFor="materials-needed-by" style={styles.label}>Needed by (optional)</label>
+                                            <input
+                                                id="materials-needed-by"
+                                                type="date"
+                                                value={materialsForm.needed_by}
+                                                onChange={(e) => setMaterialsForm({ ...materialsForm, needed_by: e.target.value })}
+                                                className="input-field"
+                                                style={styles.input}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={styles.field}>
+                                        <label htmlFor="materials-notes" style={styles.label}>Notes for the supplier (optional)</label>
+                                        <textarea
+                                            id="materials-notes"
+                                            value={materialsForm.notes}
+                                            onChange={(e) => setMaterialsForm({ ...materialsForm, notes: e.target.value })}
+                                            maxLength={1000}
+                                            rows={2}
+                                            className="input-field"
+                                            style={{ ...styles.input, resize: 'vertical' }}
+                                            placeholder="e.g. Please deliver in the morning."
+                                        />
+                                    </div>
+
+                                    {materialsError && <div style={{ ...styles.error, marginBottom: '0.75rem' }}>{materialsError}</div>}
 
                                     <div style={styles.formActions}>
                                         <button
                                             type="button"
                                             className="btn-secondary"
-                                            onClick={() => setShowPRForm(false)}
+                                            onClick={() => setMaterialsOpen(false)}
                                             style={styles.cancelBtn}
                                         >
-                                            Cancel
+                                            Close
                                         </button>
                                         <button
                                             type="submit"
                                             className="btn-primary"
+                                            disabled={materialsLoading}
                                             style={{
                                                 ...styles.approveBtn,
-                                                opacity: prLoading ? 0.7 : 1,
-                                                cursor: prLoading ? 'not-allowed' : 'pointer',
+                                                opacity: materialsLoading ? 0.7 : 1,
+                                                cursor: materialsLoading ? 'not-allowed' : 'pointer',
                                             }}
-                                            disabled={prLoading}
                                         >
-                                            <span>{prLoading ? 'Generating...' : 'Generate purchase request'}</span>
+                                            <span>{materialsLoading ? 'Preparing…' : 'Download PDF'}</span>
                                         </button>
                                     </div>
                                 </form>
@@ -1018,6 +1065,7 @@ export default function AdminQuotationDetailPage() {
                     {quotation?.status === 'approved' && (
                         <section
                             id="installation"
+                            className="m-pad"
                             style={styles.card}
                         >
                             <h3 style={styles.cardTitle}>Installation Schedule</h3>

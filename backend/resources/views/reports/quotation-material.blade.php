@@ -17,10 +17,6 @@
         table { width: 100%; border-collapse: collapse; }
         th { background-color: #f9fafb; text-align: left; padding: 6px 10px; font-size: 10px; color: #6b7280; text-transform: uppercase; }
         td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; font-size: 10px; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: bold; }
-        .badge-available { background-color: #dcfce7; color: #16a34a; }
-        .badge-limited { background-color: #ffedd5; color: #ea580c; }
-        .badge-out_of_stock { background-color: #fef2f2; color: #dc2626; }
         .footer { margin-top: 20px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 10px; }
     </style>
 </head>
@@ -31,52 +27,53 @@
     </div>
 
     <div class="content">
-        @forelse($purchaseRequests as $pr)
+        {{-- One block per approved project: the materials from its quote's price
+             lines (installation labour is a service, so it's left out) --}}
+        @forelse($quotations as $quotation)
+        @php
+            $request = $quotation->quotationRequest;
+            $materials = collect($request->solarComputation->line_items ?? [])
+                ->reject(fn ($item) => ($item['key'] ?? '') === 'installation');
+        @endphp
         <div class="project-block">
-            {{-- Project header --}}
             <div class="project-header">
                 <div class="project-title">
-                    {{ $pr->quotation->quotationRequest->customer->user->name ?? 'Unknown Customer' }}
-                    — {{ ucfirst($pr->quotation->quotationRequest->solar_system_type ?? '') }} System
+                    #Q-{{ $request->created_at->format('Y') }}-{{ str_pad($request->id, 3, '0', STR_PAD_LEFT) }}
+                    — {{ $request->customer->user->name ?? 'Unknown customer' }}
                 </div>
                 <div class="project-meta">
-                    Request Date: {{ \Carbon\Carbon::parse($pr->request_date)->format('M d, Y') }}
-                    &bull; Status: {{ ucwords(str_replace('_', ' ', $pr->procurement_status)) }}
+                    Approved: {{ $quotation->created_at->format('M d, Y') }}
+                    @if($request->installation_address) &bull; {{ $request->installation_address }} @endif
                 </div>
             </div>
 
-            {{-- Materials table --}}
             <table>
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Material</th>
+                        <th>Code</th>
                         <th>Quantity</th>
                         <th>Unit</th>
-                        <th>Unit Price</th>
-                        <th>Availability</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($pr->materialItems as $index => $item)
+                    @forelse($materials->values() as $index => $item)
                     <tr>
                         <td>{{ $index + 1 }}</td>
-                        <td>{{ $item->material_name }}</td>
-                        <td>{{ $item->quantity }}</td>
-                        <td>{{ $item->unit ?? '—' }}</td>
-                        <td>{{ $item->unit_price ? 'PHP' . number_format($item->unit_price, 2) : '—' }}</td>
-                        <td>
-                            <span class="badge badge-{{ $item->availability }}">
-                                {{ ucwords(str_replace('_', ' ', $item->availability)) }}
-                            </span>
-                        </td>
+                        <td>{{ $item['label'] ?? '—' }}</td>
+                        <td>{{ $item['sku'] ?? '—' }}</td>
+                        <td>{{ $item['qty'] ?? '—' }}</td>
+                        <td>{{ $item['qty_unit'] ?? '—' }}</td>
                     </tr>
-                    @endforeach
+                    @empty
+                    <tr><td colspan="5" style="color: #6b7280;">No itemized materials for this quotation.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
         @empty
-        <p style="text-align: center; color: #6b7280; padding: 2rem;">No purchase requests found.</p>
+        <p style="text-align: center; color: #6b7280; padding: 2rem;">No approved quotations in this period.</p>
         @endforelse
 
         <div class="footer">

@@ -11,8 +11,7 @@ export default function CustomerSchedulePage() {
     const [schedules, setSchedules] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    // Tracks which row's action menu / expanded details are open
-    const [openMenuId, setOpenMenuId] = useState(null);
+    // Which row's details are open
     const [expandedId, setExpandedId] = useState(null);
 
 
@@ -120,18 +119,13 @@ export default function CustomerSchedulePage() {
         };
     };
 
-    const toggleMenu = (id) => {
-        setOpenMenuId(openMenuId === id ? null : id);
-    };
-
     const toggleDetails = (id) => {
         setExpandedId(expandedId === id ? null : id);
-        setOpenMenuId(null);
     };
 
     return (
         <CustomerLayout active="Installation Schedule">
-            <div style={styles.card}>
+            <div className="m-pad" style={styles.card}>
                 <h1 style={styles.pageTitle}>Installation Schedule</h1>
                 <p style={styles.pageSubtitle}>
                     View your upcoming and completed solar installations.
@@ -167,6 +161,7 @@ export default function CustomerSchedulePage() {
                                 <th style={styles.th}>SYSTEM TYPE</th>
                                 <th style={styles.th}>INSTALLATION DATE</th>
                                 <th style={styles.th}>INSTALLATION STATUS</th>
+                                <th style={styles.th} aria-label="Actions" />
                             </tr>
                         </thead>
                         <tbody>
@@ -224,26 +219,17 @@ export default function CustomerSchedulePage() {
                                                     <div style={styles.statusSub}>{status.subtitle}</div>
                                                 </div>
                                             </td>
-                                            <td style={{ ...styles.td, textAlign: 'right', position: 'relative' }}>
+                                            {/* A plain button instead of a ⋮ menu: a pop-up menu
+                                                gets cut off inside the sideways-scrolling table on phones */}
+                                            <td style={{ ...styles.td, textAlign: 'right' }}>
                                                 <button
-                                                    onClick={() => toggleMenu(schedule.id)}
-                                                    style={styles.menuBtn}
-                                                    aria-label="Actions"
+                                                    onClick={() => toggleDetails(schedule.id)}
+                                                    className="m-tap"
+                                                    style={styles.detailsBtn}
+                                                    aria-expanded={expandedId === schedule.id}
                                                 >
-                                                    ⋮
+                                                    {expandedId === schedule.id ? 'Hide details' : 'Details'}
                                                 </button>
-                                                {openMenuId === schedule.id && (
-                                                    <div style={styles.menuDropdown}>
-                                                        <button
-                                                            style={styles.menuItem}
-                                                            onClick={() => toggleDetails(schedule.id)}
-                                                        >
-                                                            {expandedId === schedule.id
-                                                                ? 'Hide Details'
-                                                                : 'View Details'}
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </td>
                                         </tr>
 
@@ -461,41 +447,16 @@ const styles = {
         marginTop: '0.15rem',
         marginLeft: '1.375rem',
     },
-    menuBtn: {
-        width: '32px',
-        height: '32px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+    detailsBtn: {
+        padding: '0.45rem 0.85rem',
         background: 'white',
         border: `1px solid ${colors.border}`,
         borderRadius: '8px',
         cursor: 'pointer',
-        fontSize: '1.25rem',
-        color: '#6b7280',
-        lineHeight: 1,
-    },
-    menuDropdown: {
-        position: 'absolute',
-        right: '0.5rem',
-        top: '100%',
-        backgroundColor: 'white',
-        border: '1px solid #f3f4f6',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        zIndex: 10,
-        minWidth: '140px',
-    },
-    menuItem: {
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        background: 'none',
-        border: 'none',
-        padding: '0.625rem 0.875rem',
-        fontSize: '0.875rem',
-        color: '#111827',
-        cursor: 'pointer',
+        fontSize: '0.8125rem',
+        fontWeight: 600,
+        color: colors.primary,
+        whiteSpace: 'nowrap',
     },
     detailsCell: {
         backgroundColor: '#f9fafb',

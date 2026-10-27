@@ -119,7 +119,7 @@ export default function AdminFaqPage() {
         <AdminLayout active="FAQ Management">
 
             {/* Page header with create button */}
-            <div style={styles.pageHeader}>
+            <div className="m-wrap" style={styles.pageHeader}>
                 <div>
                     <h1 style={styles.pageTitle}>FAQ Management</h1>
                     <p style={styles.pageSubtitle}>
@@ -258,7 +258,7 @@ export default function AdminFaqPage() {
                 // One card per FAQ
                 <div style={styles.faqList}>
                     {faqs.map((faq) => (
-                        <div key={faq.id} style={styles.faqCard}>
+                        <div key={faq.id} className="m-pad m-wrap" style={styles.faqCard}>
 
                             {/* FAQ content */}
                             <div style={styles.faqContent}>
@@ -286,7 +286,7 @@ export default function AdminFaqPage() {
                             </div>
 
                             {/* Action buttons */}
-                            <div style={styles.faqActions}>
+                            <div className="m-row" style={styles.faqActions}>
                                 {/* Edit button */}
                                 <button
                                     onClick={() => handleOpenEdit(faq)}
@@ -332,6 +332,7 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: '1.5rem',
+        gap: '0.75rem 1rem',
     },
     pageTitle: adminText.pageTitle,
     pageSubtitle: adminText.pageSubtitle,
@@ -438,7 +439,9 @@ const styles = {
         alignItems: 'flex-start',
     },
     faqContent: {
-        flex: 1,
+        // Takes the row on desktop; on phones the buttons drop below it
+        flex: '1 1 260px',
+        minWidth: 0,
     },
     faqQuestion: {
         fontSize: '1rem',

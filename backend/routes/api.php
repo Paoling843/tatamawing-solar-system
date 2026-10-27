@@ -3,7 +3,6 @@
 use App\Http\Controllers\AdminQuotationController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\QuotationRequestController;
 use App\Http\Controllers\InstallationScheduleController;
 use App\Http\Controllers\ExternalInstallationRequestController;
@@ -117,21 +116,11 @@ Route::middleware(['auth:sanctum', 'role:admin'])
 
 
         // ----------------------------
-        // Purchase Requests
+        // Materials PDF for suppliers
         // ----------------------------
+        // The admin sends it on Messenger; nothing is saved or tracked.
 
-        Route::get('/purchase-requests', [PurchaseRequestController::class, 'adminIndex']);
-        Route::post('/purchase-requests', [PurchaseRequestController::Class, 'store']);
-        Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show']);
-        Route::patch('/purchase-requests/{purchaseRequest}/confirm', [PurchaseRequestController::class, 'confirm']);
-        Route::patch('/purchase-requests/{purchaseRequest}/update-items', [PurchaseRequestController::class, 'updateItems']);
-
-
-        // ----------------------------
-        // Purchase Request Reports
-        // ----------------------------
-
-        Route::get('/reports/purchase-request/{purchaseRequestId}', [ReportController::class, 'purchaseRequestReport']);
+        Route::post('/quotations/{quotation}/materials-pdf', [ReportController::class, 'materialsPdf']);
 
 
         // ----------------------------
@@ -161,7 +150,6 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::get('/reports/quotation/{quotationId}', [ReportController::class, 'quotationReport']);
         Route::get('/reports/quotation-history', [ReportController::class, 'quotationHistoryReport']);
         Route::get('/reports/quotation-material', [ReportController::class, 'quotationMaterialReport']);
-        Route::get('/reports/procurement', [ReportController::class, 'procurementReport']);
 
 
         // ----------------------------

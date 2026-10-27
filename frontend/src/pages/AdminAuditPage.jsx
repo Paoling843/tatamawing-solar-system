@@ -59,7 +59,9 @@ export default function AdminAuditPage() {
                 ) : logs.length === 0 ? (
                     <div style={styles.empty}>No audit activity recorded yet.</div>
                 ) : (
-                    <div style={styles.tableWrap}>
+                    // Five columns don't fit a phone: scroll sideways inside the card instead
+                    <div className="scroll-x">
+                    <div style={{ ...styles.tableWrap, minWidth: '760px' }}>
                         <div style={styles.tableHeader}>
                             <span style={{ flex: 1.5 }}>Action</span>
                             <span style={{ flex: 1.4 }}>User</span>
@@ -107,6 +109,7 @@ export default function AdminAuditPage() {
                                 </div>
                             </div>
                         ))}
+                    </div>
                     </div>
                 )}
             </div>

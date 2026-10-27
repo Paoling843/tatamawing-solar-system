@@ -19,8 +19,6 @@ import AdminFaqPage from './pages/AdminFaqPage';
 import AdminReportPage from './pages/AdminReportPage';
 import AdminAuditPage from './pages/AdminAuditPage';
 import CustomerDashboardPage from './pages/CustomerDashboardPage';
-import AdminPurchaseRequestsPage from './pages/AdminPurchaseRequests';
-import AdminPurchaseRequestDetailPage from './pages/AdminPurchaseRequestDetailPage';
 import AdminQuotationsPage from './pages/AdminQuotationsPage';
 import AdminSystemPage from './pages/AdminSystemPage';
 import CustomerDownloadsPage from './pages/CustomerDownloadsPage';
@@ -116,16 +114,6 @@ export default function App() {
             <Route path="/admin/schedules" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <AdminSchedulePage />
-                </ProtectedRoute>
-            } />
-            <Route path="/admin/purchase-requests" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPurchaseRequestsPage />
-                </ProtectedRoute>
-            } />
-            <Route path="/admin/purchase-requests/:id" element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPurchaseRequestDetailPage />
                 </ProtectedRoute>
             } />
             <Route path="/admin/quotations" element={

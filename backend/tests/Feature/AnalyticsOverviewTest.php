@@ -84,7 +84,6 @@ class AnalyticsOverviewTest extends TestCase
             '/api/admin/reports/external-requests?days=90',
             '/api/admin/reports/quotation-history?days=90',
             '/api/admin/reports/quotation-material?days=90',
-            '/api/admin/reports/procurement?days=90',
             // Without a period, the older reports still cover all time
             '/api/admin/reports/quotation-history',
         ];

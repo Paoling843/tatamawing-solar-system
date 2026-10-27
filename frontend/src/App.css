@@ -57,9 +57,12 @@
 }
 
 @media (max-width: 640px) {
-    .responsive-grid-4,
+    /* Stat-style grids stay two across on phones; text-heavy ones go to one column */
+    .responsive-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .responsive-grid-3,
     .responsive-grid-2 { grid-template-columns: 1fr; }
+    /* Opt-in: a 2-column grid of small stat boxes that should stay side by side */
+    .responsive-grid-2.m-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ---------- Sidebar layout (Admin/Customer) ---------- */
@@ -322,4 +325,83 @@
         right: 8px !important;
         width: auto !important;
     }
+}
+
+/* ---------- Phone helpers ----------
+   Most styles are inline objects, which can't hold media queries, so these
+   small classes carry the phone-only rules. Inline styles win over classes,
+   hence !important; on desktop nothing here applies. */
+
+/* Wide grids/tables: scroll sideways inside their card at every width
+   (the inner element sets its own minWidth) */
+.scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
+
+@media (max-width: 640px) {
+    /* Card / section padding */
+    .m-pad { padding: 1rem !important; }
+    /* Room at the bottom of customer pages so the floating "Chat with us"
+       button doesn't cover the last card or the page's buttons */
+    .m-chat-space { padding-bottom: 88px !important; }
+    /* iPhone Safari zooms the page in when a field with text under 16px is
+       tapped (and doesn't zoom back out), so form fields use 16px on phones */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea { font-size: 16px !important; }
+    /* Modal header / body / footer: keep their own vertical rhythm, tighten the sides */
+    .m-pad-sm { padding-left: 1rem !important; padding-right: 1rem !important; }
+    /* Comfortable tap target for icon buttons, ⋮ menus, small links */
+    .m-tap { min-width: 40px !important; min-height: 40px !important; }
+    /* Rows of buttons, tabs or header items wrap instead of overflowing */
+    .m-wrap { flex-wrap: wrap !important; row-gap: 0.5rem !important; }
+    /* A row that should become a column on phones */
+    .m-stack { flex-direction: column !important; align-items: stretch !important; }
+    .m-hide { display: none !important; }
+    /* Panels that are sticky on desktop scroll normally on phones; the
+       margin keeps them clear of the sticky top bar when scrolled to */
+    .m-static { position: static !important; scroll-margin-top: 72px; }
+    /* Full-width element on phones (e.g. primary button under a title) */
+    .m-full { width: 100% !important; }
+    /* A column (e.g. stacked buttons) that should sit side by side on phones */
+    .m-row { flex-direction: row !important; flex-wrap: wrap !important; }
+}
+
+/* ---------- Admin schedule calendar on phones ----------
+   Seven columns leave ~30px per day, too small for the name chips, so each
+   day shows a dot instead and the "Selected day" panel lists the bookings. */
+.cal-dot { display: none; }
+@media (max-width: 900px) {
+    .cal-layout { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 640px) {
+    .cal-card { padding: 0.75rem !important; }
+    .cal-grid { gap: 2px !important; }
+    .cal-cell { min-height: 44px !important; padding: 3px !important; }
+    .cal-chips, .cal-more { display: none !important; }
+    .cal-dot {
+        display: block;
+        width: 6px;
+        height: 6px;
+        margin: 2px auto 0;
+        border-radius: 50%;
+        background-color: #0f3b2c;
+    }
+    /* Schedule modal: the four status buttons go two per row */
+    .status-actions { flex-wrap: wrap !important; }
+    .status-actions > button { flex: 1 1 calc(50% - 0.5rem) !important; }
+}
+
+/* Admin inbox on phones: the list or the open thread, not both stacked */
+.inbox-back { display: none; }
+@media (max-width: 640px) {
+    .inbox-list { max-height: none !important; border-bottom: none !important; }
+    .inbox-card.inbox-has-thread .inbox-list { display: none !important; }
+    .inbox-card:not(.inbox-has-thread) .inbox-thread,
+    .inbox-card:not(.inbox-has-thread) .inbox-details { display: none !important; }
+    .inbox-back { display: inline-flex; }
+    .inbox-thread { height: 75vh; min-height: 420px; }
+    .inbox-bubble { max-width: 85% !important; }
 }

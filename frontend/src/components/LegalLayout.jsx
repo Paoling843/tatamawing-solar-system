@@ -127,7 +127,8 @@ const styles = {
     },
     h2: { margin: '0 0 10px', fontSize: '17px', fontWeight: 700, color: '#1b2420' },
     list: { margin: '0 0 12px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' },
-    inlineLink: { color: GREEN, fontWeight: 600 },
+    // Long emails / Messenger links wrap instead of widening the page on phones
+    inlineLink: { color: GREEN, fontWeight: 600, overflowWrap: 'anywhere' },
     footer: {
         display: 'flex',
         justifyContent: 'space-between',

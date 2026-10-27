@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
@@ -64,6 +64,15 @@ export default function AdminSchedulePage() {
     const [viewYear, setViewYear] = useState(TODAY.getFullYear());
     const [viewMonth, setViewMonth] = useState(TODAY.getMonth());
     const [selectedDate, setSelectedDate] = useState(TODAY_KEY);
+    // On phones the "Selected day" panel sits below the calendar, so tapping
+    // a day scrolls down to it
+    const sidePanelRef = useRef(null);
+    const selectDay = (key) => {
+        setSelectedDate(key);
+        if (window.matchMedia('(max-width: 640px)').matches) {
+            requestAnimationFrame(() => sidePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        }
+    };
     const [statusFilter, setStatusFilter] = useState('all');
 
     const [modalSchedule, setModalSchedule] = useState(null);
@@ -366,20 +375,20 @@ export default function AdminSchedulePage() {
                     onAction={openCreateModal}
                 />
             ) : (
-                <div className="content-grid-sidebar" style={styles.contentGrid}>
+                <div className="content-grid-sidebar cal-layout" style={styles.contentGrid}>
 
-                    <div style={styles.calendarCard}>
+                    <div className="cal-card" style={styles.calendarCard}>
 
                         <div style={styles.calendarHeader}>
                             <h2 style={styles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</h2>
                             <div style={styles.monthNav}>
-                                <button onClick={() => shiftMonth(-1)} style={styles.navBtn} aria-label="Previous month">
+                                <button onClick={() => shiftMonth(-1)} className="m-tap" style={styles.navBtn} aria-label="Previous month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
                                         <ChevronDownIcon size={14} color={adminTokens.green} />
                                     </span>
                                 </button>
                                 <button onClick={goToToday} style={styles.todayBtn}>Today</button>
-                                <button onClick={() => shiftMonth(1)} style={styles.navBtn} aria-label="Next month">
+                                <button onClick={() => shiftMonth(1)} className="m-tap" style={styles.navBtn} aria-label="Next month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
                                         <ChevronDownIcon size={14} color={adminTokens.green} />
                                     </span>
@@ -408,17 +417,18 @@ export default function AdminSchedulePage() {
                             ))}
                         </div>
 
-                        <div style={styles.weekdayRow}>
+                        <div className="cal-grid" style={styles.weekdayRow}>
                             {WEEKDAYS.map((w) => (
                                 <div key={w} style={styles.weekdayLabel}>{w}</div>
                             ))}
                         </div>
 
-                        <div style={styles.cellGrid}>
+                        <div className="cal-grid" style={styles.cellGrid}>
                             {cells.map((cell) => (
                                 <div
                                     key={cell.key}
-                                    onClick={() => setSelectedDate(cell.key)}
+                                    className="cal-cell"
+                                    onClick={() => selectDay(cell.key)}
                                     style={{
                                         ...styles.dayCell,
                                         backgroundColor: cell.isSelected ? adminTokens.greenTint : 'white',
@@ -434,11 +444,13 @@ export default function AdminSchedulePage() {
                                             {cell.day}
                                         </span>
                                         {cell.moreCount > 0 && (
-                                            <span style={styles.moreLabel}>+{cell.moreCount}</span>
+                                            <span className="cal-more" style={styles.moreLabel}>+{cell.moreCount}</span>
                                         )}
                                     </div>
 
-                                    <div style={styles.chipList}>
+                                    {/* Phones: a dot instead of the chips, which are unreadable at that size */}
+                                    {cell.shown.length > 0 && <span className="cal-dot" aria-hidden="true" />}
+                                    <div className="cal-chips" style={styles.chipList}>
                                         {cell.shown.map((s) => (
                                             <div
                                                 key={s.id}
@@ -464,7 +476,7 @@ export default function AdminSchedulePage() {
                         </div>
                     </div>
 
-                    <div style={styles.sideColumn}>
+                    <div ref={sidePanelRef} className="m-static" style={styles.sideColumn}>
 
                         <div style={styles.sidePanel}>
                             <div style={styles.sidePanelEyebrow}>Selected day</div>
@@ -586,7 +598,7 @@ export default function AdminSchedulePage() {
                         </div>
 
                         <div style={styles.modalFooter}>
-                            <div style={styles.statusActions}>
+                            <div className="status-actions" style={styles.statusActions}>
                                 {STATUSES.map((status) => {
                                     const isCurrent = modalSchedule.status === status;
 

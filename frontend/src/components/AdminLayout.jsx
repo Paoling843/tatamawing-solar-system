@@ -13,13 +13,12 @@ import { adminTokens, adminText } from '../styles/adminTheme';
 const NAV_COUNT_KEYS = {
     Quotations: 'quotations',
     Schedule: 'schedule',
-    'Purchase Request': 'purchaseRequests',
     Messages: 'messages',
 };
 
 const SEEN_STORAGE_KEY = 'admin_seen_counts';
 const COUNTS_STORAGE_KEY = 'admin_last_counts';
-const EMPTY_COUNTS = { quotations: 0, schedule: 0, purchaseRequests: 0, messages: 0 };
+const EMPTY_COUNTS = { quotations: 0, schedule: 0, messages: 0 };
 
 const readSeenCounts = () => {
     try {
@@ -68,10 +67,9 @@ export default function AdminLayout({ children, active, title, subtitle, actions
         let mounted = true;
 
         const loadCounts = async () => {
-            const [quotationsRes, scheduleRes, purchaseRes, messagesRes] = await Promise.allSettled([
+            const [quotationsRes, scheduleRes, messagesRes] = await Promise.allSettled([
                 api.get('/admin/quotation-requests?status=pending'),
                 api.get('/admin/schedules'),
-                api.get('/admin/purchase-requests'),
                 api.get('/conversations'),
             ]);
 
@@ -87,11 +85,6 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                 today.setHours(0, 0, 0, 0);
                 next.schedule = scheduleRes.value.data.filter(
                     (s) => new Date(s.scheduled_date) >= today
-                ).length;
-            }
-            if (purchaseRes.status === 'fulfilled') {
-                next.purchaseRequests = purchaseRes.value.data.filter(
-                    (p) => p.procurement_status === 'pending'
                 ).length;
             }
             if (messagesRes.status === 'fulfilled') {
@@ -150,7 +143,6 @@ export default function AdminLayout({ children, active, title, subtitle, actions
         {
             label: 'Manage',
             items: [
-                { label: 'Purchase Request', path: '/admin/purchase-requests', icon: <CartIcon />, countKey: 'purchaseRequests' },
                 { label: 'Users', path: '/admin/system', icon: <PersonIcon /> },
                 { label: 'Messages', path: '/admin/inbox', icon: <MessageIcon size={16} />, countKey: 'messages' },
                 { label: 'Audit Log', path: '/admin/audit-logs', icon: <ShieldIcon size={16} /> },
@@ -215,7 +207,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                             {user?.role === 'admin' ? 'Administrator' : (user?.role || 'Admin')}
                         </div>
                     </div>
-                    <button style={styles.logoutIconBtn} onClick={handleLogout} aria-label="Log out">
+                    <button className="m-tap" style={styles.logoutIconBtn} onClick={handleLogout} aria-label="Log out">
                         <LogOutIcon size={16} color={adminTokens.danger} />
                     </button>
                 </div>
@@ -223,9 +215,9 @@ export default function AdminLayout({ children, active, title, subtitle, actions
 
             <div className="app-main" style={styles.rightSide}>
 
-                <div style={styles.topBar}>
+                <div className="m-pad-sm" style={styles.topBar}>
                     <button
-                        className="sidebar-hamburger"
+                        className="sidebar-hamburger m-tap"
                         style={styles.hamburgerBtn}
                         onClick={() => setSidebarOpen((prev) => !prev)}
                         aria-label="Toggle menu"
@@ -233,7 +225,8 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                         <MenuIcon size={20} color={adminTokens.body} />
                     </button>
 
-                    <div style={styles.searchWrapper}>
+                    {/* On phones the search box only shows on pages that use it */}
+                    <div className={onSearchChange ? undefined : 'm-hide'} style={styles.searchWrapper}>
                         <SearchIcon size={14} color={adminTokens.faint} />
                         <input
                             type="text"
@@ -252,7 +245,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                     </div>
                 </div>
 
-                <main style={styles.main}>
+                <main className="m-pad" style={styles.main}>
                     {(title || subtitle) && (
                         <div style={styles.pageHeading}>
                             {title && <h1 style={styles.pageTitle}>{title}</h1>}
@@ -281,16 +274,6 @@ function PersonIcon() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="8" r="4" />
             <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-        </svg>
-    );
-}
-
-function CartIcon() {
-    return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="9" cy="21" r="1" />
-            <circle cx="20" cy="21" r="1" />
-            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
         </svg>
     );
 }

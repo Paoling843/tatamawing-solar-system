@@ -15,7 +15,7 @@ import { priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDis
 
 import { CalendarIcon, DownloadIcon, XIcon } from '../components/Icons';
 
-const TABLE_COLUMNS = '126px minmax(0,1.5fr) 96px 124px 78px 108px 40px';
+const TABLE_COLUMNS = '126px minmax(0,1.5fr) 96px 124px 78px 108px';
 
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
@@ -338,7 +338,7 @@ export default function AdminDashboardPage() {
         <AdminLayout
             active="Overview"
             title="Operational Overview"
-            subtitle="Real-time procurement metrics and eco-impact tracking."
+            subtitle="Manage customer quotations and schedules."
             actions={
                 <button
                     className="btn-primary"
@@ -364,11 +364,11 @@ export default function AdminDashboardPage() {
                         <MetricCard
                             label="APPROVED PROJECTS"
                             value={approvedCount.toLocaleString()}
-                            note="Ready for procurement"
+                            note="Ready for installation"
                             barColor="#2f8f5b"
                         />
                         <MetricCard
-                            label="PENDING PROCUREMENT"
+                            label="PENDING REVIEW"
                             value={pendingCount.toLocaleString()}
                             note={`Oldest waiting ${oldestPendingDays}d`}
                             barColor="#8a6a12"
@@ -437,7 +437,7 @@ export default function AdminDashboardPage() {
                                                     <span style={styles.queueValue}>
                                                         {formatCurrency(getValue(q))}
                                                     </span>
-                                                    <div style={styles.queueActions}>
+                                                    <div className="m-wrap" style={styles.queueActions}>
                                                         {isPending ? (
                                                             <>
                                                                 <button
@@ -478,12 +478,14 @@ export default function AdminDashboardPage() {
                         <div style={{ ...styles.card, ...styles.scheduleCard }}>
                             <div style={styles.scheduleHeader}>
                                 <h2 style={styles.cardTitle}>Upcoming schedules</h2>
-                                <span
-                                    style={styles.scheduleLink}
+                                <button
+                                    type="button"
+                                    className="m-tap"
+                                    style={{ ...styles.scheduleLink, ...styles.linkButton }}
                                     onClick={() => navigate('/admin/schedule')}
                                 >
                                     Schedule
-                                </span>
+                                </button>
                             </div>
 
                             {scheduleLoading ? (
@@ -590,7 +592,7 @@ export default function AdminDashboardPage() {
                                 <p style={styles.cardSubtitle}>Manage and review latest quotation requests</p>
                             </div>
 
-                            <div style={styles.segmented}>
+                            <div className="m-wrap" style={styles.segmented}>
                                 {['all', 'approved', 'pending', 'rejected'].map((tab) => (
                                     <button
                                         key={tab}
@@ -617,7 +619,6 @@ export default function AdminDashboardPage() {
                                 <span style={{ ...styles.th, justifyContent: 'flex-end' }}>VALUE</span>
                                 <SortableHeader label="AGE" sortKey="age" sortState={sort} onSort={handleSort} align="right" />
                                 <span style={styles.th}>STATUS</span>
-                                <span style={styles.th} />
                             </div>
 
                             {filteredRows.length === 0 ? (
@@ -657,31 +658,24 @@ export default function AdminDashboardPage() {
                                             <span>
                                                 <Badge status={q.status} />
                                             </span>
-
-                                            <span style={{ textAlign: 'right' }}>
-                                                <button
-                                                    style={styles.actionDots}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/admin/quotation-requests/${q.id}`);
-                                                    }}
-                                                >
-                                                    &#8943;
-                                                </button>
-                                            </span>
                                         </div>
                                     );
                                 })
                             )}
                         </div>
 
-                        <div style={styles.footerRow}>
+                        <div className="m-wrap" style={styles.footerRow}>
                             <span style={styles.footerText}>
                                 Showing {filteredRows.length} of {quotations.length} quotations
                             </span>
-                            <span style={styles.footerLink} onClick={() => navigate('/admin/quotations')}>
+                            <button
+                                type="button"
+                                className="m-tap"
+                                style={{ ...styles.footerLink, ...styles.linkButton }}
+                                onClick={() => navigate('/admin/quotations')}
+                            >
                                 View all
-                            </span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -698,7 +692,7 @@ export default function AdminDashboardPage() {
                                     {quotationPreview.requestRecord.name} · {formatExternalRef(quotationPreview.requestRecord.id)}
                                 </p>
                             </div>
-                            <button onClick={closeQuotationPreview} aria-label="Close" style={styles.modalCloseBtn}>
+                            <button onClick={closeQuotationPreview} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
                                 <XIcon size={16} color={adminTokens.muted} />
                             </button>
                         </div>
@@ -727,7 +721,7 @@ export default function AdminDashboardPage() {
                             )}
                         </div>
 
-                        <div style={styles.confirmModalFooter}>
+                        <div className="m-wrap" style={styles.confirmModalFooter}>
                             <button type="button" className="btn-secondary" onClick={closeQuotationPreview} style={styles.modalSecondaryBtn}>Close</button>
                             <button type="button" className="btn-primary" onClick={downloadPreviewedQuotation} style={styles.modalPrimaryBtn}>
                                 <DownloadIcon size={15} color="white" />
@@ -749,7 +743,7 @@ export default function AdminDashboardPage() {
                                     {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation.id, rejectingQuotation.created_at)}
                                 </p>
                             </div>
-                            <button onClick={closeRejectQuotation} aria-label="Close" style={styles.modalCloseBtn}>
+                            <button onClick={closeRejectQuotation} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
                                 <XIcon size={16} color={adminTokens.muted} />
                             </button>
                         </div>
@@ -773,7 +767,7 @@ export default function AdminDashboardPage() {
                                 </label>
                                 <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
                             </div>
-                            <div style={styles.confirmModalFooter}>
+                            <div className="m-wrap" style={styles.confirmModalFooter}>
                                 <button type="button" className="btn-secondary" onClick={closeRejectQuotation} style={styles.modalSecondaryBtn}>Cancel</button>
                                 <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
                                     {rejectLoading ? 'Rejecting...' : 'Reject quotation'}
@@ -795,7 +789,7 @@ export default function AdminDashboardPage() {
                                     {rejectingExternal.name} · {formatExternalRef(rejectingExternal.id)}
                                 </p>
                             </div>
-                            <button onClick={closeRejectExternal} aria-label="Close" style={styles.modalCloseBtn}>
+                            <button onClick={closeRejectExternal} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
                                 <XIcon size={16} color={adminTokens.muted} />
                             </button>
                         </div>
@@ -818,7 +812,7 @@ export default function AdminDashboardPage() {
                                 </label>
                                 <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
                             </div>
-                            <div style={styles.confirmModalFooter}>
+                            <div className="m-wrap" style={styles.confirmModalFooter}>
                                 <button type="button" className="btn-secondary" onClick={closeRejectExternal} style={styles.modalSecondaryBtn}>Cancel</button>
                                 <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
                                     {rejectLoading ? 'Rejecting...' : 'Reject request'}
@@ -861,6 +855,7 @@ export default function AdminDashboardPage() {
                                 {formatQuotationRef(selectedQuotation.id, selectedQuotation.created_at)}
                             </span>
                             <button
+                                className="m-tap"
                                 style={styles.drawerClose}
                                 onClick={() => setSelectedQuotation(null)}
                                 aria-label="Close"
@@ -931,6 +926,16 @@ export default function AdminDashboardPage() {
                         ) : (
                             <p style={styles.drawerDecided}>This quotation has already been decided.</p>
                         )}
+
+                        {/* The row's ⋯ button used to open the full page; it's here now */}
+                        <button
+                            type="button"
+                            className="m-tap"
+                            style={{ ...styles.footerLink, ...styles.linkButton, marginTop: '14px', alignSelf: 'flex-start' }}
+                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
+                        >
+                            View full details →
+                        </button>
                     </div>
                 </>
             )}
@@ -992,7 +997,7 @@ const styles = {
     },
     metricGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(178px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))',
         gap: '14px',
     },
     metricCard: {
@@ -1018,7 +1023,7 @@ const styles = {
 
     twoColGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
         gap: '14px',
         alignItems: 'stretch',
     },
@@ -1116,6 +1121,7 @@ const styles = {
     queueActions: { display: 'flex', gap: '6px' },
     queueApproveBtn: {
         padding: '5px 12px',
+        minHeight: '32px',
         border: 'none',
         borderRadius: '8px',
         backgroundColor: adminTokens.green,
@@ -1126,6 +1132,7 @@ const styles = {
     },
     queueScheduleBtn: {
         padding: '5px 12px',
+        minHeight: '32px',
         border: 'none',
         borderRadius: '8px',
         backgroundColor: adminTokens.green,
@@ -1136,6 +1143,7 @@ const styles = {
     },
     queueRejectBtn: {
         padding: '5px 12px',
+        minHeight: '32px',
         border: '1px solid #f0d0cb',
         borderRadius: '8px',
         backgroundColor: '#fff',
@@ -1271,7 +1279,7 @@ const styles = {
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: '20px',
-        padding: '24px 28px 20px',
+        padding: '24px clamp(16px, 5vw, 28px) 20px',
         backgroundColor: adminTokens.greenTint,
         borderBottom: `1px solid ${adminTokens.border}`,
     },
@@ -1298,7 +1306,7 @@ const styles = {
     },
     confirmModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
     confirmModalSubtitle: { margin: 0, color: adminTokens.muted, fontSize: '13px' },
-    rejectModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', padding: '24px 28px 20px', backgroundColor: '#fbeae7', borderBottom: '1px solid #f0d0cb' },
+    rejectModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', padding: '24px clamp(16px, 5vw, 28px) 20px', backgroundColor: '#fbeae7', borderBottom: '1px solid #f0d0cb' },
     rejectModalEyebrow: { fontFamily: adminTokens.fontMono, fontSize: '10px', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: adminTokens.danger },
     rejectModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
     modalCloseBtn: {
@@ -1312,7 +1320,7 @@ const styles = {
         cursor: 'pointer',
         flexShrink: 0,
     },
-    rejectModalBody: { padding: '24px 28px 12px' },
+    rejectModalBody: { padding: '24px clamp(16px, 5vw, 28px) 12px' },
     rejectIntro: { margin: '0 0 18px', color: adminTokens.body, fontSize: '13px', lineHeight: 1.55 },
     rejectTextarea: { width: '100%', boxSizing: 'border-box', minHeight: '126px', padding: '10px 11px', resize: 'vertical', fontFamily: adminTokens.fontUI, lineHeight: 1.5 },
     rejectCharacterCount: { marginTop: '6px', color: adminTokens.faint, fontFamily: adminTokens.fontMono, fontSize: '10px', textAlign: 'right' },
@@ -1329,7 +1337,7 @@ const styles = {
     },
     confirmField: { display: 'flex', flexDirection: 'column', gap: '7px' },
     confirmLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: adminTokens.body },
-    confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', padding: '16px 28px 22px', borderTop: `1px solid ${adminTokens.hairline}` },
+    confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', flexWrap: 'wrap', padding: '16px clamp(16px, 5vw, 28px) 22px', borderTop: `1px solid ${adminTokens.hairline}` },
     modalSecondaryBtn: { minWidth: '92px', minHeight: '40px', padding: '10px 16px', borderRadius: '9px', fontWeight: 600 },
     modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '9px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },
     modalDangerBtn: { minWidth: '132px', minHeight: '40px', padding: '10px 16px', border: '1px solid #c0392b', borderRadius: '9px', backgroundColor: '#c0392b', color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(192,57,43,.14)' },
@@ -1397,14 +1405,6 @@ const styles = {
     tdValue: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink, textAlign: 'right' },
     tdAge: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.muted, textAlign: 'right' },
     tdAgeDanger: { color: adminTokens.danger, fontWeight: 500 },
-    actionDots: {
-        background: 'none',
-        border: 'none',
-        fontSize: '1.1rem',
-        cursor: 'pointer',
-        color: adminTokens.faint,
-        padding: '0 0.25rem',
-    },
     emptyFilterState: {
         padding: '32px 0',
         textAlign: 'center',
@@ -1421,6 +1421,8 @@ const styles = {
     },
     footerText: { fontSize: '12.5px', color: adminTokens.muted },
     footerLink: { fontSize: '12.5px', fontWeight: 600, color: adminTokens.green, cursor: 'pointer', textDecoration: 'underline' },
+    // Text-looking links that are real buttons (keyboard-reachable, bigger tap area on phones)
+    linkButton: { background: 'none', border: 'none', padding: '4px 2px', fontFamily: 'inherit' },
 
     scrim: { position: 'fixed', inset: 0, backgroundColor: 'rgba(16,33,26,.32)', zIndex: 200 },
     drawer: {

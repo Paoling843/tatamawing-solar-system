@@ -39,15 +39,15 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
                 onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
                 style={styles.dialog}
             >
-                <div style={styles.head}>
+                <div className="se-pad" style={styles.head}>
                     <div>
                         <div style={s.cardEyebrow}>LAST STEP</div>
-                        <h3 id="location-title" style={styles.title}>Where will the system be installed?</h3>
+                        <h3 id="location-title" className="se-dialog-title" style={styles.title}>Where will the system be installed?</h3>
                         <div style={s.cardNote}>We use this to plan the site visit and the installation.</div>
                     </div>
                     <button
                         type="button"
-                        className="se-btn-secondary"
+                        className="se-btn-secondary m-tap"
                         onClick={onClose}
                         disabled={submitting}
                         aria-label="Close"
@@ -57,7 +57,7 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
                     </button>
                 </div>
 
-                <div style={styles.grid}>
+                <div className="se-pad" style={styles.grid}>
                     <Field label="Municipality">
                         {/* Fixed for now: installations are in Bulan only */}
                         <div style={styles.fixedValue}>{HOME_MUNICIPALITY}, {HOME_PROVINCE}</div>
@@ -107,7 +107,7 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
 
                 {error && <div style={styles.error}>{error}</div>}
 
-                <div style={styles.actions}>
+                <div className="se-pad" style={styles.actions}>
                     <button type="button" className="se-btn-secondary" onClick={onClose} disabled={submitting} style={s.secondaryButton}>
                         Cancel
                     </button>
