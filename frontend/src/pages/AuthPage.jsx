@@ -484,12 +484,12 @@ export default function AuthPage({ initialMode = 'login' }) {
                             <div style={styles.panelHairline} />
                             <div style={styles.stats}>
                                 <div>
-                                    <div style={styles.statValue}>1,240+</div>
-                                    <div style={styles.statLabel}>Roofs surveyed</div>
+                                    <div style={styles.statValue}>5–12 kW</div>
+                                    <div style={styles.statLabel}>Hybrid solar packages</div>
                                 </div>
                                 <div>
-                                    <div style={styles.statValue}>18 yrs</div>
-                                    <div style={styles.statLabel}>Average payback tracked</div>
+                                    <div style={styles.statValue}>Sorsogon</div>
+                                    <div style={styles.statLabel}>Installations across the province</div>
                                 </div>
                             </div>
                             <p style={styles.panelNote}>

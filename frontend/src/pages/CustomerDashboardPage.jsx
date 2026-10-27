@@ -392,10 +392,6 @@ export default function CustomerDashboardPage() {
                                 <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
                             </div>
                         </div>
-                        <div style={styles.systemStatus}>
-                            <span style={styles.statusDot} />
-                            <span style={styles.statusText}>All Nodes Active</span>
-                        </div>
                     </div>
                 </>
             )}
@@ -751,21 +747,5 @@ const styles = {
         color: colors.textMuted,
         cursor: 'pointer',
         textDecoration: 'none',
-    },
-    systemStatus: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-    },
-    statusDot: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: colors.success,
-    },
-    statusText: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
-        fontWeight: 500,
     },
 };

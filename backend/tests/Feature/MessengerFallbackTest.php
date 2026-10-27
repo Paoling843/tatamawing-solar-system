@@ -152,14 +152,23 @@ class MessengerFallbackTest extends TestCase
     public function test_public_contact_shows_the_messenger_link_and_business_email(): void
     {
         // The sending address is never published by itself
-        config(['mail.from.address' => 'someone.personal@gmail.com', 'app.contact_email' => null]);
-        $this->getJson('/api/contact')->assertOk()->assertExactJson(['messenger_url' => null, 'email' => null]);
+        config([
+            'mail.from.address' => 'someone.personal@gmail.com',
+            'app.contact_email' => null,
+            'app.business_address' => 'Bulan, Sorsogon',
+        ]);
+        $this->getJson('/api/contact')->assertOk()
+            ->assertExactJson(['messenger_url' => null, 'email' => null, 'address' => 'Bulan, Sorsogon']);
 
         $this->enable(10);
         config(['app.contact_email' => 'tatamawing.solar@gmail.com']);
 
         $this->getJson('/api/contact')->assertOk()
-            ->assertExactJson(['messenger_url' => self::URL, 'email' => 'tatamawing.solar@gmail.com']);
+            ->assertExactJson([
+                'messenger_url' => self::URL,
+                'email' => 'tatamawing.solar@gmail.com',
+                'address' => 'Bulan, Sorsogon',
+            ]);
     }
 
     public function test_admin_can_send_the_link_by_hand(): void

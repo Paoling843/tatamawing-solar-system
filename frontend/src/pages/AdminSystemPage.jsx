@@ -4,17 +4,18 @@ import AdminLayout from '../components/AdminLayout';
 import { adminText, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
-import { SettingsIcon, ClockIcon, UserIcon } from '../components/Icons';
+import { ClockIcon, UserIcon } from '../components/Icons';
 import api from '../api/axios';
 import { colors } from '../styles/theme';
 
+// Users: the customers who have submitted quotation requests, and a link to
+// the real audit log. Only shows data the system actually has.
 export default function AdminSystemPage() {
     const navigate = useNavigate();
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -26,10 +27,7 @@ export default function AdminSystemPage() {
             res.data.forEach(qr => {
                 if (qr.customer?.user && !seen.has(qr.customer.user.id)) {
                     seen.add(qr.customer.user.id);
-                    uniqueUsers.push({
-                        ...qr.customer.user,
-                        role_label: 'Customer',
-                    });
+                    uniqueUsers.push(qr.customer.user);
                 }
             });
             setUsers(uniqueUsers);
@@ -52,7 +50,7 @@ export default function AdminSystemPage() {
     };
 
     const getRoleStyle = (role) => {
-        if (role === 'admin' || role === 'Senior Admin') {
+        if (role === 'admin') {
             return { backgroundColor: '#dbeafe', color: '#1d4ed8' };
         }
         return { backgroundColor: '#eef0ec', color: '#5d6862' };
@@ -66,38 +64,18 @@ export default function AdminSystemPage() {
         return labels[role] || role;
     };
 
-    const auditLogs = [
-        {
-            id: 1,
-            title: 'Policy Updated',
-            desc: 'Admin modified Inbox settings',
-            time: '14:32 PM • Security',
-            color: '#1d4ed8',
-        },
-        {
-            id: 2,
-            title: 'Failed Login Attempt',
-            desc: 'IP blocked after 5 attempts',
-            time: '11:15 AM • Security',
-            color: '#a4302a',
-        },
-        {
-            id: 3,
-            title: 'New Customer Registered',
-            desc: 'New customer account created',
-            time: '09:04 AM • Users',
-            color: '#16211c',
-        },
-    ];
+    const formatJoined = (value) => (value
+        ? new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—');
+
     return (
         <AdminLayout active="Users">
 
             <div style={styles.pageHeader}>
                 <div>
-                    <h1 style={styles.pageTitle}>Administration & Settings</h1>
+                    <h1 style={styles.pageTitle}>Users</h1>
                     <p style={styles.pageSubtitle}>
-                        Control user permissions, system configurations,
-                        and view system-wide logs.
+                        Customers who have requested a quotation, and the record of admin actions.
                     </p>
                 </div>
 
@@ -117,8 +95,8 @@ export default function AdminSystemPage() {
 
             <div className="content-grid-sidebar" style={styles.contentGrid}>
 
-                <div style={styles.usersCard}>
-                    <h2 style={styles.sectionTitle}>System Users</h2>
+                <div className="m-pad" style={styles.usersCard}>
+                    <h2 style={styles.sectionTitle}>Customers</h2>
 
                     {loading ? (
                         <LoadingState label="Loading users..." />
@@ -129,140 +107,65 @@ export default function AdminSystemPage() {
                             description="Customers will appear here once they submit a quotation request."
                         />
                     ) : (
-                    <div className="table-scroll">
                         <div>
-                            <div style={styles.usersTableHeader}>
+                            <div className="m-hide" style={styles.usersTableHeader}>
                                 <span style={{ flex: 3 }}>User</span>
-                                <span style={{ flex: 1.5 }}>Role</span>
-                                <span style={{ flex: 1.5 }}>Status</span>
-                                <span style={{ flex: 2 }}>Last Login</span>
-                                <span style={{ flex: 0.5 }}></span>
+                                <span style={{ flex: 1.2 }}>Role</span>
+                                <span style={{ flex: 1.3 }}>Joined</span>
                             </div>
 
                             {users.map((user) => (
-                                <div key={user.id} style={styles.userRow}>
-                                    <div style={{ flex: 3, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div key={user.id} className="m-wrap" style={styles.userRow}>
+                                    <div style={{ flex: '3 1 220px', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
                                         <div style={{
                                             ...styles.userAvatar,
-                                            backgroundColor: user.role === 'admin'
-                                                ? '#1d4ed8'
-                                                : '#5d6862',
+                                            backgroundColor: user.role === 'admin' ? '#1d4ed8' : '#5d6862',
                                         }}>
                                             {getInitials(user.name)}
                                         </div>
-                                        <div>
+                                        <div style={{ minWidth: 0 }}>
                                             <p style={styles.userName}>{user.name}</p>
                                             <p style={styles.userEmail}>{user.email}</p>
                                         </div>
                                     </div>
 
-                                    <span style={{ flex: 1.5 }}>
-                                        <span style={{
-                                            ...styles.roleBadge,
-                                            ...getRoleStyle(user.role),
-                                        }}>
+                                    <span style={{ flex: '1.2 1 90px' }}>
+                                        <span style={{ ...styles.roleBadge, ...getRoleStyle(user.role) }}>
                                             {getRoleLabel(user.role)}
                                         </span>
                                     </span>
 
-                                    <span style={{ flex: 1.5 }}>
-                                        <div style={styles.statusRow}>
-                                            <div style={styles.statusDotActive} />
-                                            <span style={styles.statusText}>Active</span>
-                                        </div>
-                                    </span>
-
-                                    <span style={{ flex: 2, fontSize: '0.8rem', color: '#5d6862' }}>
-                                        Recently
-                                    </span>
-
-                                    <span style={{ flex: 0.5 }}>
-                                        <button style={styles.actionDots}>⋯</button>
+                                    <span style={{ flex: '1.3 1 110px', fontSize: '0.8rem', color: '#5d6862' }}>
+                                        {formatJoined(user.created_at)}
                                     </span>
                                 </div>
                             ))}
-                        </div>
-                    </div>
-                    )}
 
-                    {users.length > 0 && (
-                        <div className="m-wrap" style={styles.paginationRow}>
-                            <span style={styles.paginationText}>
-                                Showing {users.length} users
-                            </span>
-                            <div style={styles.paginationBtns}>
-                                <button className="btn-secondary" style={styles.paginationBtn}>Previous</button>
-                                <button className="btn-primary" style={styles.paginationBtnActive}>Next</button>
+                            <div style={styles.listFooter}>
+                                Showing {users.length} {users.length === 1 ? 'customer' : 'customers'}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div style={styles.rightColumn}>
-
-                    <div style={styles.configCard}>
-                        <h3 style={{ ...styles.configTitle, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                            <SettingsIcon size={16} color="currentColor" />
-                            System Configuration
-                        </h3>
-
-                        <div style={styles.configItem}>
-                            <div>
-                                <p style={styles.configItemTitle}>Maintenance Mode</p>
-                                <p style={styles.configItemDesc}>
-                                    Restrict access during updates
-                                </p>
-                            </div>
-                            <div style={styles.toggleOff}>
-                                <div style={styles.toggleKnobOff} />
-                            </div>
-                        </div>
-
-                        <div style={styles.configItem}>
-                            <div>
-                                <p style={styles.configItemTitle}>Two-Factor Auth</p>
-                                <p style={{ ...styles.configItemDesc, color: '#15803d' }}>
-                                    Mandatory for all Admin users
-                                </p>
-                            </div>
-                            <div style={styles.toggleOn}>
-                                <div style={styles.toggleKnobOn} />
-                            </div>
-                        </div>
-
-                        <button className="btn-primary" style={styles.applyBtn}>Apply Changes</button>
+                <div style={styles.auditCard}>
+                    <div style={styles.auditCardHeader}>
+                        <h3 style={styles.auditTitle}>Audit log</h3>
+                        <span style={styles.auditIcon}>
+                            <ClockIcon size={16} color="currentColor" />
+                        </span>
                     </div>
-
-                    <div style={styles.auditCard}>
-                        <div style={styles.auditCardHeader}>
-                            <h3 style={styles.configTitle}>Recent Audit Logs</h3>
-                            <span style={styles.auditIcon}>
-                                <ClockIcon size={16} color="currentColor" />
-                            </span>
-                        </div>
-
-                        {auditLogs.map((log) => (
-                            <div key={log.id} style={styles.auditItem}>
-                                <div style={{
-                                    ...styles.auditDot,
-                                    backgroundColor: log.color,
-                                }} />
-                                <div>
-                                    <p style={styles.auditTitle}>{log.title}</p>
-                                    <p style={styles.auditDesc}>{log.desc}</p>
-                                    <p style={styles.auditTime}>{log.time}</p>
-                                </div>
-                            </div>
-                        ))}
-
-                        <button
-                            className="btn-secondary"
-                            style={styles.viewAuditBtn}
-                            onClick={() => navigate('/admin/reports')}
-                        >
-                            View Detailed Audit Report
-                        </button>
-                    </div>
+                    <p style={styles.auditDesc}>
+                        Every approval, rejection, schedule change and setting change made by an admin is
+                        recorded with who did it and when.
+                    </p>
+                    <button
+                        className="btn-secondary"
+                        style={styles.viewAuditBtn}
+                        onClick={() => navigate('/admin/audit-logs')}
+                    >
+                        Open audit log
+                    </button>
                 </div>
             </div>
         </AdminLayout>
@@ -291,27 +194,6 @@ const styles = {
         cursor: 'pointer',
         flexShrink: 0,
     },
-    tabsRow: {
-        display: 'flex',
-        borderBottom: '2px solid #e6e8e2',
-        marginBottom: '1.5rem',
-        gap: '0',
-    },
-    tab: {
-        padding: '0.75rem 1.25rem',
-        border: 'none',
-        borderBottom: '2px solid transparent',
-        backgroundColor: 'transparent',
-        color: '#5d6862',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-        marginBottom: '-2px',
-    },
-    tabActive: {
-        color: '#0f3b2c',
-        borderBottom: '2px solid #0f3b2c',
-        fontWeight: '600',
-    },
     error: adminUi.errorBanner,
     contentGrid: {
         display: 'grid',
@@ -325,6 +207,7 @@ const styles = {
         padding: '1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
         border: '1px solid #eef0ec',
+        minWidth: 0,
     },
     sectionTitle: {
         fontSize: '1rem',
@@ -344,8 +227,9 @@ const styles = {
     userRow: {
         display: 'flex',
         alignItems: 'center',
+        gap: '0.5rem',
         padding: '0.875rem 0',
-        borderBottom: '1px solid #f9faf8',
+        borderBottom: '1px solid #f3f4f1',
         fontSize: '0.875rem',
     },
     userAvatar: {
@@ -370,6 +254,7 @@ const styles = {
         fontSize: '0.75rem',
         color: '#5d6862',
         margin: 0,
+        overflowWrap: 'anywhere',
     },
     roleBadge: {
         padding: '0.2rem 0.75rem',
@@ -377,146 +262,10 @@ const styles = {
         fontSize: '0.75rem',
         fontWeight: '500',
     },
-    statusRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.375rem',
-    },
-    statusDotActive: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: '#16a34a',
-    },
-    statusText: {
-        fontSize: '0.875rem',
-        color: '#293530',
-    },
-    actionDots: {
-        background: 'none',
-        border: 'none',
-        fontSize: '1.25rem',
-        cursor: 'pointer',
-        color: '#5d6862',
-    },
-    paginationRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+    listFooter: {
         marginTop: '1rem',
-        paddingTop: '1rem',
-        borderTop: '1px solid #eef0ec',
-    },
-    paginationText: {
         fontSize: '0.8rem',
         color: '#5d6862',
-    },
-    paginationBtns: {
-        display: 'flex',
-        gap: '0.5rem',
-    },
-    paginationBtn: {
-        padding: '0.375rem 0.875rem',
-        border: '1px solid #e6e8e2',
-        borderRadius: '6px',
-        backgroundColor: 'white',
-        color: '#293530',
-        fontSize: '0.8rem',
-        cursor: 'pointer',
-    },
-    paginationBtnActive: {
-        padding: '0.375rem 0.875rem',
-        border: 'none',
-        borderRadius: '6px',
-        backgroundColor: '#0f3b2c',
-        color: 'white',
-        fontSize: '0.8rem',
-        cursor: 'pointer',
-    },
-    rightColumn: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.25rem',
-    },
-    configCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.25rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
-    },
-    configTitle: {
-        fontSize: '0.9rem',
-        fontWeight: '700',
-        color: '#16211c',
-        margin: '0 0 1rem 0',
-    },
-    configItem: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '1rem',
-        paddingBottom: '1rem',
-        borderBottom: '1px solid #eef0ec',
-    },
-    configItemTitle: {
-        fontSize: '0.875rem',
-        fontWeight: '500',
-        color: '#16211c',
-        margin: '0 0 0.125rem 0',
-    },
-    configItemDesc: {
-        fontSize: '0.75rem',
-        color: '#5d6862',
-        margin: 0,
-    },
-    toggleOff: {
-        width: '44px',
-        height: '24px',
-        borderRadius: '999px',
-        backgroundColor: '#e6e8e2',
-        position: 'relative',
-        flexShrink: 0,
-    },
-    toggleKnobOff: {
-        width: '18px',
-        height: '18px',
-        borderRadius: '50%',
-        backgroundColor: 'white',
-        position: 'absolute',
-        top: '3px',
-        left: '3px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-    },
-    toggleOn: {
-        width: '44px',
-        height: '24px',
-        borderRadius: '999px',
-        backgroundColor: '#0f3b2c',
-        position: 'relative',
-        flexShrink: 0,
-    },
-    toggleKnobOn: {
-        width: '18px',
-        height: '18px',
-        borderRadius: '50%',
-        backgroundColor: 'white',
-        position: 'absolute',
-        top: '3px',
-        right: '3px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-    },
-    applyBtn: {
-        width: '100%',
-        padding: '0.625rem',
-        backgroundColor: '#0f3b2c',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-        marginTop: '0.5rem',
     },
     auditCard: {
         backgroundColor: 'white',
@@ -529,41 +278,23 @@ const styles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '1rem',
+        marginBottom: '0.5rem',
+    },
+    auditTitle: {
+        fontSize: '0.9rem',
+        fontWeight: '700',
+        color: '#16211c',
+        margin: 0,
     },
     auditIcon: {
         fontSize: '1rem',
         color: '#5d6862',
     },
-    auditItem: {
-        display: 'flex',
-        gap: '0.75rem',
-        marginBottom: '1rem',
-        paddingBottom: '1rem',
-        borderBottom: '1px solid #f9faf8',
-    },
-    auditDot: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        flexShrink: 0,
-        marginTop: '4px',
-    },
-    auditTitle: {
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        color: '#16211c',
-        margin: '0 0 0.125rem 0',
-    },
     auditDesc: {
-        fontSize: '0.75rem',
+        fontSize: '0.8rem',
+        lineHeight: 1.55,
         color: '#5d6862',
-        margin: '0 0 0.125rem 0',
-    },
-    auditTime: {
-        fontSize: '0.7rem',
-        color: '#5d6862',
-        margin: 0,
+        margin: '0 0 0.75rem 0',
     },
     viewAuditBtn: {
         width: '100%',
@@ -574,6 +305,5 @@ const styles = {
         borderRadius: '8px',
         fontSize: '0.8rem',
         cursor: 'pointer',
-        marginTop: '0.5rem',
     },
 };

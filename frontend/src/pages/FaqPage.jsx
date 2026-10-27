@@ -115,10 +115,6 @@ export default function FaqPage() {
                         <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
                     </div>
                 </div>
-                <div style={styles.systemStatus}>
-                    <div style={styles.statusDot} />
-                    <span style={styles.statusText}>All Nodes Active</span>
-                </div>
             </div>
         </CustomerLayout>
     );
@@ -238,21 +234,5 @@ const styles = {
         color: '#9ca3af',
         cursor: 'pointer',
         textDecoration: 'none',
-    },
-    systemStatus: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-    },
-    statusDot: {
-        width: '8px',
-        height: '8px',
-        borderRadius: '50%',
-        backgroundColor: '#16a34a',
-    },
-    statusText: {
-        fontSize: '0.75rem',
-        color: '#6b7280',
-        fontWeight: '500',
     },
 };

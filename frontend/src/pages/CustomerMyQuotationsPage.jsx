@@ -492,10 +492,6 @@ function Footer() {
                 <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link> ·{' '}
                 <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
             </span>
-            <span style={styles.systemStatus}>
-                <span style={styles.statusDot} />
-                All Nodes Active
-            </span>
         </div>
     );
 }
@@ -597,6 +593,4 @@ const styles = {
         justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', fontSize: '13px', color: C.sub,
     },
     footerLink: { color: C.sub, textDecoration: 'none' },
-    systemStatus: { display: 'flex', alignItems: 'center', gap: '8px' },
-    statusDot: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16a34a' },
 };
