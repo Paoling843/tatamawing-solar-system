@@ -138,7 +138,7 @@ class QuotationRequestController extends Controller
 
         if (! $customer) {
             return response()->json([
-                'message' => 'Unauthorized. Only customers can create quotation requests.',
+                'message' => 'Only customer accounts can request a quotation.',
             ], 403);
         }
 
@@ -257,7 +257,7 @@ class QuotationRequestController extends Controller
 
         if(! $customer || $quotationRequest->customer_id !== $customer->id) {
             return response()->json([
-                'message' => 'Forbidden.'
+                'message' => 'You can only send your own quotation requests.'
             ], 403);
         }
 
@@ -311,7 +311,7 @@ class QuotationRequestController extends Controller
 
         if (! $customer || $quotationRequest->customer_id !== $customer->id) {
             return response()->json([
-                'message' => 'Forbidden.'
+                'message' => 'You can only view your own quotation requests.'
             ], 403);
         }
 

@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Validator;
 
 class FaqController extends Controller
 {
+    public const QUESTION_MAX = 255;
+    public const ANSWER_MAX = 5000;
+
     public function index(Request $request)
     {
         $search = $request->query('search');
@@ -33,14 +36,8 @@ class FaqController extends Controller
     {
         $this->authorize('create', Faq::class);
 
-        $validator = Validator::make($request->all(), [
-            'question' => ['required', 'string', 'min:10', 'max:500'],
-            'answer' => ['required', 'string', 'min:10'],
-            'keywords' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
+        if ($invalid = $this->validationError($request)) {
+            return $invalid;
         }
 
         $admin = $request->user()->admin()->firstOrCreate([
@@ -74,14 +71,8 @@ class FaqController extends Controller
     {
         $this->authorize('update', $faq);
 
-        $validator = Validator::make($request->all(), [
-            'question' => ['required', 'string', 'min:10', 'max:500'],
-            'answer' => ['required', 'string', 'min:10'],
-            'keywords' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        if ($invalid = $this->validationError($request)) {
+            return $invalid;
         }
 
         $faq->update([
@@ -99,7 +90,7 @@ class FaqController extends Controller
         );
 
         return response()->json([
-            'message' => 'FAQ updated successfully',
+            'message' => 'FAQ updated successfully.',
             'faq' => $faq,
         ]);
     } 
@@ -125,4 +116,31 @@ class FaqController extends Controller
         ]);
     }
 
+    // Same rules for create and edit. The limits match the columns: question
+    // is VARCHAR(255) and answer is TEXT, so nothing valid can fail to save.
+    private function validationError(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'question' => ['required', 'string', 'min:10', 'max:' . self::QUESTION_MAX],
+            'answer' => ['required', 'string', 'min:10', 'max:' . self::ANSWER_MAX],
+            'keywords' => ['nullable', 'string', 'max:255'],
+        ], [
+            'question.required' => 'Enter the question.',
+            'question.min' => 'The question needs at least 10 characters.',
+            'question.max' => 'Keep the question under ' . number_format(self::QUESTION_MAX) . ' characters.',
+            'answer.required' => 'Enter the answer.',
+            'answer.min' => 'The answer needs at least 10 characters.',
+            'answer.max' => 'Keep the answer under ' . number_format(self::ANSWER_MAX) . ' characters.',
+            'keywords.max' => 'Keep the keywords under 255 characters.',
+        ]);
+
+        if (! $validator->fails()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => $validator->errors()->first(),
+            'errors' => $validator->errors(),
+        ], 422);
+    }
 }

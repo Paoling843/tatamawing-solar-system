@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\Route;
 // Authentication
 // ============================================================
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('login', [AuthController::class, 'login']);
+// Limited to 10 tries a minute per IP, so passwords can't be guessed in bulk
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {

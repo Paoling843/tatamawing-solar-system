@@ -11,7 +11,8 @@ import { colors, typography, statusColors } from '../styles/theme';
 //   submitted   formatted submission date
 //   onDownload    set only when the approved PDF can be downloaded
 //   onRequestNew  opens the calculator (offered on rejected quotations)
-export default function QuotationDetailsModal({ qr, reference, submitted, onDownload, onRequestNew, onClose }) {
+//   error         e.g. a failed download, shown above the buttons
+export default function QuotationDetailsModal({ qr, reference, submitted, onDownload, onRequestNew, error, onClose }) {
     // Mount hidden, then flip to shown on the next painted frame so the
     // open animation has a "from" state (same as the rejection modal)
     const [shown, setShown] = useState(false);
@@ -209,6 +210,8 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                         </div>
                     </Section>
                 </div>
+
+                {error && <div role="alert" className="m-pad-sm" style={styles.errorBox}>{error}</div>}
 
                 {/* ---------- Footer ---------- */}
                 <div className="m-pad-sm" style={styles.footer}>
@@ -485,6 +488,10 @@ const styles = {
         padding: '1rem 1.625rem', borderTop: `1px solid ${colors.borderLight}`, background: colors.bgSubtle,
     },
     footerNote: { fontSize: '0.8rem', color: colors.textMuted },
+    errorBox: {
+        padding: '0.75rem 1.625rem', fontSize: '0.85rem', lineHeight: 1.5,
+        color: '#991b1b', background: colors.dangerTint, borderTop: '1px solid #fecaca',
+    },
     primaryBtn: {
         display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.65rem 1.1rem',
         borderRadius: '10px', border: 'none', background: colors.primary, color: '#fff',

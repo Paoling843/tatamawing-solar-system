@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { colors, typography, radii } from '../styles/theme';
 import { CalendarIcon, CheckCircleIcon, ClockIcon } from '../components/Icons';
 
@@ -22,8 +23,8 @@ export default function CustomerSchedulePage() {
         try {
             const res = await api.get('/customer/schedules');
             setSchedules(res.data);
-        } catch {
-            setError('Failed to load your installation schedules.');
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't load your installation schedule. Please try again."));
         } finally {
             setLoading(false);
         }

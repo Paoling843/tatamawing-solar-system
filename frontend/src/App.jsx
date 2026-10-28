@@ -1,6 +1,11 @@
 // Import routing tools — Routes holds all routes, Route defines each page,
 // Navigate redirects to a different page programmatically
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+
+import ErrorBoundary from './components/ErrorBoundary';
+import FullPageMessage from './components/FullPageMessage';
+import LoadingState from './components/LoadingState';
+import { NETWORK_MESSAGE } from './utils/errorMessage';
 
 // Import our custom hook to access the logged-in user and loading state
 import { useAuth } from './context/auth-context';
@@ -28,22 +33,72 @@ import ExternalInstallationRequestPage from './pages/ExternalInstallationRequest
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 
+const dashboardFor = (user) => (user?.role === 'admin' ? '/admin/dashboard' : '/customer/dashboard');
+
 function ProtectedRoute({ children, allowedRoles }) {
-    const { user, loading } = useAuth();
+    const { user, loading, authError, retryAuth, sessionNotice } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) {
+        return (
+            <FullPageMessage>
+                <LoadingState label="Connecting to the server…" />
+            </FullPageMessage>
+        );
+    }
 
-    if (!user) return <Navigate to="/" />;
+    // The saved login couldn't be checked because the server didn't answer.
+    // The login is kept, so "Try again" picks up where they left off.
+    if (authError) {
+        return (
+            <FullPageMessage
+                title="Can't reach the server"
+                description={NETWORK_MESSAGE}
+                actions={[
+                    { label: 'Try again', primary: true, onClick: retryAuth },
+                    { label: 'Go to home', onClick: () => navigate('/') },
+                ]}
+            />
+        );
+    }
+
+    if (!user) {
+        // Login expired mid-session: back to the login page, which says why,
+        // and then back to this page after signing in
+        return sessionNotice
+            ? <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />
+            : <Navigate to="/" />;
+    }
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        return <div>Forbidden - you do not have access to this page.</div>;
+        return (
+            <FullPageMessage
+                title="This page isn't for your account"
+                description={allowedRoles.includes('admin')
+                    ? 'This page is only for the TataMawing admin.'
+                    : 'This page is for customer accounts.'}
+                actions={[{ label: 'Go to my dashboard', primary: true, onClick: () => navigate(dashboardFor(user)) }]}
+            />
+        );
     }
     return children;
 }
 
+// Unknown address: logged-in users go to their own dashboard, guests to login
+function CatchAll() {
+    const { user, loading } = useAuth();
+    if (loading) return null;
+    return <Navigate to={user ? dashboardFor(user) : '/login'} replace />;
+}
+
 
 export default function App() {
+    const location = useLocation();
+
     return (
+        // Keyed by the URL so a crash on one page doesn't follow you to the next
+        <ErrorBoundary key={location.pathname}>
         <Routes>
             <Route path="/" element={<LandingPage />} />
             {/* One auth page with a Log in / Register switch. /register just opens
@@ -60,7 +115,7 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsPage />} />
 
-            <Route path="*" element={<Navigate to="/login" />} />
+            <Route path="*" element={<CatchAll />} />
 
             <Route path="/admin/dashboard" element ={
                 <ProtectedRoute allowedRoles={'admin'}>
@@ -147,6 +202,6 @@ export default function App() {
 
 
         </Routes>
-
+        </ErrorBoundary>
     );
 }

@@ -9,7 +9,9 @@ import LoadingState from '../components/LoadingState';
 import Badge from '../components/Badge';
 
 import ScheduleModal from '../components/ScheduleModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
 
@@ -36,6 +38,8 @@ export default function AdminDashboardPage() {
     const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
     const [selectedQuotation, setSelectedQuotation] = useState(null);
     const [approvingQuotationId, setApprovingQuotationId] = useState(null);
+    // Quotation waiting for the admin to confirm "Approve"
+    const [approveTarget, setApproveTarget] = useState(null);
     // External request being confirmed; date, time, technician and notes are
     // picked inside the shared ScheduleModal
     const [confirmingExternal, setConfirmingExternal] = useState(null);
@@ -43,6 +47,8 @@ export default function AdminDashboardPage() {
     const [confirmError, setConfirmError] = useState('');
     const [rejectingExternal, setRejectingExternal] = useState(null);
     const [rejectingQuotation, setRejectingQuotation] = useState(null);
+    // Shown inside the reject windows (the page banner is hidden behind them)
+    const [rejectError, setRejectError] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [rejectLoading, setRejectLoading] = useState(false);
     const [quotationPreview, setQuotationPreview] = useState(null);
@@ -54,8 +60,8 @@ export default function AdminDashboardPage() {
         try {
             const res = await api.get('/admin/quotation-requests');
             setQuotations(res.data);
-        } catch {
-            setError('Failed to load quotations. Please try again.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the quotations. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -114,7 +120,7 @@ export default function AdminDashboardPage() {
             fetchExternalRequests();
             fetchSchedules();
         } catch (requestError) {
-            setConfirmError(requestError.response?.data?.message || 'Failed to confirm external installation request.');
+            setConfirmError(errorMessage(requestError, "Couldn't confirm the installation request. Please try again."));
         } finally {
             setConfirmLoading(false);
         }
@@ -122,6 +128,7 @@ export default function AdminDashboardPage() {
 
     const openRejectExternal = (requestRecord) => {
         setRejectingExternal(requestRecord);
+        setRejectError('');
         setRejectionReason('');
         setError('');
     };
@@ -142,7 +149,7 @@ export default function AdminDashboardPage() {
             setRejectingExternal(null);
             fetchExternalRequests();
         } catch (requestError) {
-            setError(requestError.response?.data?.message || 'Failed to reject external installation request.');
+            setRejectError(errorMessage(requestError, "Couldn't reject the installation request. Please try again."));
         } finally {
             setRejectLoading(false);
         }
@@ -162,7 +169,7 @@ export default function AdminDashboardPage() {
                 type: response.data.type || response.headers['content-type'] || '',
             });
         } catch (requestError) {
-            setError(requestError.response?.data?.message || 'Failed to download quotation proof.');
+            setError(errorMessage(await readBlobError(requestError), "Couldn't open the customer's quotation file. Please try again."));
         } finally {
             setQuotationPreviewLoadingId(null);
         }
@@ -230,7 +237,7 @@ export default function AdminDashboardPage() {
                 },
             });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to approve quotation.');
+            setError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
         } finally {
             setApprovingQuotationId(null);
         }
@@ -238,6 +245,7 @@ export default function AdminDashboardPage() {
 
     const openRejectQuotation = (quotation) => {
         setRejectingQuotation(quotation);
+        setRejectError('');
         setRejectionReason('');
         setError('');
     };
@@ -259,7 +267,7 @@ export default function AdminDashboardPage() {
             setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to reject quotation.');
+            setRejectError(errorMessage(err, "Couldn't reject the quotation. Please try again."));
         } finally {
             setRejectLoading(false);
         }
@@ -446,7 +454,7 @@ export default function AdminDashboardPage() {
                                                                         opacity: approvingQuotationId ? 0.65 : 1,
                                                                         cursor: approvingQuotationId ? 'not-allowed' : 'pointer',
                                                                     }}
-                                                                    onClick={() => handleApprove(q)}
+                                                                    onClick={() => setApproveTarget(q)}
                                                                     disabled={Boolean(approvingQuotationId)}
                                                                 >
                                                                     {approvingQuotationId === q.id ? 'Approving...' : 'Approve & schedule'}
@@ -767,6 +775,7 @@ export default function AdminDashboardPage() {
                                 </label>
                                 <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
                             </div>
+                            {rejectError && <div role="alert" style={styles.modalError}>{rejectError}</div>}
                             <div className="m-wrap" style={styles.confirmModalFooter}>
                                 <button type="button" className="btn-secondary" onClick={closeRejectQuotation} style={styles.modalSecondaryBtn}>Cancel</button>
                                 <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
@@ -812,6 +821,7 @@ export default function AdminDashboardPage() {
                                 </label>
                                 <div style={styles.rejectCharacterCount}>{rejectionReason.length}/1000</div>
                             </div>
+                            {rejectError && <div role="alert" style={styles.modalError}>{rejectError}</div>}
                             <div className="m-wrap" style={styles.confirmModalFooter}>
                                 <button type="button" className="btn-secondary" onClick={closeRejectExternal} style={styles.modalSecondaryBtn}>Cancel</button>
                                 <button type="submit" className="btn-danger" style={styles.modalDangerBtn} disabled={rejectLoading || !rejectionReason.trim()}>
@@ -900,7 +910,7 @@ export default function AdminDashboardPage() {
                             <div style={styles.drawerActions}>
                                 <button
                                     style={styles.drawerApproveBtn}
-                                    onClick={() => handleApprove(selectedQuotation)}
+                                    onClick={() => setApproveTarget(selectedQuotation)}
                                 >
                                     Approve
                                 </button>
@@ -940,6 +950,21 @@ export default function AdminDashboardPage() {
                 </>
             )}
 
+            <ConfirmDialog
+                open={!!approveTarget}
+                title="Approve this quotation?"
+                message={approveTarget
+                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget.id, approveTarget.created_at)}. The customer will see it as approved, and you'll go to the Schedule page to set the installation date. This can't be undone.`
+                    : ''}
+                confirmLabel={approvingQuotationId ? 'Approving...' : 'Approve'}
+                busy={Boolean(approvingQuotationId)}
+                onConfirm={async () => {
+                    await handleApprove(approveTarget);
+                    setApproveTarget(null);
+                }}
+                onCancel={() => setApproveTarget(null)}
+            />
+
             <style>{`.qt-row:hover { background-color: #fafbf9; }`}</style>
         </AdminLayout>
     );
@@ -977,6 +1002,7 @@ function SortableHeader({ label, sortKey, sortState, onSort, align }) {
 }
 
 const styles = {
+    modalError: { ...adminUi.errorBanner, margin: '0 1.5rem 1rem' },
     exportBtn: {
         display: 'flex',
         alignItems: 'center',

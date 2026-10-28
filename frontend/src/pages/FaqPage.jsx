@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import { ChevronDownIcon } from '../components/Icons';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 
 export default function FaqPage() {
     const [faqs, setFaqs] = useState([]);
@@ -20,8 +21,8 @@ export default function FaqPage() {
                 : '/faqs';
             const res = await api.get(url);
             setFaqs(res.data);
-        } catch {
-            setError('Failed to load FAQs. Please try again.');
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't load the FAQs. Please try again."));
         } finally {
             setLoading(false);
         }

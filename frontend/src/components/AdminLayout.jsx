@@ -8,6 +8,7 @@ import {
 import api from '../api/axios';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
+import ConfirmDialog from './ConfirmDialog';
 import { adminTokens, adminText } from '../styles/adminTheme';
 
 const NAV_COUNT_KEYS = {
@@ -115,7 +116,11 @@ export default function AdminLayout({ children, active, title, subtitle, actions
         };
     }, [active]);
 
+    const [confirmLogout, setConfirmLogout] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+
     const handleLogout = async () => {
+        setLoggingOut(true);
         await logout();
         navigate('/login');
     };
@@ -207,9 +212,6 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                             {user?.role === 'admin' ? 'Administrator' : (user?.role || 'Admin')}
                         </div>
                     </div>
-                    <button className="m-tap" style={styles.logoutIconBtn} onClick={handleLogout} aria-label="Log out">
-                        <LogOutIcon size={16} color={adminTokens.danger} />
-                    </button>
                 </div>
             </div>
 
@@ -225,23 +227,16 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                         <MenuIcon size={20} color={adminTokens.body} />
                     </button>
 
-                    {/* On phones the search box only shows on pages that use it */}
-                    <div className={onSearchChange ? undefined : 'm-hide'} style={styles.searchWrapper}>
-                        <SearchIcon size={14} color={adminTokens.faint} />
-                        <input
-                            type="text"
-                            placeholder="Search reference, customer or location"
-                            className="input-field"
-                            style={styles.searchInput}
-                            {...(onSearchChange ? { value: searchValue ?? '' } : {})}
-                            onChange={onSearchChange ? (e) => onSearchChange(e.target.value) : undefined}
-                        />
-                    </div>
-
                     <div style={styles.topBarRight}>
                         <NotificationBell iconColor={adminTokens.muted} />
 
                         {actions}
+
+                        {/* Same spot and look as the customer side's Logout */}
+                        <button className="btn-secondary" style={styles.logoutBtn} onClick={() => setConfirmLogout(true)}>
+                            <LogOutIcon size={15} color={adminTokens.danger} />
+                            <span>Logout</span>
+                        </button>
                     </div>
                 </div>
 
@@ -255,6 +250,17 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                     {children}
                 </main>
             </div>
+
+            <ConfirmDialog
+                open={confirmLogout}
+                title="Log out?"
+                message="You'll need to sign in again to manage quotations and schedules."
+                confirmLabel={loggingOut ? 'Logging out...' : 'Log out'}
+                danger
+                busy={loggingOut}
+                onConfirm={handleLogout}
+                onCancel={() => setConfirmLogout(false)}
+            />
         </div>
     );
 }
@@ -411,17 +417,19 @@ const styles = {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
     },
-    logoutIconBtn: {
-        width: '32px',
-        height: '32px',
-        borderRadius: '8px',
-        border: `1px solid ${adminTokens.border}`,
-        backgroundColor: '#fff',
+    logoutBtn: {
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: '0.4rem',
+        padding: '0.4rem 0.75rem',
+        borderRadius: '8px',
+        border: `1px solid ${adminTokens.border}`,
+        backgroundColor: 'white',
+        color: adminTokens.danger,
+        fontSize: '0.8rem',
+        fontWeight: '600',
+        whiteSpace: 'nowrap',
         cursor: 'pointer',
-        flexShrink: 0,
     },
     rightSide: {
         flex: 1,
@@ -450,25 +458,6 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
-    },
-    searchWrapper: {
-        display: 'flex',
-        alignItems: 'center',
-        backgroundColor: adminTokens.page,
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '10px',
-        padding: '0.5rem 0.85rem',
-        gap: '0.5rem',
-        width: '100%',
-        maxWidth: '360px',
-    },
-    searchInput: {
-        border: 'none',
-        backgroundColor: 'transparent',
-        fontSize: '13.5px',
-        color: adminTokens.body,
-        width: '100%',
-        fontFamily: adminTokens.fontUI,
     },
     topBarRight: {
         display: 'flex',

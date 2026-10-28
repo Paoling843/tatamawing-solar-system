@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { useMessagePanel } from '../context/message-panel-context';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
@@ -137,8 +138,8 @@ export default function CustomerMyQuotationsPage() {
             setQuotationRequests(res.data);
             // Open the newest one so its details are visible straight away
             setExpandedId((current) => current ?? res.data[0]?.id ?? null);
-        } catch {
-            setError('Failed to load your quotations.');
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't load your quotations. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -164,8 +165,8 @@ export default function CustomerMyQuotationsPage() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
-        } catch {
-            setError('Failed to download quotation PDF.');
+        } catch (err) {
+            setError(errorMessage(await readBlobError(err), "We couldn't download your quotation PDF. Please try again."));
         }
     };
 

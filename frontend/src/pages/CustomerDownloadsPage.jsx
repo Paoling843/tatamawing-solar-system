@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { colors, typography } from '../styles/theme';
 
 export default function CustomerDownloadsPage() {
@@ -23,8 +24,8 @@ export default function CustomerDownloadsPage() {
                 q => q.status === 'approved' && q.quotation
             );
             setApprovedQuotations(approved);
-        } catch {
-            setError('Failed to load downloads.');
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't load your downloads. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -53,8 +54,8 @@ export default function CustomerDownloadsPage() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
-        } catch {
-            setError('Failed to download PDF. Please try again.');
+        } catch (err) {
+            setError(errorMessage(await readBlobError(err), "We couldn't download the PDF. Please try again."));
         } finally {
             setDownloadingId(null);
         }

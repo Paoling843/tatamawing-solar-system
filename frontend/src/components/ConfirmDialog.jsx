@@ -1,19 +1,63 @@
-export default function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, onConfirm, onCancel }) {
+import { useEffect } from 'react';
+
+// Small "Are you sure?" dialog for important actions (log out, approve,
+// mark complete, delete...). While `busy` is true the buttons are disabled
+// and the dialog can't be dismissed, so the action can't be sent twice.
+export default function ConfirmDialog({
+    open,
+    title,
+    message,
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    danger = false,
+    busy = false,
+    onConfirm,
+    onCancel,
+}) {
+    // Escape closes the dialog, like clicking outside it
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape' && !busy) onCancel?.();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, busy, onCancel]);
+
     if (!open) return null;
 
     return (
-        <div style={styles.overlay} onClick={onCancel}>
-            <div style={styles.card} onClick={(e) => e.stopPropagation()}>
-                <h3 style={styles.title}>{title}</h3>
+        <div style={styles.overlay} onClick={busy ? undefined : onCancel}>
+            <div
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="confirm-dialog-title"
+                style={styles.card}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 id="confirm-dialog-title" style={styles.title}>{title}</h3>
                 {message && <p style={styles.message}>{message}</p>}
                 <div style={styles.actions}>
-                    <button className="btn-secondary" style={styles.cancelBtn} onClick={onCancel}>
+                    <button
+                        type="button"
+                        className="btn-secondary"
+                        style={styles.cancelBtn}
+                        onClick={onCancel}
+                        disabled={busy}
+                    >
                         {cancelLabel}
                     </button>
                     <button
+                        type="button"
                         className={danger ? 'btn-danger' : 'btn-primary'}
-                        style={danger ? styles.confirmBtnDanger : styles.confirmBtn}
+                        style={{
+                            ...(danger ? styles.confirmBtnDanger : styles.confirmBtn),
+                            opacity: busy ? 0.7 : 1,
+                            cursor: busy ? 'wait' : 'pointer',
+                        }}
                         onClick={onConfirm}
+                        disabled={busy}
+                        autoFocus
                     >
                         {confirmLabel}
                     </button>
@@ -26,16 +70,16 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = 'Co
 const styles = {
     overlay: {
         position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '1rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: '1rem',
     },
     card: {
         backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', maxWidth: '400px', width: '100%',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.15)', fontFamily: 'inherit',
     },
     title: { fontSize: '1.05rem', fontWeight: 700, color: '#111827', margin: '0 0 0.5rem 0' },
     message: { fontSize: '0.875rem', color: '#6b7280', margin: '0 0 1.5rem 0', lineHeight: 1.5 },
     actions: { display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.75rem' },
-    cancelBtn: { backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600 },
-    confirmBtn: { backgroundColor: '#1a4a3a', color: 'white', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600 },
-    confirmBtnDanger: { backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600 },
+    cancelBtn: { backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' },
+    confirmBtn: { backgroundColor: '#1a4a3a', color: 'white', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600, fontFamily: 'inherit' },
+    confirmBtnDanger: { backgroundColor: '#dc2626', color: 'white', border: 'none', padding: '0.625rem 1.25rem', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 600, fontFamily: 'inherit' },
 };

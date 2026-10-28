@@ -6,7 +6,10 @@ import LoadingState from '../components/LoadingState';
 import Badge from '../components/Badge';
 import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIcon, MailIcon } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
+import ProductPicker from '../components/ProductPicker';
+import { BUSINESS_NAME } from './quote-builder/businessInfo';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { materialsFromComputation, materialRow } from '../utils/materials';
 import { colors } from '../styles/theme';
@@ -21,6 +24,9 @@ function formatTime(time) {
     return `${displayHour}:${m} ${period}`;
 }
 
+// Colors for the product list under the Item box
+const PICKER_COLORS = { text: adminTokens.ink, muted: adminTokens.muted, border: adminTokens.border, active: adminTokens.greenTint };
+
 export default function AdminQuotationDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -31,6 +37,8 @@ export default function AdminQuotationDetailPage() {
     const [actionSuccess, setActionSuccess] = useState('');
     const [showApproveForm, setShowApproveForm] = useState(false);
     const [showRejectForm, setShowRejectForm] = useState(false);
+    // Shown inside the approve / reject windows (the page banner is behind them)
+    const [decisionError, setDecisionError] = useState('');
     const [approveForm, setApproveForm] = useState({
         adjusted_cost: '',
         labor_fee: '',
@@ -54,6 +62,8 @@ export default function AdminQuotationDetailPage() {
     const [businessAddress, setBusinessAddress] = useState('');
     const [materialsLoading, setMaterialsLoading] = useState(false);
     const [materialsError, setMaterialsError] = useState('');
+    // "Copied ✓" on the Copy message button for a moment after copying
+    const [messageCopied, setMessageCopied] = useState(false);
 
 
     const fetchQuotation = useCallback(async () => {
@@ -67,8 +77,8 @@ export default function AdminQuotationDetailPage() {
                 ...prev,
                 adjusted_cost: res.data.solar_computation?.estimated_cost || '',
             }));
-        } catch {
-            setError('Failed to load quotation details.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load this quotation. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -97,7 +107,7 @@ export default function AdminQuotationDetailPage() {
             setShowApproveForm(false);
             fetchQuotation();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to approve quotation.');
+            setDecisionError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
         } finally {
             setActionLoading(false);
         }
@@ -118,7 +128,7 @@ export default function AdminQuotationDetailPage() {
             setShowRejectForm(false);
             fetchQuotation();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to reject quotation.');
+            setDecisionError(errorMessage(err, "Couldn't reject the quotation. Please try again."));
         } finally {
             setActionLoading(false);
         }
@@ -150,6 +160,48 @@ export default function AdminQuotationDetailPage() {
     const handleMaterialChange = (rowId, field, value) => {
         setMaterials(materials.map((m) => (m.id === rowId ? { ...m, [field]: value } : m)));
     };
+    // A product picked from the list fills the row's name, code and unit
+    const pickProduct = (rowId, product) => {
+        setMaterials(materials.map((m) => (m.id === rowId
+            ? { ...m, name: product.name, code: product.code, unit: product.unit }
+            : m)));
+    };
+
+    // The same list as the PDF, as a message to paste into Messenger
+    const copyMaterialsMessage = async () => {
+        const lines = materials
+            .filter((m) => m.name.trim())
+            .map((m, i) => {
+                const details = [m.specification.trim(), m.code.trim()].filter(Boolean).join(', ');
+                return `${i + 1}. ${m.name.trim()}${details ? ` (${details})` : ''} — ${m.quantity} ${m.unit.trim()}`.trimEnd();
+            });
+        const deliverTo = materialsForm.deliver_to === 'site'
+            ? quotation?.installation_address || 'Installation site'
+            : businessAddress || BUSINESS_NAME;
+        const neededBy = materialsForm.needed_by
+            && new Date(`${materialsForm.needed_by}T00:00:00`).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+
+        const message = [
+            `Hi! Purchase request from ${BUSINESS_NAME}:`,
+            '',
+            ...lines,
+            '',
+            `Deliver to: ${deliverTo}`,
+            neededBy && `Needed by: ${neededBy}`,
+            materialsForm.notes.trim() && `Note: ${materialsForm.notes.trim()}`,
+            '',
+            'Thank you!',
+        ].filter((line) => line !== false && line !== null && line !== undefined).join('\n');
+
+        try {
+            await navigator.clipboard.writeText(message);
+            setMaterialsError('');
+            setMessageCopied(true);
+            setTimeout(() => setMessageCopied(false), 2000);
+        } catch {
+            setMaterialsError("Couldn't copy the message. Your browser blocked it — try again, or download the PDF instead.");
+        }
+    };
 
     const handleDownloadMaterials = async (e) => {
         e.preventDefault();
@@ -180,15 +232,8 @@ export default function AdminQuotationDetailPage() {
             link.remove();
             window.URL.revokeObjectURL(blobUrl);
         } catch (err) {
-            // Errors come back as a Blob because of responseType; read the JSON message inside
-            let message = 'Could not create the materials PDF.';
-            try {
-                const body = JSON.parse(await err.response.data.text());
-                message = Object.values(body.errors ?? {})[0]?.[0] ?? body.message ?? message;
-            } catch {
-                // keep the default message
-            }
-            setMaterialsError(message);
+            // Errors come back as a Blob because of responseType
+            setMaterialsError(errorMessage(await readBlobError(err), "Couldn't create the materials PDF. Please try again."));
         } finally {
             setMaterialsLoading(false);
         }
@@ -235,7 +280,7 @@ export default function AdminQuotationDetailPage() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err) {
-            setScheduleError(err.response?.data?.message || 'Failed to create installation schedule.');
+            setScheduleError(errorMessage(err, "Couldn't create the installation schedule. Please try again."));
         } finally {
             setScheduleLoading(false);
         }
@@ -709,7 +754,7 @@ export default function AdminQuotationDetailPage() {
                                     <div style={styles.actionButtons}>
                                         <button
                                             className="btn-primary"
-                                            onClick={() => setShowApproveForm(true)}
+                                            onClick={() => { setDecisionError(''); setShowApproveForm(true); }}
                                             style={styles.approveBtn}
                                         >
                                             <CheckIcon size={16} color="white" />
@@ -718,7 +763,7 @@ export default function AdminQuotationDetailPage() {
 
                                         <button
                                             className="btn-danger"
-                                            onClick={() => setShowRejectForm(true)}
+                                            onClick={() => { setDecisionError(''); setShowRejectForm(true); }}
                                             style={styles.rejectBtn}
                                         >
                                             <XIcon size={16} color="white" />
@@ -796,6 +841,8 @@ export default function AdminQuotationDetailPage() {
                                             </span>
                                         </div>
 
+                                        {decisionError && <div role="alert" style={styles.error}>{decisionError}</div>}
+
                                         <div style={styles.formActions}>
                                             <button
                                                 type="button"
@@ -843,9 +890,12 @@ export default function AdminQuotationDetailPage() {
                                                 className="input-field"
                                                 style={styles.decisionTextarea}
                                                 placeholder="e.g. Incomplete appliance information..."
+                                                maxLength={1000}
                                                 required
                                             />
                                         </div>
+
+                                        {decisionError && <div role="alert" style={styles.error}>{decisionError}</div>}
 
                                         <div style={styles.formActions}>
                                             <button
@@ -880,11 +930,10 @@ export default function AdminQuotationDetailPage() {
                     {/* ---- Materials PDF for the supplier ---- */}
                     {/* The admin downloads it and sends it on Messenger; nothing is saved or tracked */}
                     {quotation?.status === 'approved' && quotation?.quotation && (
-                        <section id="materials" className="m-pad" style={{ ...styles.card, ...styles.cardAccent }}>
-                            <h3 style={styles.cardTitle}>Materials for supplier</h3>
-
+                        <section id="materials" className="m-pad" style={styles.card}>
                             {!materialsOpen ? (
                                 <div>
+                                    <h3 style={styles.cardTitle}>Materials for supplier</h3>
                                     <p style={styles.cardDesc}>
                                         Make a purchase request PDF from this quote's materials, then send it to the
                                         supplier on Messenger. It has no prices and no customer name.
@@ -895,118 +944,152 @@ export default function AdminQuotationDetailPage() {
                                 </div>
                             ) : (
                                 <form onSubmit={handleDownloadMaterials}>
-                                    <div style={styles.field}>
-                                        <label style={styles.label}>Materials</label>
-
-                                        <div className="scroll-x">
-                                            <div style={{ minWidth: '680px' }}>
-                                                <div style={styles.materialHeader}>
-                                                    <span style={{ flex: 2.2 }}>Item</span>
-                                                    <span style={{ flex: 3 }}>Specification</span>
-                                                    <span style={{ flex: 1.3 }}>Code</span>
-                                                    <span style={{ flex: 0.9 }}>Qty</span>
-                                                    <span style={{ flex: 1 }}>Unit</span>
-                                                    <span style={{ width: '34px' }} />
-                                                </div>
-
-                                                {materials.map((material) => (
-                                                    <div key={material.id} style={styles.materialRow}>
-                                                        <input
-                                                            value={material.name}
-                                                            onChange={(e) => handleMaterialChange(material.id, 'name', e.target.value)}
-                                                            className="input-field"
-                                                            style={{ ...styles.input, flex: 2.2 }}
-                                                            placeholder="e.g. PV cable"
-                                                            maxLength={120}
-                                                            aria-label="Item"
-                                                            required
-                                                        />
-                                                        <input
-                                                            value={material.specification}
-                                                            onChange={(e) => handleMaterialChange(material.id, 'specification', e.target.value)}
-                                                            className="input-field"
-                                                            style={{ ...styles.input, flex: 3 }}
-                                                            placeholder="e.g. 6 mm², red"
-                                                            maxLength={160}
-                                                            aria-label="Specification"
-                                                        />
-                                                        <input
-                                                            value={material.code}
-                                                            onChange={(e) => handleMaterialChange(material.id, 'code', e.target.value)}
-                                                            className="input-field"
-                                                            style={{ ...styles.input, flex: 1.3 }}
-                                                            placeholder="Optional"
-                                                            maxLength={40}
-                                                            aria-label="Code"
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max="999"
-                                                            value={material.quantity}
-                                                            onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
-                                                            className="input-field"
-                                                            style={{ ...styles.input, flex: 0.9 }}
-                                                            aria-label="Quantity"
-                                                            required
-                                                        />
-                                                        <input
-                                                            value={material.unit}
-                                                            onChange={(e) => handleMaterialChange(material.id, 'unit', e.target.value)}
-                                                            className="input-field"
-                                                            style={{ ...styles.input, flex: 1 }}
-                                                            placeholder="pcs"
-                                                            maxLength={20}
-                                                            aria-label="Unit"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeMaterial(material.id)}
-                                                            disabled={materials.length === 1}
-                                                            style={{ ...styles.removeMaterialBtn, flex: 'none', width: '34px', opacity: materials.length === 1 ? 0.4 : 1 }}
-                                                            aria-label="Remove material"
-                                                        >
-                                                            <XIcon size={14} color={adminTokens.danger} />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                    <div style={styles.matHead}>
+                                        <div>
+                                            <h3 style={{ ...styles.cardTitle, margin: 0 }}>Materials for supplier</h3>
+                                            <p style={styles.matSub}>
+                                                Filled in from the approved quote. Edit anything before downloading —
+                                                type a name or code under Item to pick from the product list.
+                                            </p>
                                         </div>
-
-                                        <button type="button" onClick={addMaterial} style={styles.addMaterialBtn}>
-                                            + Add item
-                                        </button>
+                                        <span style={styles.matCount}>
+                                            {materials.length} {materials.length === 1 ? 'item' : 'items'}
+                                        </span>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                        <div style={styles.field}>
-                                            <span style={styles.label}>Deliver to</span>
-                                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', paddingTop: '0.35rem' }}>
-                                                {[
-                                                    { value: 'business', label: 'TataMawing' },
-                                                    { value: 'site', label: 'Installation site' },
-                                                ].map((option) => (
-                                                    <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-                                                        <input
-                                                            type="radio"
-                                                            name="deliver_to"
-                                                            value={option.value}
-                                                            checked={materialsForm.deliver_to === option.value}
-                                                            onChange={() => setMaterialsForm({ ...materialsForm, deliver_to: option.value })}
-                                                        />
-                                                        {option.label}
-                                                    </label>
-                                                ))}
+                                    {/* Reads like the PDF: plain text until you hover or click a cell */}
+                                    <div className="scroll-x">
+                                        <div style={{ minWidth: '680px' }}>
+                                            <div style={{ ...styles.matGrid, ...styles.matHeaderRow }}>
+                                                <span>#</span>
+                                                <span>Item</span>
+                                                <span>Specification</span>
+                                                <span>Code</span>
+                                                <span style={{ textAlign: 'center' }}>Qty</span>
+                                                <span>Unit</span>
+                                                <span />
                                             </div>
-                                            {/* The address that will be printed on the PDF */}
-                                            <div style={{ fontSize: '0.8rem', color: adminTokens.muted, marginTop: '0.4rem' }}>
-                                                {materialsForm.deliver_to === 'site'
-                                                    ? quotation?.installation_address || 'No site address on this request yet.'
-                                                    : businessAddress || 'TataMawing address'}
+
+                                            {materials.map((material, index) => (
+                                                <div key={material.id} style={{ ...styles.matGrid, ...styles.matRow }}>
+                                                    <span style={styles.matIndex}>{index + 1}</span>
+                                                    <ProductPicker
+                                                        value={material.name}
+                                                        onChange={(text) => handleMaterialChange(material.id, 'name', text)}
+                                                        onPick={(product) => pickProduct(material.id, product)}
+                                                        className="input-field mat-cell"
+                                                        inputStyle={{ ...styles.matCell, fontWeight: 600, color: adminTokens.ink }}
+                                                        colors={PICKER_COLORS}
+                                                        placeholder="Name or code, e.g. MC4"
+                                                        maxLength={120}
+                                                        aria-label={`Item ${index + 1}`}
+                                                        required
+                                                    />
+                                                    <input
+                                                        value={material.specification}
+                                                        onChange={(e) => handleMaterialChange(material.id, 'specification', e.target.value)}
+                                                        className="input-field mat-cell"
+                                                        style={styles.matCell}
+                                                        placeholder="add details"
+                                                        maxLength={160}
+                                                        aria-label={`Specification ${index + 1}`}
+                                                    />
+                                                    <input
+                                                        value={material.code}
+                                                        onChange={(e) => handleMaterialChange(material.id, 'code', e.target.value)}
+                                                        className="input-field mat-cell"
+                                                        style={{ ...styles.matCell, ...styles.matCode }}
+                                                        placeholder="add code"
+                                                        maxLength={40}
+                                                        aria-label={`Code ${index + 1}`}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="999"
+                                                        value={material.quantity}
+                                                        onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
+                                                        className="input-field"
+                                                        style={styles.matQty}
+                                                        aria-label={`Quantity ${index + 1}`}
+                                                        required
+                                                    />
+                                                    <input
+                                                        value={material.unit}
+                                                        onChange={(e) => handleMaterialChange(material.id, 'unit', e.target.value)}
+                                                        className="input-field mat-cell"
+                                                        style={{ ...styles.matCell, color: adminTokens.muted }}
+                                                        placeholder="unit"
+                                                        maxLength={20}
+                                                        aria-label={`Unit ${index + 1}`}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="m-tap"
+                                                        onClick={() => removeMaterial(material.id)}
+                                                        disabled={materials.length === 1}
+                                                        style={{ ...styles.matRemove, opacity: materials.length === 1 ? 0.3 : 1 }}
+                                                        aria-label={`Remove ${material.name || `item ${index + 1}`}`}
+                                                        title="Remove"
+                                                    >
+                                                        <XIcon size={13} color="currentColor" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <button type="button" onClick={addMaterial} style={styles.matAdd}>
+                                        + Add item
+                                    </button>
+
+                                    <div style={styles.matDivider} />
+
+                                    <div style={styles.matDeliveryRow}>
+                                        <div style={{ flex: '2 1 360px', minWidth: 0 }}>
+                                            <span style={styles.label}>Deliver to</span>
+                                            <div role="radiogroup" aria-label="Deliver to" style={styles.matChoices}>
+                                                {[
+                                                    {
+                                                        value: 'business',
+                                                        label: 'TataMawing',
+                                                        address: businessAddress || 'TataMawing address',
+                                                    },
+                                                    {
+                                                        value: 'site',
+                                                        label: 'Installation site',
+                                                        address: quotation?.installation_address || 'No site address on this request yet.',
+                                                    },
+                                                ].map((option) => {
+                                                    const checked = materialsForm.deliver_to === option.value;
+                                                    return (
+                                                        <label
+                                                            key={option.value}
+                                                            style={{ ...styles.matChoice, ...(checked ? styles.matChoiceOn : {}) }}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                name="deliver_to"
+                                                                value={option.value}
+                                                                checked={checked}
+                                                                onChange={() => setMaterialsForm({ ...materialsForm, deliver_to: option.value })}
+                                                                style={{ accentColor: adminTokens.green, margin: '0.2rem 0 0' }}
+                                                            />
+                                                            <span style={{ minWidth: 0 }}>
+                                                                <span style={styles.matChoiceTitle}>{option.label}</span>
+                                                                {/* The address that will be printed on the PDF */}
+                                                                <span style={styles.matChoiceAddress}>{option.address}</span>
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                        <div style={{ ...styles.field, maxWidth: '220px' }}>
-                                            <label htmlFor="materials-needed-by" style={styles.label}>Needed by (optional)</label>
+
+                                        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                            <label htmlFor="materials-needed-by" style={styles.label}>
+                                                Needed by · <span style={{ letterSpacing: '0.06em' }}>optional</span>
+                                            </label>
                                             <input
                                                 id="materials-needed-by"
                                                 type="date"
@@ -1015,11 +1098,18 @@ export default function AdminQuotationDetailPage() {
                                                 className="input-field"
                                                 style={styles.input}
                                             />
+                                            {installSchedule && (
+                                                <p style={styles.matHint}>
+                                                    Installation is scheduled for {formatDate(installSchedule.scheduled_date)}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div style={styles.field}>
-                                        <label htmlFor="materials-notes" style={styles.label}>Notes for the supplier (optional)</label>
+                                    <div style={{ ...styles.field, marginTop: '1rem' }}>
+                                        <label htmlFor="materials-notes" style={styles.label}>
+                                            Note for the supplier · <span style={{ letterSpacing: '0.06em' }}>optional</span>
+                                        </label>
                                         <textarea
                                             id="materials-notes"
                                             value={materialsForm.notes}
@@ -1027,34 +1117,47 @@ export default function AdminQuotationDetailPage() {
                                             maxLength={1000}
                                             rows={2}
                                             className="input-field"
-                                            style={{ ...styles.input, resize: 'vertical' }}
+                                            style={{ ...styles.input, resize: 'vertical', fontSize: '0.875rem' }}
                                             placeholder="e.g. Please deliver in the morning."
                                         />
                                     </div>
 
-                                    {materialsError && <div style={{ ...styles.error, marginBottom: '0.75rem' }}>{materialsError}</div>}
+                                    {materialsError && <div role="alert" style={styles.error}>{materialsError}</div>}
 
-                                    <div style={styles.formActions}>
-                                        <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            onClick={() => setMaterialsOpen(false)}
-                                            style={styles.cancelBtn}
-                                        >
-                                            Close
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="btn-primary"
-                                            disabled={materialsLoading}
-                                            style={{
-                                                ...styles.approveBtn,
-                                                opacity: materialsLoading ? 0.7 : 1,
-                                                cursor: materialsLoading ? 'not-allowed' : 'pointer',
-                                            }}
-                                        >
-                                            <span>{materialsLoading ? 'Preparing…' : 'Download PDF'}</span>
-                                        </button>
+                                    <div style={styles.matFooter}>
+                                        <span style={styles.matFooterNote}>The PDF leaves out prices and customer details.</span>
+                                        <div style={styles.matFooterActions}>
+                                            <button
+                                                type="button"
+                                                className="btn-secondary"
+                                                onClick={() => setMaterialsOpen(false)}
+                                                style={styles.cancelBtn}
+                                            >
+                                                Close
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn-secondary"
+                                                onClick={copyMaterialsMessage}
+                                                style={styles.cancelBtn}
+                                                title="Copies the list as a message you can paste into Messenger"
+                                            >
+                                                {messageCopied ? 'Copied ✓' : 'Copy message'}
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="btn-primary"
+                                                disabled={materialsLoading}
+                                                style={{
+                                                    ...styles.approveBtn,
+                                                    fontWeight: 600,
+                                                    opacity: materialsLoading ? 0.7 : 1,
+                                                    cursor: materialsLoading ? 'not-allowed' : 'pointer',
+                                                }}
+                                            >
+                                                <span>{materialsLoading ? 'Preparing…' : 'Download PDF'}</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
                             )}
@@ -1320,10 +1423,6 @@ const styles = {
         borderRadius: '14px',
         padding: '1.25rem 1.375rem',
         backgroundColor: adminTokens.surface,
-    },
-    cardAccent: {
-        backgroundColor: adminTokens.greenTint,
-        border: `1px solid ${colors.primaryBorder}`,
     },
     cardDanger: {
         borderLeft: `4px solid ${adminTokens.danger}`,
@@ -1609,42 +1708,175 @@ const styles = {
         flexWrap: 'wrap',
     },
 
-    /* ---------- Materials editor ---------- */
-    materialHeader: {
+    /* ---------- Materials for supplier ---------- */
+    matHead: {
         display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '0.5rem',
-        fontSize: '0.65625rem',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '1rem',
+        marginBottom: '1.125rem',
+    },
+    matSub: {
+        margin: '0.3rem 0 0',
+        fontSize: '0.8125rem',
         color: adminTokens.muted,
-        fontWeight: '500',
-        letterSpacing: '0.1em',
+        maxWidth: '60ch',
+    },
+    matCount: {
+        flexShrink: 0,
+        fontSize: '0.65625rem',
+        fontWeight: 600,
+        letterSpacing: '0.12em',
         textTransform: 'uppercase',
+        color: adminTokens.muted,
+        paddingTop: '0.2rem',
     },
-    materialRow: {
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '0.5rem',
+    // # · Item · Specification · Code · Qty · Unit · remove
+    matGrid: {
+        display: 'grid',
+        gridTemplateColumns: '28px minmax(150px, 2.2fr) minmax(150px, 3fr) 108px 64px 72px 32px',
         alignItems: 'center',
+        columnGap: '0.5rem',
     },
-    removeMaterialBtn: {
-        flex: 1,
-        backgroundColor: colors.dangerTint,
-        color: adminTokens.danger,
-        border: `1px solid ${adminTokens.danger}`,
-        borderRadius: '9px',
-        padding: '0.5rem',
+    matHeaderRow: {
+        padding: '0 0 0.5rem',
+        borderBottom: `1px solid ${adminTokens.border}`,
+        fontSize: '0.65625rem',
+        fontWeight: 600,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        color: adminTokens.muted,
+    },
+    matRow: {
+        padding: '0.375rem 0',
+        borderBottom: `1px solid ${adminTokens.hairline}`,
+    },
+    matIndex: {
+        fontSize: '0.8125rem',
+        color: adminTokens.muted,
+        fontVariantNumeric: 'tabular-nums',
+    },
+    // Looks like plain text until hovered or focused (see .mat-cell in App.css)
+    matCell: {
+        width: '100%',
+        minWidth: 0,
+        padding: '0.45rem 0.5rem',
+        border: '1px solid transparent',
+        borderRadius: '7px',
+        backgroundColor: 'transparent',
+        fontSize: '0.875rem',
+        color: adminTokens.body,
+        boxSizing: 'border-box',
+        textOverflow: 'ellipsis',
+    },
+    matCode: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '0.75rem',
+        color: adminTokens.muted,
+    },
+    matQty: {
+        width: '100%',
+        padding: '0.4rem 0.25rem',
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '7px',
+        backgroundColor: adminTokens.surface,
+        fontSize: '0.875rem',
+        fontWeight: 600,
+        color: adminTokens.ink,
+        textAlign: 'center',
+        fontVariantNumeric: 'tabular-nums',
+        boxSizing: 'border-box',
+    },
+    matRemove: {
+        width: '28px',
+        height: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        borderRadius: '7px',
+        backgroundColor: 'transparent',
+        color: adminTokens.muted,
         cursor: 'pointer',
     },
-    addMaterialBtn: {
+    matAdd: {
+        marginTop: '0.75rem',
+        padding: '0.25rem 0',
+        border: 'none',
         backgroundColor: 'transparent',
         color: adminTokens.green,
-        border: `1px dashed ${adminTokens.green}`,
-        borderRadius: '9px',
-        padding: '0.625rem 1rem',
-        cursor: 'pointer',
         fontSize: '0.8125rem',
-        width: '100%',
-        marginTop: '0.5rem',
+        fontWeight: 600,
+        cursor: 'pointer',
+    },
+    matDivider: {
+        height: '1px',
+        backgroundColor: adminTokens.border,
+        margin: '1.125rem 0',
+    },
+    matDeliveryRow: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '1rem 1.5rem',
+    },
+    matChoices: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
+        gap: '0.625rem',
+    },
+    matChoice: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.6rem',
+        padding: '0.75rem 0.875rem',
+        border: `1px solid ${adminTokens.border}`,
+        borderRadius: '10px',
+        backgroundColor: adminTokens.surface,
+        cursor: 'pointer',
+    },
+    matChoiceOn: {
+        borderColor: adminTokens.green,
+        backgroundColor: adminTokens.greenTint,
+        boxShadow: `inset 0 0 0 1px ${adminTokens.green}`,
+    },
+    matChoiceTitle: {
+        display: 'block',
+        fontSize: '0.875rem',
+        fontWeight: 600,
+        color: adminTokens.ink,
+    },
+    matChoiceAddress: {
+        display: 'block',
+        marginTop: '0.2rem',
+        fontSize: '0.75rem',
+        lineHeight: 1.45,
+        color: adminTokens.muted,
+        overflowWrap: 'anywhere',
+    },
+    matHint: {
+        margin: '0.4rem 0 0',
+        fontSize: '0.75rem',
+        color: adminTokens.muted,
+    },
+    matFooter: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '0.75rem 1rem',
+        marginTop: '0.25rem',
+        paddingTop: '1rem',
+        borderTop: `1px solid ${adminTokens.border}`,
+    },
+    matFooterNote: {
+        fontSize: '0.75rem',
+        color: adminTokens.muted,
+    },
+    matFooterActions: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0.5rem',
+        marginLeft: 'auto',
     },
 
     /* ---------- Banners ---------- */
