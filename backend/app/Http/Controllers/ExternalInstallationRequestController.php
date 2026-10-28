@@ -16,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 
 class ExternalInstallationRequestController extends Controller
 {
@@ -55,25 +54,39 @@ class ExternalInstallationRequestController extends Controller
                 'request' => [
                     'id' => $requestRecord->id,
                     'status' => $requestRecord->status,
-                    'status_url' => URL::temporarySignedRoute(
-                        'external-installation-requests.status',
-                        now()->addDays(30),
-                        ['externalInstallationRequest' => $requestRecord->id]
-                    ),
+                    'status_url' => $requestRecord->statusPageUrl(),
                 ],
             ], 201);
     }
 
+    /**
+     * Data for the website's status page (signed link, no login).
+     * Emails sent before the status page existed link here directly; a
+     * browser opening one is sent on to the page instead of seeing JSON.
+     */
     public function status(Request $request, ExternalInstallationRequest $externalInstallationRequest)
     {
+        if (! $request->expectsJson()) {
+            return redirect()->away(ExternalInstallationRequest::statusPage(
+                $externalInstallationRequest->id,
+                $request->only(['expires', 'signature'])
+            ));
+        }
+
+        $schedule = $externalInstallationRequest->installationSchedule;
+
         return response()->json([
             'id' => $externalInstallationRequest->id,
             'name' => $externalInstallationRequest->name,
+            'address' => $externalInstallationRequest->address,
             'preferred_installation_date' => $externalInstallationRequest->preferred_installation_date,
             'other_company_name' => $externalInstallationRequest->other_company_name,
             'status' => $externalInstallationRequest->status,
             'rejection_reason' => $externalInstallationRequest->rejection_reason,
             'reviewed_at' => $externalInstallationRequest->reviewed_at,
+            'submitted_at' => $externalInstallationRequest->created_at,
+            'scheduled_date' => $schedule?->scheduled_date?->toDateString(),
+            'scheduled_time' => $schedule?->scheduled_time,
         ]);
     }
 

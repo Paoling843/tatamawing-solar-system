@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import { safeRedirect } from '../utils/safeRedirect';
 import { useBusinessContact } from '../services/businessContact';
 import BrandLogo from '../components/BrandLogo';
 import { errorMessage } from '../utils/errorMessage';
+import api from '../api/axios';
 import './AuthPage.css';
 
 // =====================================================================
-// Auth page (routes: /login and /register)
+// Auth page (routes: /login, /register, /forgot-password, /reset-password)
 // =====================================================================
 // One page that switches between "Log in" and "Register" without changing
 // the route. /register just opens it in register mode.
+// /forgot-password asks for the email and sends a reset link;
+// /reset-password?token=…&email=… (the link in that email) sets a new password.
 //
 // ?redirect=/some/page sends the user back there after signing in (the
 // Solar Computation Engine uses this to return guests to their quotation).
@@ -89,7 +92,44 @@ const COPY = {
             'Keep your last three bills in one place',
         ],
     },
+    forgot: {
+        eyebrow: 'PASSWORD HELP',
+        headline: 'Forgot your password?',
+        blurb: "Enter the email you signed up with and we'll send you a link to set a new one.",
+        submit: 'Send reset link',
+        headerPrompt: 'Remembered it?',
+        headerAction: 'Log in',
+        footerPrompt: 'Remembered your password?',
+        footerAction: 'Log in',
+        panelEyebrow: 'ON YOUR ACCOUNT',
+        panelHeadline: 'Your quotations are safe while you reset.',
+        bullets: [
+            'The link works once and expires after 60 minutes',
+            'Your saved computations and quotations stay as they are',
+            'Other devices are signed out after the change',
+        ],
+    },
+    reset: {
+        eyebrow: 'PASSWORD HELP',
+        headline: 'Set a new password.',
+        blurb: "Choose a new password. You'll use it the next time you log in.",
+        submit: 'Save new password',
+        headerPrompt: 'Remembered it?',
+        headerAction: 'Log in',
+        footerPrompt: 'Link not working?',
+        footerAction: 'Request a new one',
+        panelEyebrow: 'ON YOUR ACCOUNT',
+        panelHeadline: 'Your quotations are safe while you reset.',
+        bullets: [
+            'Use at least 8 characters, with letters and numbers',
+            'Your saved computations and quotations stay as they are',
+            'Other devices are signed out after the change',
+        ],
+    },
 };
+
+// Modes that live on their own pages and lead back to /login
+const PASSWORD_HELP = ['forgot', 'reset'];
 
 // ---------------------------------------------------------------------
 // Validation
@@ -101,28 +141,37 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function validate(mode, v) {
     const errors = {};
 
-    if (!v.email.trim()) errors.email = 'Required';
-    else if (!EMAIL_PATTERN.test(v.email.trim())) errors.email = 'Enter a valid email address';
+    // The reset page takes the email from the link, so it has no email box
+    if (mode !== 'reset') {
+        if (!v.email.trim()) errors.email = 'Required';
+        else if (!EMAIL_PATTERN.test(v.email.trim())) errors.email = 'Enter a valid email address';
+    }
+
+    if (mode === 'forgot') return errors;
 
     if (mode === 'login') {
         if (!v.password) errors.password = 'Required';
         return errors;
     }
 
-    if (!v.firstName.trim()) errors.firstName = 'Required';
-    if (!v.lastName.trim()) errors.lastName = 'Required';
+    if (mode === 'register') {
+        if (!v.firstName.trim()) errors.firstName = 'Required';
+        if (!v.lastName.trim()) errors.lastName = 'Required';
 
-    const digits = v.mobile.replace(/\D/g, '');
-    if (!digits) errors.mobile = 'Required';
-    else if (digits.length !== 10) errors.mobile = 'Enter a 10-digit mobile number';
+        const digits = v.mobile.replace(/\D/g, '');
+        if (!digits) errors.mobile = 'Required';
+        else if (digits.length !== 10) errors.mobile = 'Enter a 10-digit mobile number';
 
+        if (!v.terms) errors.terms = 'Please accept the terms to continue';
+    }
+
+    // New password: register and reset (same rules as the server)
     if (!v.password) errors.password = 'Required';
     else if (v.password.length < 8) errors.password = 'Use at least 8 characters';
+    else if (!/[A-Za-z]/.test(v.password) || !/\d/.test(v.password)) errors.password = 'Use both letters and numbers';
 
     if (!v.confirm) errors.confirm = 'Required';
     else if (v.confirm !== v.password) errors.confirm = 'Passwords do not match';
-
-    if (!v.terms) errors.terms = 'Please accept the terms to continue';
 
     return errors;
 }
@@ -152,6 +201,7 @@ const SERVER_FIELDS = {
     first_name: 'firstName',
     last_name: 'lastName',
     contact_number: 'mobile',
+    password_confirmation: 'confirm',
 };
 
 // =====================================================================
@@ -159,11 +209,17 @@ const SERVER_FIELDS = {
 export default function AuthPage({ initialMode = 'login' }) {
     const { login, register, sessionNotice } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const redirect = safeRedirect(searchParams.get('redirect'));
 
+    // From the emailed link: /reset-password?token=…&email=…
+    const resetToken = searchParams.get('token') || '';
+    const resetEmail = searchParams.get('email') || '';
+
     const [mode, setMode] = useState(initialMode);
-    const [values, setValues] = useState(EMPTY_VALUES);
+    // "Forgot password?" carries over the email already typed on the login form
+    const [values, setValues] = useState(() => ({ ...EMPTY_VALUES, email: location.state?.email || '' }));
     const [touched, setTouched] = useState({});        // fields the user has left
     const [submitted, setSubmitted] = useState(false); // submit was pressed
     const [showPassword, setShowPassword] = useState(false);
@@ -172,7 +228,8 @@ export default function AuthPage({ initialMode = 'login' }) {
     const [formError, setFormError] = useState('');
     // "not available yet" messages, or why they were sent back here
     // ("Your session has ended…")
-    const [notice, setNotice] = useState(() => sessionNotice || '');
+    // ("Your session has ended…"), or "Your password was changed…"
+    const [notice, setNotice] = useState(() => sessionNotice || location.state?.notice || '');
     const [success, setSuccess] = useState('');
     const [busy, setBusy] = useState(false);
 
@@ -182,6 +239,20 @@ export default function AuthPage({ initialMode = 'login' }) {
 
     const copy = COPY[mode];
     const errors = validate(mode, values);
+    const passwordHelp = PASSWORD_HELP.includes(mode);
+    // A reset link missing its token or email can't work
+    const resetLinkBroken = mode === 'reset' && (!resetToken || !resetEmail);
+    const blurb = mode === 'reset' && resetEmail
+        ? `Choose a new password for ${resetEmail}. You'll use it the next time you log in.`
+        : copy.blurb;
+
+    // The header and footer buttons: Log in ↔ Register, or back to Log in
+    // (or "Request a new one" on the reset page)
+    const goHeader = () => (passwordHelp ? navigate('/login') : switchMode(mode === 'login' ? 'register' : 'login'));
+    const goFooter = () => {
+        if (mode === 'reset') navigate('/forgot-password', { state: { email: resetEmail } });
+        else goHeader();
+    };
 
     // The message to show under a field, or null.
     // Server errors (e.g. email already taken) always show; our own checks
@@ -228,6 +299,25 @@ export default function AuthPage({ initialMode = 'login' }) {
         const email = values.email.trim();
 
         try {
+            if (mode === 'forgot') {
+                const res = await api.post('/forgot-password', { email });
+                setSuccess(res.data.message);
+                setBusy(false);
+                return;
+            }
+            if (mode === 'reset') {
+                await api.post('/reset-password', {
+                    token: resetToken,
+                    email: resetEmail,
+                    password: values.password,
+                    password_confirmation: values.confirm,
+                });
+                navigate('/login', {
+                    replace: true,
+                    state: { notice: 'Your password was changed. You can now log in with your new password.' },
+                });
+                return;
+            }
             if (mode === 'login') {
                 const user = await login(email, values.password, remember);
                 finish(user, redirect && user.role === 'customer'
@@ -262,12 +352,15 @@ export default function AuthPage({ initialMode = 'login' }) {
                 });
                 setServerErrors(mapped);
                 if (unmapped) setFormError(unmapped);
-            } else if (status === 401) {
+            } else if (status === 401 && mode === 'login') {
                 setFormError("That email and password don't match an account.");
             } else {
-                setFormError(errorMessage(err, mode === 'login'
-                    ? "Couldn't sign you in. Please try again."
-                    : "Couldn't create your account. Please try again."));
+                setFormError(errorMessage(err, {
+                    login: "Couldn't sign you in. Please try again.",
+                    register: "Couldn't create your account. Please try again.",
+                    forgot: "Couldn't send the reset link. Please try again.",
+                    reset: "Couldn't change your password. Please try again.",
+                }[mode]));
             }
             setBusy(false);
         }
@@ -275,11 +368,6 @@ export default function AuthPage({ initialMode = 'login' }) {
 
     // Real contact details (the business email from the server), not a placeholder
     const contact = useBusinessContact();
-
-    const showUnavailable = (message) => {
-        setFormError('');
-        setNotice(message);
-    };
 
     const score = passwordScore(values.password);
     const strength = values.password ? STRENGTH[score] : null;
@@ -297,7 +385,7 @@ export default function AuthPage({ initialMode = 'login' }) {
                     <button
                         type="button"
                         className="auth-btn-secondary"
-                        onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                        onClick={goHeader}
                         style={{ ...styles.secondaryButton, width: 'auto', padding: '10px 16px', fontSize: '14px' }}
                     >
                         {copy.headerAction}
@@ -312,22 +400,30 @@ export default function AuthPage({ initialMode = 'login' }) {
                     <div className="auth-form-col" style={styles.formCol}>
                         <div style={styles.eyebrow}>{copy.eyebrow}</div>
                         <h1 style={styles.headline}>{copy.headline}</h1>
-                        <p style={styles.blurb}>{copy.blurb}</p>
+                        <p style={styles.blurb}>{blurb}</p>
 
-                        <div role="tablist" aria-label="Account mode" style={styles.toggle}>
-                            {[['login', 'Log in'], ['register', 'Register']].map(([id, label]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={mode === id}
-                                    onClick={() => switchMode(id)}
-                                    style={styles.toggleButton(mode === id)}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
+                        {!passwordHelp && (
+                            <div role="tablist" aria-label="Account mode" style={styles.toggle}>
+                                {[['login', 'Log in'], ['register', 'Register']].map(([id, label]) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={mode === id}
+                                        onClick={() => switchMode(id)}
+                                        style={styles.toggleButton(mode === id)}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {resetLinkBroken && (
+                            <div role="alert" style={{ ...styles.formError, maxWidth: '520px', marginBottom: '16px' }}>
+                                This reset link is incomplete. Open the link from your email again, or request a new one below.
+                            </div>
+                        )}
 
                         <form onSubmit={handleSubmit} noValidate style={styles.form}>
                             {mode === 'register' && (
@@ -345,12 +441,14 @@ export default function AuthPage({ initialMode = 'login' }) {
                                 </div>
                             )}
 
-                            <Field
-                                id="email" label="Email address" type="email" autoComplete="email"
-                                placeholder="you@email.com"
-                                value={values.email} error={fieldError('email')}
-                                onChange={(v) => setValue('email', v)} onBlur={() => touch('email')}
-                            />
+                            {mode !== 'reset' && (
+                                <Field
+                                    id="email" label="Email address" type="email" autoComplete="email"
+                                    placeholder="you@email.com"
+                                    value={values.email} error={fieldError('email')}
+                                    onChange={(v) => setValue('email', v)} onBlur={() => touch('email')}
+                                />
+                            )}
 
                             {mode === 'register' && (
                                 <div>
@@ -377,29 +475,31 @@ export default function AuthPage({ initialMode = 'login' }) {
                                 </div>
                             )}
 
-                            <Field
-                                id="password" label="Password"
-                                type={showPassword ? 'text' : 'password'}
-                                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                                value={values.password} error={fieldError('password')}
-                                onChange={(v) => setValue('password', v)} onBlur={() => touch('password')}
-                                labelAction={(
-                                    <button
-                                        type="button"
-                                        className="auth-link"
-                                        onClick={() => setShowPassword((prev) => !prev)}
-                                        aria-controls="password"
-                                        style={styles.showToggle}
-                                    >
-                                        {showPassword ? 'Hide' : 'Show'}
-                                    </button>
-                                )}
-                                after={mode === 'register' && <StrengthMeter score={score} strength={strength} />}
-                            />
-
-                            {mode === 'register' && (
+                            {mode !== 'forgot' && (
                                 <Field
-                                    id="confirm" label="Confirm password"
+                                    id="password" label={mode === 'reset' ? 'New password' : 'Password'}
+                                    type={showPassword ? 'text' : 'password'}
+                                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                                    value={values.password} error={fieldError('password')}
+                                    onChange={(v) => setValue('password', v)} onBlur={() => touch('password')}
+                                    labelAction={(
+                                        <button
+                                            type="button"
+                                            className="auth-link"
+                                            onClick={() => setShowPassword((prev) => !prev)}
+                                            aria-controls="password"
+                                            style={styles.showToggle}
+                                        >
+                                            {showPassword ? 'Hide' : 'Show'}
+                                        </button>
+                                    )}
+                                    after={(mode === 'register' || mode === 'reset') && <StrengthMeter score={score} strength={strength} />}
+                                />
+                            )}
+
+                            {(mode === 'register' || mode === 'reset') && (
+                                <Field
+                                    id="confirm" label={mode === 'reset' ? 'Confirm new password' : 'Confirm password'}
                                     type={showPassword ? 'text' : 'password'} autoComplete="new-password"
                                     value={values.confirm} error={fieldError('confirm')}
                                     onChange={(v) => setValue('confirm', v)} onBlur={() => touch('confirm')}
@@ -414,15 +514,13 @@ export default function AuthPage({ initialMode = 'login' }) {
                                     <button
                                         type="button"
                                         className="auth-link"
-                                        onClick={() => showUnavailable(contact.email
-                                            ? `Password reset isn't available yet. Email us at ${contact.email} from the address you signed up with, and we'll help you get back in.`
-                                            : "Password reset isn't available yet. Please contact TataMawing Solar and we'll help you get back in.")}
+                                        onClick={() => navigate('/forgot-password', { state: { email: values.email.trim() } })}
                                         style={styles.forgot}
                                     >
                                         Forgot password?
                                     </button>
                                 </div>
-                            ) : (
+                            ) : mode === 'register' && (
                                 <div>
                                     <Checkbox
                                         checked={values.terms}
@@ -445,10 +543,12 @@ export default function AuthPage({ initialMode = 'login' }) {
                             <button
                                 type="submit"
                                 className="auth-btn-primary"
-                                disabled={busy}
-                                style={styles.primaryButton}
+                                disabled={busy || resetLinkBroken}
+                                style={{ ...styles.primaryButton, ...(resetLinkBroken ? { opacity: 0.55, cursor: 'not-allowed' } : {}) }}
                             >
-                                {busy && !success ? (mode === 'login' ? 'Signing in…' : 'Creating account…') : copy.submit}
+                                {busy && !success
+                                    ? { login: 'Signing in…', register: 'Creating account…', forgot: 'Sending…', reset: 'Saving…' }[mode]
+                                    : copy.submit}
                             </button>
 
                             {success && <div role="status" style={styles.success}>{success}</div>}
@@ -461,7 +561,7 @@ export default function AuthPage({ initialMode = 'login' }) {
                             <button
                                 type="button"
                                 className="auth-link"
-                                onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                                onClick={goFooter}
                                 style={styles.inlineLink}
                             >
                                 {copy.footerAction}

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\URL;
 
 class ExternalInstallationRequest extends Model
 {
@@ -43,5 +44,28 @@ class ExternalInstallationRequest extends Model
     public function installationSchedule()
     {
         return $this->belongsTo(InstallationSchedule::class);
+    }
+
+    /**
+     * The "Check request status" link in the emails: the website's status
+     * page, carrying the signature of the API status route (valid 30 days).
+     * The page passes expires and signature on to the API to load the data.
+     */
+    public function statusPageUrl(): string
+    {
+        $signed = URL::temporarySignedRoute(
+            'external-installation-requests.status',
+            now()->addDays(30),
+            ['externalInstallationRequest' => $this->id]
+        );
+        parse_str((string) parse_url($signed, PHP_URL_QUERY), $query);
+
+        return self::statusPage($this->id, $query);
+    }
+
+    /** Website address of the status page for the given signature query */
+    public static function statusPage(int|string $id, array $query): string
+    {
+        return config('app.frontend_url')."/installation-request/{$id}/status?".http_build_query($query);
     }
 }

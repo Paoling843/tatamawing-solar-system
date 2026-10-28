@@ -4,13 +4,15 @@ import { useAuth } from '../context/auth-context';
 import {
     GridIcon, EditIcon, DocumentIcon, CalendarIcon,
     HelpIcon, DownloadIcon,
-    PlusIcon, MenuIcon, LogOutIcon,
+    PlusIcon, MenuIcon,
 } from './Icons';
 import { colors } from '../styles/theme';
 import SupportMessagePanel from './SupportMessagePanel';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
+import AccountMenu from './AccountMenu';
+
 export default function CustomerLayout({ children, active }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -30,11 +32,6 @@ export default function CustomerLayout({ children, active }) {
         navigate(path);
         setSidebarOpen(false);
     }
-
-    const getInitials = (name) => {
-        if (!name) return 'C';
-        return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    };
 
     const navItems = [
         { label: 'Overview', path: '/customer/dashboard', icon: <GridIcon size={16} /> },
@@ -107,14 +104,13 @@ return (
 
                     <NotificationBell iconColor={colors.textMuted} />
 
-                    <button className="btn-secondary" style={styles.logoutBtn} onClick={() => setConfirmLogout(true)}>
-                            <LogOutIcon size={15} color={colors.danger} />
-                        <span>Logout</span>
-                    </button>
-
-                    <div style={styles.avatar}>
-                        {getInitials(user?.name)}
-                    </div>
+                    {/* My Profile and Log out */}
+                    <AccountMenu
+                        user={user}
+                        onProfile={() => navigate('/customer/profile')}
+                        onLogout={() => setConfirmLogout(true)}
+                        avatarColors={{ bg: colors.primary, text: '#fff' }}
+                    />
                 </div>
             </div>
 
@@ -258,33 +254,6 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
-        flexShrink: 0,
-    },
-    logoutBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.4rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${colors.border}`,
-        backgroundColor: 'white',
-        color: colors.danger,
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        whiteSpace: 'nowrap',
-    },
-    avatar: {
-        width: '36px',
-        height: '36px',
-        borderRadius: '50%',
-        backgroundColor: colors.primary,
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '0.75rem',
-        fontWeight: '700',
-        cursor: 'pointer',
         flexShrink: 0,
     },
     main: {

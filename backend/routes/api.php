@@ -8,6 +8,8 @@ use App\Http\Controllers\InstallationScheduleController;
 use App\Http\Controllers\ExternalInstallationRequestController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
@@ -20,9 +22,19 @@ use Illuminate\Support\Facades\Route;
 // Authentication
 // ============================================================
 
+// Rate limits: throttle:<max>,<minutes>,<name>. The name gives each route its
+// own counter; without it Laravel counts every limited route a guest uses
+// against one shared limit per IP, so the calculator's tracking and the
+// contact info used up the login limit ("Too many attempts").
+
 // Limited to 10 tries a minute per IP, so passwords can't be guessed in bulk
-Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
-Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1,register');
+Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1,login');
+
+// "Forgot password?": email a one-time link, then set a new password with it.
+// Sending is limited harder, so the form can't be used to flood an inbox.
+Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:5,1,forgot-password');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1,reset-password');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
@@ -31,6 +43,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // My Profile (customers and the admin)
+    Route::get('/profile/summary', [ProfileController::class, 'summary']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'changePassword'])->middleware('throttle:10,1,change-password');
 });
 
 
@@ -46,7 +63,7 @@ Route::get('/faqs', [FaqController::class, 'index']);
 // ============================================================
 
 Route::post('/quote-sessions/track', [QuoteSessionController::class, 'track'])
-    ->middleware('throttle:60,1');
+    ->middleware('throttle:60,1,quote-track');
 
 
 // ============================================================
@@ -54,14 +71,14 @@ Route::post('/quote-sessions/track', [QuoteSessionController::class, 'track'])
 // ============================================================
 
 Route::post('/external-installation-requests', [ExternalInstallationRequestController::class, 'store'])
-    ->middleware('throttle:10,60');
+    ->middleware('throttle:10,60,external-request');
 
 Route::get('/external-installation-requests/{externalInstallationRequest}/status', [ExternalInstallationRequestController::class, 'status'])
     ->middleware('signed')
     ->name('external-installation-requests.status');
 
 // How to reach the business owner (shown on the Privacy Policy / Terms pages)
-Route::get('/contact', [InboxSettingsController::class, 'contact'])->middleware('throttle:60,1');
+Route::get('/contact', [InboxSettingsController::class, 'contact'])->middleware('throttle:60,1,contact');
 
 
 // ============================================================
@@ -69,7 +86,7 @@ Route::get('/contact', [InboxSettingsController::class, 'contact'])->middleware(
 // ============================================================
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:120,1');
+    Route::get('/notifications', [NotificationController::class, 'index'])->middleware('throttle:120,1,notifications');
     Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 });
