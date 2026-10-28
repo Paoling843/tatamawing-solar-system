@@ -807,6 +807,7 @@ const styles = {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
         border: '1px solid #eef0ec',
         minWidth: 0,
+        ...adminUi.cardAccent,
     },
     calendarHeader: {
         display: 'flex',
@@ -895,15 +896,17 @@ const styles = {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
         gap: '6px',
-        marginBottom: '4px',
+        marginBottom: '6px',
+        // Vertical padding only, so the labels stay over their day columns
+        padding: '6px 0',
+        ...adminUi.tableHead,
     },
     weekdayLabel: {
         fontSize: '0.7rem',
         fontWeight: '600',
         letterSpacing: '0.05em',
         textTransform: 'uppercase',
-        color: '#5d6862',
-        padding: '0 2px 4px',
+        padding: '0 8px',
     },
     cellGrid: {
         display: 'grid',
@@ -975,14 +978,17 @@ const styles = {
         padding: '1.25rem 1.25rem 1.5rem',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
         border: '1px solid #eef0ec',
+        ...adminUi.cardAccent,
     },
     sidePanelEyebrow: {
         fontSize: '0.7rem',
         fontWeight: '600',
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
-        color: '#5d6862',
+        color: adminTokens.green,
         marginBottom: '0.5rem',
+        ...adminUi.titleMarker,
+        paddingLeft: '8px',
     },
     selectedDateLabel: {
         fontSize: '1.05rem',

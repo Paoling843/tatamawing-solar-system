@@ -405,6 +405,7 @@ const styles = {
         color: '#16211c',
         marginTop: 0,
         marginBottom: '1.5rem',
+        ...adminUi.titleMarker,
     },
     field: {
         marginBottom: '1rem',

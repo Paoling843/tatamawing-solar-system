@@ -1059,8 +1059,9 @@ const styles = {
         borderRadius: '13px',
         boxShadow: '0 1px 2px rgba(16,33,26,.04)',
         padding: '20px',
+        ...adminUi.cardAccent,
     },
-    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0 },
+    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0, ...adminUi.titleMarker },
     cardSubtitle: { fontSize: '12.5px', color: adminTokens.muted, margin: '2px 0 0' },
 
     queueHeader: {
@@ -1375,7 +1376,7 @@ const styles = {
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '.08em',
-        color: adminTokens.faint,
+        color: adminTokens.green,
         display: 'flex',
         alignItems: 'center',
     },
@@ -1389,7 +1390,7 @@ const styles = {
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '.08em',
-        color: adminTokens.faint,
+        color: adminTokens.green,
         display: 'flex',
         alignItems: 'center',
         gap: '4px',
@@ -1400,7 +1401,7 @@ const styles = {
         gap: '12px',
         padding: '10px 20px',
         minWidth: '860px',
-        borderBottom: `1px solid ${adminTokens.hairline}`,
+        ...adminUi.tableHead,
     },
     tableBodyRow: {
         display: 'grid',

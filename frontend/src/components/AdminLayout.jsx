@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import {
     GridIcon, DocumentIcon, MessageIcon, HelpIcon, ShieldIcon,
@@ -10,6 +10,16 @@ import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
 import { adminTokens, adminText } from '../styles/adminTheme';
+
+// Sidebar on the brand green, with the brand yellow for the current page
+const SIDE = {
+    bg: adminTokens.green,
+    text: '#e2ebe6',
+    muted: '#c3d4cb',
+    line: 'rgba(255, 255, 255, 0.12)',
+    highlight: adminTokens.gold,
+    onHighlight: adminTokens.green,
+};
 
 const NAV_COUNT_KEYS = {
     Quotations: 'quotations',
@@ -56,7 +66,9 @@ const writeCachedCounts = (counts) => {
     }
 };
 
-export default function AdminLayout({ children, active, title, subtitle, actions, searchValue, onSearchChange }) {
+// crumb: the item being viewed, shown after the page in the breadcrumb,
+// e.g. "#Q-2026-050 · Juan Dela Cruz" on a quotation's details page
+export default function AdminLayout({ children, active, title, subtitle, actions, crumb, searchValue, onSearchChange }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -156,6 +168,12 @@ export default function AdminLayout({ children, active, title, subtitle, actions
         },
     ];
 
+    // Breadcrumb: sidebar group › page › item (when there is one)
+    const crumbGroup = navGroups.find((group) => group.items.some((item) => item.label === active));
+    const crumbPage = crumbGroup?.items.find((item) => item.label === active);
+
+    const today = new Date().toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
+
     return (
         <div style={styles.wrapper}>
             <div
@@ -165,7 +183,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
 
                 <button style={styles.brandBtn} onClick={() => handleNavigate('/admin/dashboard')} aria-label="Go to dashboard">
-                    <BrandLogo size={40} fontSize={15} tag="Admin" textClassName="sidebar-label" />
+                    <BrandLogo size={40} fontSize={15} tag="Admin" textClassName="sidebar-label" light />
                 </button>
 
                 <nav style={styles.nav}>
@@ -180,6 +198,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                                 return (
                                     <button
                                         key={item.label}
+                                        className="admin-nav-item"
                                         onClick={() => handleNavigate(item.path)}
                                         aria-current={isActive ? 'page' : undefined}
                                         style={{
@@ -189,7 +208,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                                     >
                                         <span style={{
                                             ...styles.navIcon,
-                                            color: isActive ? adminTokens.green : adminTokens.muted,
+                                            color: isActive ? SIDE.onHighlight : SIDE.muted,
                                         }}>
                                             {item.icon}
                                         </span>
@@ -227,7 +246,26 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                         <MenuIcon size={20} color={adminTokens.body} />
                     </button>
 
+                    {crumbPage && (
+                        <nav aria-label="Breadcrumb" style={styles.breadcrumb}>
+                            {/* The group isn't a page of its own; phones skip it to save room */}
+                            <span className="m-hide" style={styles.crumbGroup}>{crumbGroup.label}</span>
+                            <span className="m-hide" style={styles.crumbSep} aria-hidden="true">›</span>
+                            {crumb ? (
+                                <>
+                                    <Link to={crumbPage.path} style={styles.crumbLink}>{crumbPage.label}</Link>
+                                    <span style={styles.crumbSep} aria-hidden="true">›</span>
+                                    <span aria-current="page" style={styles.crumbCurrent}>{crumb}</span>
+                                </>
+                            ) : (
+                                <span aria-current="page" style={styles.crumbCurrent}>{crumbPage.label}</span>
+                            )}
+                        </nav>
+                    )}
+
                     <div style={styles.topBarRight}>
+                        <span className="m-hide" style={styles.today}>{today}</span>
+
                         <NotificationBell iconColor={adminTokens.muted} />
 
                         {actions}
@@ -294,8 +332,7 @@ const styles = {
     },
     sidebar: {
         minHeight: '100vh',
-        backgroundColor: adminTokens.surface,
-        borderRight: `1px solid ${adminTokens.border}`,
+        backgroundColor: SIDE.bg,
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
@@ -334,7 +371,8 @@ const styles = {
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '.11em',
-        color: adminTokens.faint,
+        color: SIDE.muted,
+        opacity: 0.8,
         padding: '0.9rem 0.75rem 0.4rem',
     },
     navItem: {
@@ -344,9 +382,8 @@ const styles = {
         padding: '0.55rem 0.75rem',
         borderRadius: '8px',
         border: 'none',
-        borderLeft: '3px solid transparent',
         backgroundColor: 'transparent',
-        color: adminTokens.muted,
+        color: SIDE.text,
         fontFamily: adminTokens.fontUI,
         fontSize: '13.5px',
         cursor: 'pointer',
@@ -354,10 +391,9 @@ const styles = {
         width: '100%',
     },
     navItemActive: {
-        backgroundColor: adminTokens.greenTint,
-        color: adminTokens.green,
-        fontWeight: 600,
-        borderLeftColor: adminTokens.green,
+        backgroundColor: SIDE.highlight,
+        color: SIDE.onHighlight,
+        fontWeight: 700,
     },
     navIcon: {
         display: 'flex',
@@ -377,7 +413,7 @@ const styles = {
         width: '7px',
         height: '7px',
         borderRadius: '50%',
-        backgroundColor: adminTokens.danger,
+        backgroundColor: SIDE.highlight,
         flexShrink: 0,
     },
     accountBlock: {
@@ -385,15 +421,15 @@ const styles = {
         alignItems: 'center',
         gap: '0.6rem',
         padding: '0.85rem 0.9rem',
-        borderTop: `1px solid ${adminTokens.hairline}`,
+        borderTop: `1px solid ${SIDE.line}`,
         marginTop: '0.5rem',
     },
     avatarSm: {
         width: '34px',
         height: '34px',
         borderRadius: '50%',
-        backgroundColor: adminTokens.green,
-        color: 'white',
+        backgroundColor: SIDE.highlight,
+        color: SIDE.onHighlight,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -405,14 +441,14 @@ const styles = {
     accountName: {
         fontSize: '13px',
         fontWeight: 600,
-        color: adminTokens.ink,
+        color: '#fff',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
     },
     accountRole: {
         fontSize: '11px',
-        color: adminTokens.faint,
+        color: SIDE.muted,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
@@ -458,6 +494,38 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+    },
+    breadcrumb: {
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        fontSize: '13.5px',
+        whiteSpace: 'nowrap',
+    },
+    crumbGroup: {
+        color: adminTokens.faint,
+    },
+    crumbSep: {
+        color: adminTokens.faint,
+        opacity: 0.7,
+    },
+    crumbLink: {
+        color: adminTokens.muted,
+        textDecoration: 'none',
+    },
+    crumbCurrent: {
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        color: adminTokens.ink,
+        fontWeight: 600,
+    },
+    today: {
+        fontSize: '13px',
+        color: adminTokens.muted,
+        whiteSpace: 'nowrap',
     },
     topBarRight: {
         display: 'flex',

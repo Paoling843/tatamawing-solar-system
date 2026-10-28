@@ -133,6 +133,7 @@ const styles = {
         borderRadius: 18,
         overflow: 'hidden',
         boxShadow: '0 8px 30px rgba(15, 23, 42, 0.04)',
+        ...adminUi.cardAccent,
     },
     cardHeader: {
         padding: '18px 20px',
@@ -149,6 +150,7 @@ const styles = {
         fontSize: 18,
         fontWeight: 700,
         color: '#16211c',
+        ...adminUi.titleMarker,
     },
     tableWrap: {
         display: 'flex',
@@ -158,9 +160,10 @@ const styles = {
         display: 'flex',
         gap: 12,
         padding: '14px 20px',
-        backgroundColor: '#f9faf8',
         borderBottom: '1px solid #e6e8e2',
-        color: '#4f5a54',
+        ...adminUi.tableHead,
+        // Runs edge to edge across the card, so no rounded corners
+        borderRadius: 0,
         fontSize: 12,
         fontWeight: 700,
         textTransform: 'uppercase',

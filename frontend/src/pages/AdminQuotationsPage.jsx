@@ -680,13 +680,17 @@ const styles = {
         borderRadius: '13px',
         boxShadow: '0 1px 2px rgba(16,33,26,.04)',
         overflow: 'hidden',
+        ...adminUi.cardAccent,
     },
+    // The list's top bar: same light green as the table headers
     listHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '13px 16px',
         borderBottom: `1px solid ${adminTokens.hairline}`,
+        ...adminUi.tableHead,
+        borderRadius: 0,
     },
     listCount: {
         fontFamily: adminTokens.fontMono,
@@ -797,6 +801,7 @@ const styles = {
         padding: '24px 26px',
         position: 'sticky',
         top: '82px',
+        ...adminUi.cardAccent,
     },
     detailEmpty: {
         padding: '48px 0',
@@ -870,8 +875,10 @@ const styles = {
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '.11em',
-        color: adminTokens.faint,
+        color: adminTokens.green,
         marginBottom: '8px',
+        ...adminUi.titleMarker,
+        paddingLeft: '8px',
     },
     applianceTable: {
         border: `1px solid ${adminTokens.border}`,
@@ -886,13 +893,13 @@ const styles = {
         alignItems: 'center',
     },
     applianceHeaderRow: {
-        backgroundColor: '#fafbf9',
+        backgroundColor: '#eef4f0',
         fontFamily: adminTokens.fontMono,
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
         letterSpacing: '.08em',
-        color: adminTokens.faint,
+        color: adminTokens.green,
     },
     applianceName: {
         fontSize: '13.5px',
