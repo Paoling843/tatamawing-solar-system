@@ -5,7 +5,9 @@ import AdminLayout from '../components/AdminLayout';
 import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
 import Badge from '../components/Badge';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { formatPeso, quotationPrice, priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
 import { XIcon } from '../components/Icons';
@@ -88,8 +90,13 @@ export default function AdminQuotationsPage() {
         }
     };
     const [rejectingQuotation, setRejectingQuotation] = useState(null);
+    // Shown inside the reject window (the page banner is hidden behind it)
+    const [rejectError, setRejectError] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [rejectLoading, setRejectLoading] = useState(false);
+    // Quotation waiting for the admin to confirm "Approve"
+    const [approveTarget, setApproveTarget] = useState(null);
+    const [approveLoading, setApproveLoading] = useState(false);
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
@@ -97,8 +104,8 @@ export default function AdminQuotationsPage() {
         try {
             const res = await api.get('/admin/quotation-requests');
             setQuotations(res.data);
-        } catch {
-            setError('Failed to load quotation requests. Please try again.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the quotation requests. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -124,12 +131,16 @@ export default function AdminQuotationsPage() {
 
     const handleApprove = async (quotation) => {
         setActionError('');
+        setApproveLoading(true);
         try {
             const res = await api.post(`/admin/quotation-requests/${quotation.id}/approve`);
             updateQuotation(res.data.quotation_request);
             window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
-            setActionError(err.response?.data?.message || 'Failed to approve quotation.');
+            setActionError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
+        } finally {
+            setApproveLoading(false);
+            setApproveTarget(null);
         }
     };
 
@@ -137,6 +148,7 @@ export default function AdminQuotationsPage() {
         setRejectingQuotation(quotation);
         setRejectionReason('');
         setActionError('');
+        setRejectError('');
     };
 
     const closeRejectModal = () => {
@@ -156,7 +168,7 @@ export default function AdminQuotationsPage() {
             setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
-            setActionError(err.response?.data?.message || 'Failed to reject quotation.');
+            setRejectError(errorMessage(err, "Couldn't reject the quotation. Please try again."));
         } finally {
             setRejectLoading(false);
         }
@@ -468,7 +480,7 @@ export default function AdminQuotationsPage() {
                                             <button style={styles.rejectBtn} onClick={() => openRejectModal(selected)}>
                                                 Reject
                                             </button>
-                                            <button style={styles.approveBtn} onClick={() => handleApprove(selected)}>
+                                            <button style={styles.approveBtn} onClick={() => setApproveTarget(selected)}>
                                                 Approve request
                                             </button>
                                         </div>
@@ -535,6 +547,7 @@ export default function AdminQuotationsPage() {
                                 </label>
                                 <div style={styles.rejectCount}>{rejectionReason.length}/1000</div>
                             </div>
+                            {rejectError && <div role="alert" style={styles.modalError}>{rejectError}</div>}
                             <div style={styles.rejectModalFooter}>
                                 <button type="button" className="btn-secondary" onClick={closeRejectModal} style={styles.modalCancelBtn}>Cancel</button>
                                 <button type="submit" className="btn-danger" style={styles.modalRejectBtn} disabled={rejectLoading || !rejectionReason.trim()}>
@@ -545,11 +558,23 @@ export default function AdminQuotationsPage() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                open={!!approveTarget}
+                title="Approve this quotation?"
+                message={approveTarget
+                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget.id, approveTarget.created_at)}. The customer will see it as approved, and you can then schedule the installation. This can't be undone.`
+                    : ''}
+                confirmLabel={approveLoading ? 'Approving...' : 'Approve'}
+                busy={approveLoading}
+                onConfirm={() => handleApprove(approveTarget)}
+                onCancel={() => setApproveTarget(null)}
+            />
         </AdminLayout>
     );
 }
 
 const styles = {
+    modalError: { ...adminUi.errorBanner, margin: '0 1.5rem 1rem' },
     headerRow: {
         display: 'flex',
         justifyContent: 'space-between',

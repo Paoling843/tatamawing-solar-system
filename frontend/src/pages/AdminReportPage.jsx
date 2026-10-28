@@ -3,6 +3,7 @@ import AdminLayout from '../components/AdminLayout';
 import LoadingState from '../components/LoadingState';
 import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { DownloadIcon, DocumentIcon } from '../components/Icons';
 
 // =====================================================================
@@ -80,8 +81,8 @@ export default function AdminReportPage() {
         try {
             const res = await api.get('/admin/analytics', { params: { days: period } });
             setData(res.data);
-        } catch {
-            setError('Failed to load analytics data.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the analytics. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -117,8 +118,8 @@ export default function AdminReportPage() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
-        } catch {
-            setError('Failed to generate the report. Please try again.');
+        } catch (err) {
+            setError(errorMessage(await readBlobError(err), "Couldn't create the report. Please try again."));
         } finally {
             setDownloading('');
         }

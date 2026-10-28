@@ -2,6 +2,7 @@
 // quotation's price lines (solar_computation.line_items). The admin can
 // edit, remove or add rows before downloading; nothing is saved.
 // Installation labour is a service, not a material, so it's left out.
+import { productByCode } from '../services/productCatalog';
 
 let nextId = 1;
 
@@ -16,6 +17,16 @@ export const materialRow = (fields = {}) => ({
     ...fields,
 });
 
+// A row for a product from the price list, named exactly as on the list
+// (the supplier's own wording). Falls back to our own name when the code
+// isn't on the list (e.g. quotations saved before a product was added).
+const productRow = (code, quantity, fallback) => {
+    const product = productByCode(code);
+    return materialRow(product
+        ? { name: product.name, code: product.code, unit: product.unit, quantity }
+        : { ...fallback, code: code ?? '', quantity });
+};
+
 export function materialsFromComputation(computation) {
     const items = computation?.line_items ?? [];
     const rows = [];
@@ -23,45 +34,40 @@ export function materialsFromComputation(computation) {
     items.forEach((item) => {
         switch (item.key) {
             case 'inverter':
-                rows.push(materialRow({
+                rows.push(productRow(item.sku, item.qty, {
                     name: 'Hybrid inverter',
                     specification: [computation.package_kw && `${computation.package_kw} kW`, computation.inverter_brand]
                         .filter(Boolean).join(', '),
-                    code: item.sku ?? '',
-                    quantity: item.qty,
-                    unit: 'unit',
+                    unit: 'each',
                 }));
                 break;
             case 'panels':
-                rows.push(materialRow({
+                rows.push(productRow(item.sku, item.qty, {
                     name: 'Solar panel',
-                    specification: 'Canadian 610 W bifacial',
-                    code: item.sku ?? '',
-                    quantity: item.qty,
-                    unit: 'pcs',
+                    specification: '610 W bifacial',
+                    unit: 'each',
                 }));
                 break;
             case 'battery':
-                rows.push(materialRow({
+                rows.push(productRow(item.sku, item.qty, {
                     name: 'Battery',
                     specification: `${computation.battery_ah ?? computation.battery_capacity_ah} Ah, 51.2 V`,
-                    code: item.sku ?? '',
-                    quantity: item.qty,
-                    unit: item.qty > 1 ? 'units' : 'unit',
+                    unit: 'each',
                 }));
                 break;
             case 'battery_extra':
-                rows.push(materialRow({
+                rows.push(productRow(item.sku, item.qty, {
                     name: 'Additional battery',
                     specification: `${computation.extra_battery_ah} Ah, 51.2 V`,
-                    code: item.sku ?? '',
-                    quantity: item.qty,
-                    unit: 'unit',
+                    unit: 'each',
                 }));
                 break;
+            // The two "complete set" lines have no product code yet: the
+            // client's parts list for them is still to come. The admin can
+            // swap each for the individual parts from the product list.
             case 'mounting':
                 rows.push(materialRow({
-                    name: 'Mounting kit',
+                    name: 'Mounting kit (complete set)',
                     specification: 'Rails, clamps and roof brackets (per panel)',
                     quantity: item.qty,
                     unit: 'sets',
@@ -69,8 +75,8 @@ export function materialsFromComputation(computation) {
                 break;
             case 'safety':
                 rows.push(materialRow({
-                    name: 'Safety devices',
-                    specification: 'Breakers, surge protection and earthing',
+                    name: 'Safety devices and cables (complete set)',
+                    specification: 'Breakers, surge protection, cables and earthing',
                     quantity: item.qty,
                     unit: 'set',
                 }));

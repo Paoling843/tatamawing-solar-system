@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { errorMessage, fieldErrors as readFieldErrors } from '../utils/errorMessage';
 import BarangayInput from '../components/BarangayInput';
 import { CalendarIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
 import {
@@ -77,8 +78,8 @@ export default function ExternalInstallationRequestPage() {
             setForm(EMPTY_FORM);
             setBarangayTouched(false);
         } catch (requestError) {
-            setError(requestError.response?.data?.message || 'We could not submit your request. Please try again.');
-            setFieldErrors(requestError.response?.data?.errors || {});
+            setError(errorMessage(requestError, "We couldn't send your request. Please try again."));
+            setFieldErrors(readFieldErrors(requestError));
         } finally {
             setSubmitting(false);
         }

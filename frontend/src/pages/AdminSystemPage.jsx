@@ -6,6 +6,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import { ClockIcon, UserIcon } from '../components/Icons';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { colors } from '../styles/theme';
 
 // Users: the customers who have submitted quotation requests, and a link to
@@ -31,8 +32,8 @@ export default function AdminSystemPage() {
                 }
             });
             setUsers(uniqueUsers);
-        } catch {
-            setError('Failed to load user data.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the customer list. Please try again."));
         } finally {
             setLoading(false);
         }

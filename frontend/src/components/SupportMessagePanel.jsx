@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../context/auth-context';
 import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { MessengerIcon } from './MessengerLinkCard';
 import logo from '../assets/logo.jpg';
 
@@ -119,9 +120,9 @@ export default function SupportMessagePanel() {
             });
             setMessages((prev) => [...prev, res.data.chat_message]);
             setNewMessage('');
-        } catch {
+        } catch (err) {
             // The message failed to send; the composer keeps its text
-            setSendError('Your message could not be sent. Please try again.');
+            setSendError(errorMessage(err, "We couldn't send your message. Your text is still in the box — please try again."));
         } finally {
             setSending(false);
         }

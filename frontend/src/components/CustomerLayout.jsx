@@ -10,13 +10,18 @@ import { colors } from '../styles/theme';
 import SupportMessagePanel from './SupportMessagePanel';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
+import ConfirmDialog from './ConfirmDialog';
 export default function CustomerLayout({ children, active }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    const [confirmLogout, setConfirmLogout] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+
     const handleLogout = async () => {
+        setLoggingOut(true);
         await logout();
         navigate('/login');
     };
@@ -102,7 +107,7 @@ return (
 
                     <NotificationBell iconColor={colors.textMuted} />
 
-                    <button className="btn-secondary" style={styles.logoutBtn} onClick={handleLogout}>
+                    <button className="btn-secondary" style={styles.logoutBtn} onClick={() => setConfirmLogout(true)}>
                             <LogOutIcon size={15} color={colors.danger} />
                         <span>Logout</span>
                     </button>
@@ -117,6 +122,17 @@ return (
                 {children}
             </main>
         </div>
+
+        <ConfirmDialog
+            open={confirmLogout}
+            title="Log out?"
+            message="Your quotations stay saved on your account. Sign in again any time to check them."
+            confirmLabel={loggingOut ? 'Logging out...' : 'Log out'}
+            danger
+            busy={loggingOut}
+            onConfirm={handleLogout}
+            onCancel={() => setConfirmLogout(false)}
+        />
     </div>
 );
 }

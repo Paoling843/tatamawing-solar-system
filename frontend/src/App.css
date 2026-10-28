@@ -43,6 +43,18 @@
     box-shadow: 0 0 0 3px rgba(26, 74, 58, 0.15);
 }
 
+/* Supplier materials table: cells read as plain text, and show a box on
+   hover so it's clear they can be edited (focus uses .input-field above) */
+.mat-cell:hover:not(:focus) {
+    border-color: #e6e8e2 !important;
+    background-color: #fafbf9 !important;
+}
+.mat-cell::placeholder {
+    color: #a3aaa5;
+    font-style: italic;
+    font-weight: 400;
+}
+
 /* ---------- Responsive stat/feature/form grids ---------- */
 /* Replaces inline gridTemplateColumns: 'repeat(4, 1fr)' etc. Use
    className="responsive-grid-4" (or -3 / -2) and drop grid-template-columns

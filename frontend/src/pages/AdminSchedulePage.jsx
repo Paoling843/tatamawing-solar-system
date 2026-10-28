@@ -16,7 +16,9 @@ import {
     PlusIcon,
 } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { colors, statusColors } from '../styles/theme';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
@@ -77,6 +79,10 @@ export default function AdminSchedulePage() {
 
     const [modalSchedule, setModalSchedule] = useState(null);
     const [statusUpdating, setStatusUpdating] = useState(false);
+    // Status the admin picked, waiting for them to confirm it
+    const [pendingStatus, setPendingStatus] = useState(null);
+    // Shown inside the details window (the page banner is hidden behind it)
+    const [statusError, setStatusError] = useState('');
 
     // Reschedule: the schedule being moved, shown in the shared ScheduleModal
     const [editingSchedule, setEditingSchedule] = useState(null);
@@ -104,8 +110,8 @@ export default function AdminSchedulePage() {
         try {
             const res = await api.get('/admin/schedules');
             setSchedules(res.data);
-        } catch {
-            setError('Failed to load schedules.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the schedules. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -199,8 +205,8 @@ export default function AdminSchedulePage() {
         try {
             const res = await api.get('/admin/customers');
             setCustomers(res.data);
-        } catch {
-            setCreateError('Failed to load customers.');
+        } catch (err) {
+            setCreateError(errorMessage(err, "Couldn't load the customer list. Close this window and try again."));
         } finally {
             setCustomersLoading(false);
         }
@@ -269,7 +275,7 @@ export default function AdminSchedulePage() {
             setSuccess('Installation schedule created successfully.');
             fetchSchedules();
         } catch (err) {
-            setCreateError(err.response?.data?.message || 'Failed to create installation schedule.');
+            setCreateError(errorMessage(err, "Couldn't create the installation schedule. Please try again."));
         } finally {
             setCreateLoading(false);
         }
@@ -284,6 +290,7 @@ export default function AdminSchedulePage() {
     };
 
     const openModal = (schedule) => {
+        setStatusError('');
         setModalSchedule(schedule);
         setSelectedDate(getDateKey(schedule));
     };
@@ -293,7 +300,7 @@ export default function AdminSchedulePage() {
     const handleStatusChange = async (newStatus) => {
         if (!modalSchedule) return;
         setStatusUpdating(true);
-        setError('');
+        setStatusError('');
 
         try {
             const res = await api.patch(`/admin/schedules/${modalSchedule.id}/status`, {
@@ -303,9 +310,10 @@ export default function AdminSchedulePage() {
             setSuccess('Status updated.');
             fetchSchedules();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update status.');
+            setStatusError(errorMessage(err, "Couldn't update the installation status. Please try again."));
         } finally {
             setStatusUpdating(false);
+            setPendingStatus(null);
         }
     };
 
@@ -333,7 +341,7 @@ export default function AdminSchedulePage() {
             setEditingSchedule(null);
             fetchSchedules();
         } catch (err) {
-            setEditError(err.response?.data?.message || 'Failed to update schedule.');
+            setEditError(errorMessage(err, "Couldn't save the new schedule. Please try again."));
         } finally {
             setEditLoading(false);
         }
@@ -597,6 +605,7 @@ export default function AdminSchedulePage() {
                             )}
                         </div>
 
+                        {statusError && <div role="alert" style={styles.modalError}>{statusError}</div>}
                         <div style={styles.modalFooter}>
                             <div className="status-actions" style={styles.statusActions}>
                                 {STATUSES.map((status) => {
@@ -605,7 +614,7 @@ export default function AdminSchedulePage() {
                                     return (
                                         <button
                                             key={status}
-                                            onClick={() => handleStatusChange(status)}
+                                            onClick={() => setPendingStatus(status)}
                                             style={{
                                                 ...styles.statusActionBtn,
                                                 ...(isCurrent ? styles.statusActionBtnCurrent : {}),
@@ -694,11 +703,23 @@ export default function AdminSchedulePage() {
                     onClose={() => setEditingSchedule(null)}
                 />
             )}
+            <ConfirmDialog
+                open={!!pendingStatus && !!modalSchedule}
+                title={pendingStatus ? `Mark as ${STATUS_LABELS[pendingStatus]}?` : ''}
+                message={pendingStatus === 'completed'
+                    ? 'Only do this once the installation is finished. The customer will see it as completed.'
+                    : `The customer will see this installation as ${(STATUS_LABELS[pendingStatus] || '').toLowerCase()}.`}
+                confirmLabel={statusUpdating ? 'Updating...' : `Mark as ${STATUS_LABELS[pendingStatus] || ''}`}
+                busy={statusUpdating}
+                onConfirm={() => handleStatusChange(pendingStatus)}
+                onCancel={() => setPendingStatus(null)}
+            />
         </AdminLayout>
     );
 }
 
 const styles = {
+    modalError: { ...adminUi.errorBanner, margin: '0 1.25rem 0.75rem' },
     pageHeader: {
         display: 'flex',
         justifyContent: 'space-between',

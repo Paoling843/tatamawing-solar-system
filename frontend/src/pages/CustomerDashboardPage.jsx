@@ -5,6 +5,7 @@ import QuotationDetailsModal from '../components/QuotationDetailsModal';
 import LoadingState from '../components/LoadingState';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
+import { errorMessage, readBlobError } from '../utils/errorMessage';
 import {
     DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
     EyeIcon,
@@ -21,6 +22,8 @@ export default function CustomerDashboardPage() {
     const [schedule, setSchedule] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    // Shown inside the details window, where the Download button is
+    const [downloadError, setDownloadError] = useState('');
 
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('Newest first');
@@ -40,8 +43,8 @@ export default function CustomerDashboardPage() {
             if (scheduleRes.data.length > 0) {
                 setSchedule(scheduleRes.data[0]);
             }
-        } catch {
-            setError('Failed to load dashboard data.');
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't load your dashboard. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -62,6 +65,7 @@ export default function CustomerDashboardPage() {
     }, [sortOpen]);
 
     const handleDownloadQuotation = async (quotationId) => {
+        setDownloadError('');
         try {
             const res = await api.get(
                 `/customer/reports/quotation/${quotationId}`,
@@ -75,8 +79,8 @@ export default function CustomerDashboardPage() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
-        } catch {
-            setError('Failed to download quotation PDF.');
+        } catch (err) {
+            setDownloadError(errorMessage(await readBlobError(err), "We couldn't download your quotation PDF. Please try again."));
         }
     };
 
@@ -121,6 +125,7 @@ export default function CustomerDashboardPage() {
 
     const openDetails = (qr) => {
         setSortOpen(false);
+        setDownloadError('');
         setDetailsFor(qr);
     };
     const closeDetails = useCallback(() => setDetailsFor(null), []);
@@ -150,7 +155,7 @@ export default function CustomerDashboardPage() {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     }).toUpperCase();
 
-    const solarQuote = '"The sun provides more than enough energy in one hour to power the whole world for a year."';
+    const solarQuote = '';
 
     const stats = [
         {
@@ -405,6 +410,7 @@ export default function CustomerDashboardPage() {
                         ? () => handleDownloadQuotation(detailsFor.quotation.id)
                         : null}
                     onRequestNew={() => navigate('/quotation/new')}
+                    error={downloadError}
                     onClose={closeDetails}
                 />
             )}

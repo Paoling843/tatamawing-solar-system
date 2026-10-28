@@ -3,6 +3,7 @@ import AdminLayout from '../components/AdminLayout';
 import LoadingState from '../components/LoadingState';
 import { adminText, adminUi } from '../styles/adminTheme';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { ShieldIcon, ClockIcon, UserIcon, FileTextIcon } from '../components/Icons';
 
 const statusColor = {
@@ -23,8 +24,8 @@ export default function AdminAuditPage() {
             try {
                 const response = await api.get('/admin/audit-logs');
                 setLogs(response.data || []);
-            } catch {
-                setError('Failed to load audit logs.');
+            } catch (err) {
+                setError(errorMessage(err, "Couldn't load the audit log. Please try again."));
             } finally {
                 setLoading(false);
             }

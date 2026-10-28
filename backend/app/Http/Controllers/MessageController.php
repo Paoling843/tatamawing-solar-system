@@ -40,7 +40,7 @@ class MessageController extends Controller
 
         if ($sender->role !== 'admin' && $receiver->role !== 'admin') {
             return response()->json([
-                'message' => 'Unauthorized message.',
+                'message' => 'Messages can only be sent between a customer and the admin.',
             ], 403);
         }
 
@@ -85,7 +85,7 @@ class MessageController extends Controller
 
         if ($currentUser->role === 'customer' && $targetUserId !== $currentUser->id && $targetUserId !== (int) $adminId) {
             return response()->json([
-                'message' => 'Forbidden. You can only view your own conversation with the admin.',
+                'message' => 'You can only view your own conversation with the admin.',
             ], 403);
         }
 
@@ -208,7 +208,7 @@ class MessageController extends Controller
 
         if ($chatMessage->receiver_id !== $currentUser->id) {
             return response()->json([
-                'message' => 'Forbidden.'
+                'message' => 'You can only mark your own messages as read.'
             ], 403);
         }
 
@@ -237,7 +237,7 @@ class MessageController extends Controller
 
         if ($currentUser->role === 'customer' && $targetUserId !== (int) $adminId) {
             return response()->json([
-                'message' => 'Forbidden. Only the admin conversation can be checked.',
+                'message' => 'You can only check your conversation with the admin.',
             ], 403);
         }
 

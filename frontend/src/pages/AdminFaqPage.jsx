@@ -6,7 +6,12 @@ import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PlusIcon, EditIcon, TrashIcon, HelpIcon } from '../components/Icons';
 import api from '../api/axios';
+import { errorMessage, fieldErrors } from '../utils/errorMessage';
 import { colors } from '../styles/theme';
+
+// Same limits as FaqController
+const QUESTION_MAX = 255;
+const ANSWER_MAX = 5000;
 
 export default function AdminFaqPage() {
     const [faqs, setFaqs] = useState([]);
@@ -25,6 +30,9 @@ export default function AdminFaqPage() {
     });
 
     const [formLoading, setFormLoading] = useState(false);
+    // Save errors, shown inside the form: per field, or one general message
+    const [formErrors, setFormErrors] = useState({});
+    const [formError, setFormError] = useState('');
 
 
     const fetchFaqs = useCallback(async () => {
@@ -34,8 +42,8 @@ export default function AdminFaqPage() {
         try {
             const res = await api.get('/faqs');
             setFaqs(res.data);
-        } catch {
-            setError('Failed to load FAQs.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't load the FAQs. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -51,6 +59,8 @@ export default function AdminFaqPage() {
         setForm({question: '', answer:'', keywords: ''});
         setEditingFaq(null);
         setShowForm(true);
+        setFormErrors({});
+        setFormError('');
         setError('');
         setSuccess('');
     };
@@ -64,6 +74,8 @@ export default function AdminFaqPage() {
 
         setEditingFaq(faq);
         setShowForm(true);
+        setFormErrors({});
+        setFormError('');
         setError('');
         setSuccess('');
     };
@@ -73,6 +85,8 @@ export default function AdminFaqPage() {
         setFormLoading(true);
         setError('');
         setSuccess('');
+        setFormErrors({});
+        setFormError('');
 
         try {
             if (editingFaq) {
@@ -86,7 +100,10 @@ export default function AdminFaqPage() {
              setShowForm(false);
              fetchFaqs();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to save FAQ.');
+            // Field problems go under their field; anything else under the form
+            const fields = fieldErrors(err);
+            setFormErrors(fields);
+            setFormError(Object.keys(fields).length ? '' : errorMessage(err, "Couldn't save the FAQ. Please try again."));
         } finally {
             setFormLoading(false);
         }
@@ -107,8 +124,8 @@ export default function AdminFaqPage() {
             await api.delete(`/admin/faqs/${confirmingFaq.id}`);
             setSuccess('FAQ deleted successfully.');
             fetchFaqs();
-        } catch {
-            setError('Failed to delete FAQ.');
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't delete the FAQ. Please try again."));
         } finally {
             setDeleting(false);
             setConfirmingFaq(null);
@@ -165,8 +182,11 @@ export default function AdminFaqPage() {
                                 className="input-field"
                                 style={styles.input}
                                 placeholder="e.g. How long does installation take?"
+                                maxLength={QUESTION_MAX}
+                                aria-invalid={Boolean(formErrors.question)}
                                 required
                             />
+                            {formErrors.question && <p role="alert" style={styles.fieldError}>{formErrors.question}</p>}
                         </div>
 
                         {/* Answer textarea */}
@@ -185,8 +205,18 @@ export default function AdminFaqPage() {
                                     resize: 'vertical',
                                 }}
                                 placeholder="Type the answer here..."
+                                maxLength={ANSWER_MAX}
+                                aria-invalid={Boolean(formErrors.answer)}
                                 required
                             />
+                            <div style={styles.counterRow}>
+                                {formErrors.answer
+                                    ? <p role="alert" style={styles.fieldError}>{formErrors.answer}</p>
+                                    : <span />}
+                                <span style={styles.counter}>
+                                    {form.answer.length.toLocaleString()} / {ANSWER_MAX.toLocaleString()}
+                                </span>
+                            </div>
                         </div>
 
                         {/* Keywords input */}
@@ -209,6 +239,8 @@ export default function AdminFaqPage() {
                                 Separate keywords with spaces. Used to improve search.
                             </p>
                         </div>
+
+                        {formError && <div role="alert" style={styles.formError}>{formError}</div>}
 
                         {/* Form buttons */}
                         <div style={styles.formActions}>
@@ -318,6 +350,7 @@ export default function AdminFaqPage() {
                 message={confirmingFaq ? `Are you sure you want to delete "${confirmingFaq.question}"? This action cannot be undone.` : ''}
                 confirmLabel={deleting ? 'Deleting...' : 'Delete'}
                 danger
+                busy={deleting}
                 onConfirm={confirmDelete}
                 onCancel={() => setConfirmingFaq(null)}
             />
@@ -395,6 +428,25 @@ const styles = {
         fontSize: '1rem',
         boxSizing: 'border-box',
     },
+    fieldError: {
+        fontSize: '0.75rem',
+        color: '#b42318',
+        margin: '0.3rem 0 0 0',
+    },
+    counterRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '0.75rem',
+    },
+    counter: {
+        fontSize: '0.72rem',
+        color: '#5d6862',
+        marginTop: '0.3rem',
+        whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+    },
+    formError: { ...adminUi.errorBanner, marginBottom: '1rem' },
     hint: {
         fontSize: '0.75rem',
         color: '#5d6862',

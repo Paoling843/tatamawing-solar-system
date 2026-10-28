@@ -46,7 +46,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Registration Succesful!',
+            'message' => 'Registration successful.',
             'user' => $user->load('customer'),
             'token' => $token,
         ], 201);
@@ -59,14 +59,14 @@ class AuthController extends Controller
 
         if(! $user || ! Hash::check($request->password, $user->password)){
             return response()->json([
-                'message' => 'Invalid Credentials'
+                'message' => "That email and password don't match an account."
             ], 401);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login Successful!',
+            'message' => 'Login successful.',
             'user' => $user->load($user->role),
             'token' => $token,
         ]);
@@ -77,7 +77,7 @@ class AuthController extends Controller
       $request->user()->currentAccessToken()->delete();
 
       return response()->json([
-        'message' => 'Logged Out Successfully!',
+        'message' => 'Logged out.',
       ]);
     }
 

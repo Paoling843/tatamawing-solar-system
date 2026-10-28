@@ -19,7 +19,7 @@ class EnsureUserHasRole
 
         if(! $user || ! in_array($user->role, $roles)) {
             return response()->json([
-                'message' => 'Forbidden. You do not have access to this resource.',
+                'message' => "Your account doesn't have access to this page.",
             ], 403);
         }
 

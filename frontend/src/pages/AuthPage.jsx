@@ -4,6 +4,7 @@ import { useAuth } from '../context/auth-context';
 import { safeRedirect } from '../utils/safeRedirect';
 import { useBusinessContact } from '../services/businessContact';
 import BrandLogo from '../components/BrandLogo';
+import { errorMessage } from '../utils/errorMessage';
 import './AuthPage.css';
 
 // =====================================================================
@@ -156,7 +157,7 @@ const SERVER_FIELDS = {
 // =====================================================================
 
 export default function AuthPage({ initialMode = 'login' }) {
-    const { login, register } = useAuth();
+    const { login, register, sessionNotice } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const redirect = safeRedirect(searchParams.get('redirect'));
@@ -169,7 +170,9 @@ export default function AuthPage({ initialMode = 'login' }) {
     const [remember, setRemember] = useState(true);
     const [serverErrors, setServerErrors] = useState({});
     const [formError, setFormError] = useState('');
-    const [notice, setNotice] = useState('');           // "not available yet" messages
+    // "not available yet" messages, or why they were sent back here
+    // ("Your session has ended…")
+    const [notice, setNotice] = useState(() => sessionNotice || '');
     const [success, setSuccess] = useState('');
     const [busy, setBusy] = useState(false);
 
@@ -262,9 +265,9 @@ export default function AuthPage({ initialMode = 'login' }) {
             } else if (status === 401) {
                 setFormError("That email and password don't match an account.");
             } else {
-                setFormError(data?.message || (mode === 'login'
-                    ? 'Could not sign you in. Please try again.'
-                    : 'Could not create your account. Please try again.'));
+                setFormError(errorMessage(err, mode === 'login'
+                    ? "Couldn't sign you in. Please try again."
+                    : "Couldn't create your account. Please try again."));
             }
             setBusy(false);
         }

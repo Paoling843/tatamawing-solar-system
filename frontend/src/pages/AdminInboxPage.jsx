@@ -7,6 +7,7 @@ import MessengerLinkCard from '../components/MessengerLinkCard';
 import Badge from '../components/Badge';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 
 // Admin Messages — conversations | thread | details (customer, linked
@@ -225,7 +226,7 @@ export default function AdminInboxPage() {
             fetchConversations();
         } catch (err) {
             // The composer keeps its text
-            setSendError(err.response?.data?.message || 'The message could not be sent. Please try again.');
+            setSendError(errorMessage(err, "Couldn't send the message. Your text is still in the box — please try again."));
         } finally {
             setSending(false);
         }
@@ -245,11 +246,7 @@ export default function AdminInboxPage() {
             setSettings(res.data);
             setUrlDraft(res.data.messenger_url || '');
         } catch (err) {
-            const errors = err.response?.data?.errors;
-            setSettingsError(
-                errors?.messenger_url?.[0] || errors?.fallback_delay_minutes?.[0]
-                || err.response?.data?.message || 'Could not save. Please try again.'
-            );
+            setSettingsError(errorMessage(err, "Couldn't save the settings. Please try again."));
         } finally {
             setSavingSettings(false);
         }

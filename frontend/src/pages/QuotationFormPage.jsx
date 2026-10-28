@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
+import { errorMessage } from '../utils/errorMessage';
 import { trackStep, trackRequested, getQuoteSessionId, endQuoteSession } from '../services/quoteTracker';
 import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
 import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
@@ -307,7 +308,7 @@ export default function QuotationFormPage({ embedded = false }) {
             endQuoteSession();
             navigate('/customer/my-quotations');
         } catch (err) {
-            setSubmitError(err.response?.data?.message || 'Could not send the quotation request. Please try again.');
+            setSubmitError(errorMessage(err, "We couldn't send your quotation request. Your answers are kept — please try again."));
             setSubmitting(false);
         }
     };

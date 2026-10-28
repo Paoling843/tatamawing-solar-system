@@ -18,6 +18,15 @@ class RejectExternalInstallationRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'rejection_reason.required' => 'Enter a reason for the rejection.',
+            'rejection_reason.min' => 'Write a bit more so the customer knows why (at least 5 characters).',
+            'rejection_reason.max' => 'Keep the reason under 1,000 characters.',
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         if ($this->has('rejection_reason')) {
