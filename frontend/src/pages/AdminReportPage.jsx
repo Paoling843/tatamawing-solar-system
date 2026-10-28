@@ -330,7 +330,7 @@ function UsersSection({ data, rangeLong }) {
 function KpiCards({ kpis, rangeLong }) {
     const cards = [
         { label: 'Quotations created', value: String(kpis.quotations_created.value), d: delta(kpis.quotations_created, 'percent', rangeLong) },
-        { label: 'Approved projects', value: String(kpis.approved_projects.value), d: delta(kpis.approved_projects, 'count', rangeLong) },
+        { label: 'Approved quotations', value: String(kpis.approved_projects.value), d: delta(kpis.approved_projects, 'count', rangeLong) },
         // Contract value of approved quotations — the system doesn't track payments
         { label: 'Value of approved projects', value: compactPeso(kpis.revenue.value), d: delta(kpis.revenue, 'percent', rangeLong) },
         { label: 'Installations completed', value: String(kpis.installations_completed.value), d: delta(kpis.installations_completed, 'count', rangeLong) },

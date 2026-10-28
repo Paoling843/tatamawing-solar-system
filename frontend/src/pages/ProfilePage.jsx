@@ -5,11 +5,12 @@ import CustomerLayout from '../components/CustomerLayout';
 import AdminLayout from '../components/AdminLayout';
 import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
+import { CalendarIcon, MailIcon } from '../components/Icons';
 
 // My Profile (routes /customer/profile and /admin/profile), opened from the
 // account menu in the top bar.
-//   Header       green banner: initials, name, role, email, member since,
-//                and three counts from GET /api/profile/summary
+//   Header       green banner: initials, name, role, email, member since;
+//                three counts from GET /api/profile/summary along the bottom
 //   Personal     view mode with an Edit button; editing shows inputs and
 //   information  Cancel / Save. The email is shown but never editable.
 //   Recent       the admin's own audit-log entries, or a customer's latest
@@ -19,7 +20,6 @@ import { errorMessage, fieldErrors } from '../utils/errorMessage';
 const C = {
     green: '#123d2d',
     greenDark: '#0c2c20',
-    stripe: '#174a37',
     gold: '#f2c230',
     ink: '#16201b',
     body: '#3b463f',
@@ -94,28 +94,35 @@ export default function ProfilePage() {
             <div style={styles.page}>
                 {/* ---- Header banner ---- */}
                 <section style={styles.hero}>
-                    <div style={styles.heroBand} aria-hidden="true">
-                        <span style={styles.heroSun} />
-                    </div>
-                    <div className="profile-hero-body" style={styles.heroBody}>
+                    <div className="profile-hero-top" style={styles.heroTop}>
                         <span style={styles.avatar} aria-hidden="true">{initialsOf(user?.name)}</span>
                         <div style={styles.heroText}>
-                            <h1 style={styles.name}>{user?.name}</h1>
-                            <div style={styles.meta}>
+                            <div style={styles.nameRow}>
+                                <h1 style={styles.name}>{user?.name}</h1>
                                 <span style={styles.rolePill}>{isAdmin ? 'Administrator' : 'Customer'}</span>
-                                <span style={{ overflowWrap: 'anywhere' }}>{user?.email}</span>
-                                {since && <span>Member since {since}</span>}
+                            </div>
+                            <div style={styles.meta}>
+                                <span style={styles.metaItem}>
+                                    <MailIcon size={15} color={C.onDark} />
+                                    <span style={{ overflowWrap: 'anywhere' }}>{user?.email}</span>
+                                </span>
+                                {since && (
+                                    <span style={styles.metaItem}>
+                                        <CalendarIcon size={15} color={C.onDark} />
+                                        Member since {since}
+                                    </span>
+                                )}
                             </div>
                         </div>
-                        <div className="profile-hero-stats" style={styles.stats}>
-                            {stats.map((stat) => (
-                                <div key={stat.label} style={styles.stat}>
-                                    <span style={styles.statValue}>{stat.value ?? '—'}</span>
-                                    <span style={styles.statLabel}>{stat.label}</span>
-                                </div>
-                            ))}
-                        </div>
                     </div>
+                    <dl className="profile-hero-stats" style={styles.stats}>
+                        {stats.map((stat) => (
+                            <div key={stat.label} className="profile-stat" style={styles.stat}>
+                                <dt style={styles.statLabel}>{stat.label}</dt>
+                                <dd style={styles.statValue}>{stat.value ?? '—'}</dd>
+                            </div>
+                        ))}
+                    </dl>
                 </section>
 
                 <DetailsCard isAdmin={isAdmin} />
@@ -465,52 +472,58 @@ const styles = {
     page: { maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '24px' },
 
     // Header banner
-    hero: { background: C.green, borderRadius: '16px', overflow: 'hidden', color: '#fff' },
-    heroBand: {
-        height: '84px',
-        position: 'relative',
-        background: `repeating-linear-gradient(135deg, ${C.stripe} 0 18px, ${C.green} 18px 36px)`,
+    // Deep green with a faint warm light in the top-right corner
+    hero: {
+        background: `radial-gradient(circle at 100% 0%, rgba(242,194,48,.13), transparent 42%), linear-gradient(135deg, #154533 0%, ${C.green} 55%, ${C.greenDark} 100%)`,
+        borderRadius: '16px',
+        overflow: 'hidden',
+        color: '#fff',
+        boxShadow: '0 10px 30px rgba(12,44,32,.18)',
     },
-    heroSun: {
-        position: 'absolute', right: '28px', top: '22px', width: '40px', height: '40px', borderRadius: '50%', background: C.gold,
-    },
-    heroBody: {
-        position: 'relative',
-        zIndex: 1,
-        display: 'flex',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
-        gap: '22px',
-        padding: '0 28px 24px',
-        marginTop: '-44px',
-    },
+    heroTop: { display: 'flex', alignItems: 'center', gap: '20px', padding: '28px 32px' },
     avatar: {
-        width: '96px',
-        height: '96px',
+        width: '72px',
+        height: '72px',
         borderRadius: '50%',
         background: C.gold,
         color: C.ink,
-        border: `4px solid ${C.green}`,
-        boxSizing: 'border-box',
+        boxShadow: '0 0 0 4px rgba(255,255,255,.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontWeight: 800,
-        fontSize: '32px',
+        fontWeight: 700,
+        fontSize: '26px',
+        letterSpacing: '.02em',
         flexShrink: 0,
     },
-    heroText: {
-        display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '220px', padding: '52px 0 4px',
-    },
-    name: { margin: 0, fontSize: 'clamp(24px, 6vw, 32px)', fontWeight: 800, letterSpacing: '-.02em', overflowWrap: 'anywhere' },
-    meta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 16px', color: C.onDark, fontSize: '14px' },
+    heroText: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 },
+    nameRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 12px' },
+    name: { margin: 0, fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.2, overflowWrap: 'anywhere' },
     rolePill: {
-        fontWeight: 700, padding: '2px 10px', borderRadius: '999px', background: C.gold, color: C.ink, fontSize: '13px',
+        fontWeight: 600,
+        padding: '3px 10px',
+        borderRadius: '999px',
+        border: '1px solid rgba(242,194,48,.45)',
+        background: 'rgba(242,194,48,.12)',
+        color: C.gold,
+        fontSize: '12px',
+        letterSpacing: '.03em',
+        textTransform: 'uppercase',
     },
-    stats: { display: 'flex', flexWrap: 'wrap', gap: '16px 28px', alignSelf: 'flex-end', paddingBottom: '6px' },
-    stat: { display: 'flex', flexDirection: 'column' },
-    statValue: { fontSize: '24px', fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
-    statLabel: { fontSize: '13px', color: C.onDark, whiteSpace: 'nowrap' },
+    meta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 20px', color: C.onDark, fontSize: '14px' },
+    metaItem: { display: 'inline-flex', alignItems: 'center', gap: '7px', minWidth: 0 },
+
+    // Counts: a darker strip along the bottom, split by thin lines
+    stats: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        margin: 0,
+        background: 'rgba(0,0,0,.14)',
+        borderTop: '1px solid rgba(255,255,255,.08)',
+    },
+    stat: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '16px 32px', minWidth: 0 },
+    statLabel: { fontSize: '12px', fontWeight: 600, color: C.onDark, textTransform: 'uppercase', letterSpacing: '.05em' },
+    statValue: { margin: 0, fontSize: '24px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
 
     // Cards
     card: { background: '#fff', border: `1px solid ${C.border}`, borderRadius: '14px' },

@@ -21,3 +21,6 @@ frontend/dist/
 # General
 .DS_Store
 Thumbs.db
+
+# Client spreadsheets (e.g. Quotation.xlsx) stay on this computer only
+/*.xlsx
