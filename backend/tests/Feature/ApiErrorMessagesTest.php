@@ -86,6 +86,19 @@ class ApiErrorMessagesTest extends TestCase
             ->assertJsonPath('message', 'Too many attempts. Please wait a minute and try again.');
     }
 
+    public function test_other_limited_routes_dont_use_up_the_login_limit(): void
+    {
+        $user = User::factory()->create(['role' => 'customer']);
+
+        // The landing page and calculator call these as a guest, often
+        for ($i = 0; $i < 15; $i++) {
+            $this->getJson('/api/contact')->assertOk();
+        }
+
+        $this->postJson('/api/login', ['email' => $user->email, 'password' => 'wrong-password'])
+            ->assertStatus(401);
+    }
+
     public function test_a_request_without_a_token_says_the_session_ended(): void
     {
         $this->getJson('/api/me')

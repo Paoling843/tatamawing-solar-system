@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/auth-context';
 import {
     GridIcon, DocumentIcon, MessageIcon, HelpIcon, ShieldIcon,
-    SearchIcon, MenuIcon, LogOutIcon, CalendarIcon,
+    MenuIcon, CalendarIcon,
 } from '../components/Icons';
 import api from '../api/axios';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
+import AccountMenu from './AccountMenu';
 import { adminTokens, adminText } from '../styles/adminTheme';
 
 // Sidebar on the brand green, with the brand yellow for the current page
@@ -68,7 +69,7 @@ const writeCachedCounts = (counts) => {
 
 // crumb: the item being viewed, shown after the page in the breadcrumb,
 // e.g. "#Q-2026-050 · Juan Dela Cruz" on a quotation's details page
-export default function AdminLayout({ children, active, title, subtitle, actions, crumb, searchValue, onSearchChange }) {
+export default function AdminLayout({ children, active, title, subtitle, actions, crumb }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -168,8 +169,10 @@ export default function AdminLayout({ children, active, title, subtitle, actions
         },
     ];
 
-    // Breadcrumb: sidebar group › page › item (when there is one)
-    const crumbGroup = navGroups.find((group) => group.items.some((item) => item.label === active));
+    // Breadcrumb: sidebar group › page › item (when there is one). My Profile
+    // lives in the account menu, not the sidebar, so it has its own group.
+    const crumbGroups = [...navGroups, { label: 'Account', items: [{ label: 'My Profile', path: '/admin/profile' }] }];
+    const crumbGroup = crumbGroups.find((group) => group.items.some((item) => item.label === active));
     const crumbPage = crumbGroup?.items.find((item) => item.label === active);
 
     const today = new Date().toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -270,11 +273,13 @@ export default function AdminLayout({ children, active, title, subtitle, actions
 
                         {actions}
 
-                        {/* Same spot and look as the customer side's Logout */}
-                        <button className="btn-secondary" style={styles.logoutBtn} onClick={() => setConfirmLogout(true)}>
-                            <LogOutIcon size={15} color={adminTokens.danger} />
-                            <span>Logout</span>
-                        </button>
+                        {/* My Profile and Log out, same as the customer side */}
+                        <AccountMenu
+                            user={user}
+                            onProfile={() => navigate('/admin/profile')}
+                            onLogout={() => setConfirmLogout(true)}
+                            avatarColors={{ bg: adminTokens.green, text: adminTokens.gold }}
+                        />
                     </div>
                 </div>
 
@@ -452,20 +457,6 @@ const styles = {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-    },
-    logoutBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.4rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${adminTokens.border}`,
-        backgroundColor: 'white',
-        color: adminTokens.danger,
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        whiteSpace: 'nowrap',
-        cursor: 'pointer',
     },
     rightSide: {
         flex: 1,

@@ -95,6 +95,9 @@ export function AuthProvider({ children }) {
         return () => window.removeEventListener('auth:expired', onExpired);
     }, []);
 
+    // After My Profile saves: show the new name everywhere straight away
+    const updateUser = (userData) => setUser(userData);
+
     // "Try again" after the server couldn't be reached
     const retryAuth = () => {
         setAuthError(false);
@@ -166,7 +169,7 @@ export function AuthProvider({ children }) {
 
     // Provide auth values and functions to all child components
     return (
-        <AuthContext.Provider value={{ user, token, loading, authError, retryAuth, sessionNotice, login, register, logout }}>
+        <AuthContext.Provider value={{ user, token, loading, authError, retryAuth, sessionNotice, login, register, logout, updateUser }}>
             {/* Render all child components inside this provider */}
             {children}
         </AuthContext.Provider>

@@ -78,6 +78,11 @@ return [
     // admin doesn't pick the installation site on the materials PDF.
     'business_address' => env('BUSINESS_ADDRESS', 'TataMawing Solar and Ice, V. Zuñiga Street, Zone 7, Bulan, Sorsogon 4706'),
 
+    // The website customers use (the first FRONTEND_URL), for links in
+    // emails such as "Reset your password". Local development falls back to
+    // the Vite dev server.
+    'frontend_url' => rtrim(trim(explode(',', (string) env('FRONTEND_URL', ''))[0]) ?: 'http://localhost:5173', '/'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

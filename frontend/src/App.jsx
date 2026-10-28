@@ -28,8 +28,10 @@ import AdminQuotationsPage from './pages/AdminQuotationsPage';
 import AdminSystemPage from './pages/AdminSystemPage';
 import CustomerDownloadsPage from './pages/CustomerDownloadsPage';
 import CustomerMyQuotationsPage from './pages/CustomerMyQuotationsPage';
+import ProfilePage from './pages/ProfilePage';
 import LandingPage from './pages/LandingPage';
 import ExternalInstallationRequestPage from './pages/ExternalInstallationRequestPage';
+import ExternalRequestStatusPage from './pages/ExternalRequestStatusPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 
@@ -105,11 +107,15 @@ export default function App() {
                 it in register mode (the keys make each URL start fresh). */}
             <Route path="/login" element={<AuthPage key="login" />} />
             <Route path="/register" element={<AuthPage key="register" initialMode="register" />} />
+            {/* "Forgot password?" and the link from the reset email */}
+            <Route path="/forgot-password" element={<AuthPage key="forgot" initialMode="forgot" />} />
+            <Route path="/reset-password" element={<AuthPage key="reset" initialMode="reset" />} />
 
             {/* Solar Computation Engine — open to guests; login is only
                 required when they press "Request quotation" */}
             <Route path="/quotation/new" element={<QuotationFormPage />} />
             <Route path="/external-installation-request" element={<ExternalInstallationRequestPage />} />
+            <Route path="/installation-request/:id/status" element={<ExternalRequestStatusPage />} />
 
             {/* Public legal pages (linked from sign-up, footers and the forms) */}
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -197,6 +203,18 @@ export default function App() {
             <Route path="/customer/downloads" element={
                 <ProtectedRoute allowedRoles={['customer']}>
                     <CustomerDownloadsPage />
+                </ProtectedRoute>
+            } />
+
+            {/* My Profile, opened from the account menu in the top bar */}
+            <Route path="/customer/profile" element={
+                <ProtectedRoute allowedRoles={['customer']}>
+                    <ProfilePage />
+                </ProtectedRoute>
+            } />
+            <Route path="/admin/profile" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                    <ProfilePage />
                 </ProtectedRoute>
             } />
 

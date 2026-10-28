@@ -8,7 +8,6 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\URL;
 
 class ExternalInstallationRequestSubmitted extends Mailable
 {
@@ -30,11 +29,7 @@ class ExternalInstallationRequestSubmitted extends Mailable
         return new Content(
             view: 'emails.external-installation-request-submitted',
             with: [
-                'statusUrl' => URL::temporarySignedRoute(
-                    'external-installation-requests.status',
-                    now()->addDays(30),
-                    ['externalInstallationRequest' => $this->requestRecord->id]
-                ),
+                'statusUrl' => $this->requestRecord->statusPageUrl(),
             ],
         );
     }

@@ -108,6 +108,31 @@
 .admin-nav-item:not([aria-current]):hover {
     background-color: rgba(255, 255, 255, 0.08) !important;
 }
+/* My Profile: label | value rows, stacked on phones */
+.profile-row {
+    grid-template-columns: 180px minmax(0, 1fr);
+}
+@media (max-width: 640px) {
+    .profile-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    /* Banner: avatar and name above the counts, with less padding */
+    .profile-hero-body {
+        padding: 0 18px 20px !important;
+    }
+    .profile-hero-stats {
+        align-self: flex-start !important;
+    }
+}
+
+/* Account menu in the top bar (AccountMenu) */
+.account-trigger:hover {
+    background-color: #f6f7f4 !important;
+}
+.account-item:hover {
+    background-color: #f1f6f3 !important;
+}
+
 /* Breadcrumb link in the admin top bar */
 nav[aria-label="Breadcrumb"] a:hover {
     color: #0f3b2c !important;

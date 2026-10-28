@@ -78,7 +78,6 @@ export default function AdminQuotationsPage() {
 
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortKey, setSortKey] = useState('newest');
-    const [searchValue, setSearchValue] = useState('');
     const [selectedId, setSelectedId] = useState(null);
     // On phones the detail panel stacks below the list, so selecting a
     // request scrolls down to it (otherwise nothing seems to happen)
@@ -182,8 +181,6 @@ export default function AdminQuotationsPage() {
         rejected: quotations.filter((q) => q.status === 'rejected').length,
     };
 
-    const search = searchValue.trim().toLowerCase();
-
     const sortFn = (a, b) => {
         if (sortKey === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
         if (sortKey === 'capacity') {
@@ -196,13 +193,6 @@ export default function AdminQuotationsPage() {
 
     const filteredSorted = quotations
         .filter((q) => statusFilter === 'all' || q.status === statusFilter)
-        .filter((q) => {
-            if (!search) return true;
-            const ref = formatQuotationRef(q.id, q.created_at).toLowerCase();
-            const name = (q.customer?.user?.name || '').toLowerCase();
-            const location = (q.installation_address || q.customer?.install_location || '').toLowerCase();
-            return ref.includes(search) || name.includes(search) || location.includes(search);
-        })
         .sort(sortFn);
 
     const selected = selectedId
@@ -228,11 +218,7 @@ export default function AdminQuotationsPage() {
     const selectedHasSchedule = !!(selected?.quotation?.id && scheduledQuotationIds.has(selected.quotation.id));
 
     return (
-        <AdminLayout
-            active="Quotations"
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-        >
+        <AdminLayout active="Quotations">
             <div style={styles.headerRow}>
                 <div>
                     <h1 style={styles.pageTitle}>Quotation Requests</h1>
