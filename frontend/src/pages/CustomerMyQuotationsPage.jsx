@@ -122,7 +122,7 @@ function notice(qr, info) {
 
 export default function CustomerMyQuotationsPage() {
     const navigate = useNavigate();
-    const { openPanel } = useMessagePanel();
+    const { askAbout } = useMessagePanel();
 
     const [quotationRequests, setQuotationRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -226,7 +226,11 @@ export default function CustomerMyQuotationsPage() {
                             expanded={expandedId === qr.id}
                             onToggle={() => setExpandedId(expandedId === qr.id ? null : qr.id)}
                             onDownload={() => handleDownload(qr.quotation.id)}
-                            onAsk={openPanel}
+                            onAsk={() => askAbout({
+                                id: qr.id,
+                                reference: formatQuotationRef(qr.id, qr.created_at),
+                                label: `${systemType(qr.solar_system_type)} · ${peso(describe(qr).total)}`,
+                            })}
                             onSchedule={() => navigate('/customer/schedule')}
                         />
                     ))}

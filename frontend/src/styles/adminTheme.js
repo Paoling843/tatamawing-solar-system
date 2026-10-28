@@ -45,4 +45,13 @@ export const adminUi = {
         marginBottom: '16px',
         fontSize: '14px',
     },
+
+    // Brand-green accents, matching the green sidebar. Spread into a page's
+    // own styles, e.g. tableHeader: { ...base, ...adminUi.tableHead }.
+    // Thin green line along the top of a main section card
+    cardAccent: { borderTop: `3px solid ${adminTokens.green}` },
+    // Table header rows: light green band with green labels (11:1 contrast)
+    tableHead: { backgroundColor: '#eef4f0', color: adminTokens.green, borderRadius: '8px' },
+    // Small green marker in front of a section title
+    titleMarker: { borderLeft: `3px solid ${adminTokens.green}`, paddingLeft: '10px' },
 };

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
-import { adminText } from '../styles/adminTheme';
+import { adminText, adminUi } from '../styles/adminTheme';
 import MessengerLinkCard from '../components/MessengerLinkCard';
 import Badge from '../components/Badge';
 import { useAuth } from '../context/auth-context';
@@ -433,6 +433,15 @@ export default function AdminInboxPage() {
                                                             alignItems: mine ? 'flex-end' : 'flex-start',
                                                         }}
                                                     >
+                                                        {/* Sent with "Ask about this quote": opens that quotation */}
+                                                        {m.meta?.quotation_request_id && (
+                                                            <Link
+                                                                to={`/admin/quotation-requests/${m.meta.quotation_request_id}`}
+                                                                style={styles.aboutLink}
+                                                            >
+                                                                About {m.meta.quotation_reference} →
+                                                            </Link>
+                                                        )}
                                                         <div style={mine ? styles.bubbleMine : styles.bubbleTheirs}>{m.message}</div>
                                                         <span style={styles.bubbleTime}>{formatClock(m.created_at)}</span>
                                                     </div>
@@ -694,7 +703,7 @@ const styles = {
     threadCol: { display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 },
     threadHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: `1px solid ${T.line}` },
     threadWho: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
-    threadName: { fontSize: '15px', fontWeight: 600 },
+    threadName: { fontSize: '15px', fontWeight: 600, ...adminUi.titleMarker },
     threadSub: { fontSize: '12px', color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     backBtn: {
         border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', fontSize: '16px',
@@ -721,6 +730,7 @@ const styles = {
         fontSize: '14px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
     },
     bubbleTime: { fontSize: '11px', color: T.faint },
+    aboutLink: { fontSize: '12px', fontWeight: 600, color: T.green, textDecoration: 'none', padding: '2px 0' },
     noSelection: { margin: 'auto', fontSize: '14px', color: T.faint, padding: '24px', textAlign: 'center' },
 
     // composer

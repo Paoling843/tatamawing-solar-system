@@ -358,7 +358,11 @@ export default function AdminQuotationDetailPage() {
     };
 
     return (
-        <AdminLayout active="Quotations">
+        <AdminLayout
+            active="Quotations"
+            crumb={quotation && [formatQuotationRef(quotation.id, quotation.created_at), quotation.customer?.user?.name]
+                .filter(Boolean).join(' · ')}
+        >
             <div style={styles.shell}>
 
                 {/* ---- Sticky header: breadcrumb, title, stepper ---- */}
@@ -1423,6 +1427,7 @@ const styles = {
         borderRadius: '14px',
         padding: '1.25rem 1.375rem',
         backgroundColor: adminTokens.surface,
+        ...adminUi.cardAccent,
     },
     cardDanger: {
         borderLeft: `4px solid ${adminTokens.danger}`,
@@ -1433,6 +1438,7 @@ const styles = {
         letterSpacing: '-0.01em',
         color: adminTokens.ink,
         margin: '0 0 1.125rem 0',
+        ...adminUi.titleMarker,
     },
     cardDesc: {
         margin: '0 0 1rem',
@@ -1505,18 +1511,18 @@ const styles = {
     tableHeader: {
         display: 'flex',
         gap: '0.5rem',
-        padding: '0 0 0.625rem',
-        borderBottom: `1px solid ${adminTokens.border}`,
+        padding: '0.55rem 0.625rem',
         fontSize: '0.65625rem',
-        fontWeight: '500',
+        fontWeight: '600',
         letterSpacing: '0.1em',
         textTransform: 'uppercase',
-        color: adminTokens.muted,
+        ...adminUi.tableHead,
     },
+    // Same side padding as the header band so the columns line up
     tableRow: {
         display: 'flex',
         gap: '0.5rem',
-        padding: '0.75rem 0',
+        padding: '0.75rem 0.625rem',
         borderBottom: `1px solid ${adminTokens.hairline}`,
         fontSize: '0.875rem',
         color: adminTokens.body,
@@ -1739,16 +1745,16 @@ const styles = {
         columnGap: '0.5rem',
     },
     matHeaderRow: {
-        padding: '0 0 0.5rem',
-        borderBottom: `1px solid ${adminTokens.border}`,
+        padding: '0.55rem 0.375rem',
         fontSize: '0.65625rem',
         fontWeight: 600,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: adminTokens.muted,
+        ...adminUi.tableHead,
     },
+    // Same side padding as the header band so the columns line up
     matRow: {
-        padding: '0.375rem 0',
+        padding: '0.375rem 0.375rem',
         borderBottom: `1px solid ${adminTokens.hairline}`,
     },
     matIndex: {

@@ -477,8 +477,8 @@ function ReviewQueueCard({ queue }) {
 function SectionTitle({ title, sub }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c' }}>{title}</h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#4f5a54', lineHeight: 1.45 }}>{sub}</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c', ...adminUi.titleMarker }}>{title}</h2>
+            <p style={{ margin: 0, fontSize: '14px', color: '#4f5a54', lineHeight: 1.45, paddingLeft: '13px' }}>{sub}</p>
         </div>
     );
 }
@@ -565,7 +565,7 @@ const styles = {
     },
     card: {
         background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: 'clamp(16px, 4vw, 24px)',
-        display: 'flex', flexDirection: 'column', minWidth: 0,
+        display: 'flex', flexDirection: 'column', minWidth: 0, ...adminUi.cardAccent,
     },
     cardFoot: { fontSize: '13px', color: '#4f5a54', borderTop: '1px solid #F0F1F0', paddingTop: '12px', marginTop: 'auto' },
     funnelGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' },

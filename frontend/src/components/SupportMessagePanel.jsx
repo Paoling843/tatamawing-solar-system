@@ -42,7 +42,7 @@ const T = {
 export default function SupportMessagePanel() {
     const { user } = useAuth();
 
-    const { panelOpen , openPanel, closePanel } = useMessagePanel();
+    const { panelOpen , openPanel, closePanel, topic, clearTopic } = useMessagePanel();
 
     const [adminId, setAdminId] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -107,6 +107,11 @@ export default function SupportMessagePanel() {
         textarea.style.overflowY = isOverflowing ? 'auto' : 'hidden';
     }, [newMessage]);
 
+    // "Ask about this quote" opened the chat: put the cursor in the box
+    useEffect(() => {
+        if (panelOpen && topic) textareaRef.current?.focus();
+    }, [panelOpen, topic]);
+
     const handleSend = async (e) => {
         e.preventDefault();
         if (!newMessage.trim() || sending || !adminId) return;
@@ -117,9 +122,12 @@ export default function SupportMessagePanel() {
             const res = await api.post('/messages', {
                 receiver_id: adminId,
                 message: newMessage.trim(),
+                // Tells the admin which quotation this is about
+                ...(topic ? { quotation_request_id: topic.id } : {}),
             });
             setMessages((prev) => [...prev, res.data.chat_message]);
             setNewMessage('');
+            clearTopic();
         } catch (err) {
             // The message failed to send; the composer keeps its text
             setSendError(errorMessage(err, "We couldn't send your message. Your text is still in the box — please try again."));
@@ -235,6 +243,9 @@ export default function SupportMessagePanel() {
                     alignItems: isMine ? 'flex-end' : 'flex-start',
                 }}
             >
+                {message.meta?.quotation_reference && (
+                    <span style={styles.aboutLabel}>About {message.meta.quotation_reference}</span>
+                )}
                 <div style={isMine ? styles.bubbleMine : styles.bubbleTheirs}>{message.message}</div>
                 <span style={styles.time}>{formatTime(message.created_at)}</span>
             </div>
@@ -328,6 +339,26 @@ export default function SupportMessagePanel() {
 
                         <form onSubmit={handleSend} style={styles.composer}>
                             {sendError && <div style={styles.error}>{sendError}</div>}
+                            {/* Sent along with the next message, so the admin knows which quote */}
+                            {topic && (
+                                <div style={styles.topicChip}>
+                                    <span style={{ minWidth: 0 }}>
+                                        <span style={styles.topicTitle}>About {topic.reference}</span>
+                                        {topic.label && <span style={styles.topicLabel}> · {topic.label}</span>}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={clearTopic}
+                                        style={styles.topicRemove}
+                                        aria-label={`Don't attach ${topic.reference}`}
+                                        title="Remove"
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                                            <path d="M18 6 6 18M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
                             <div style={styles.inputRow}>
                                 <textarea
                                     ref={textareaRef}
@@ -339,7 +370,7 @@ export default function SupportMessagePanel() {
                                         }
                                     }}
                                     style={styles.input}
-                                    placeholder="Write a message"
+                                    placeholder={topic ? `Your question about ${topic.reference}` : 'Write a message'}
                                     aria-label="Write a message"
                                     rows={1}
                                     maxLength={1000}
@@ -526,6 +557,7 @@ const styles = {
         wordBreak: 'break-word',
     },
     time: { fontSize: '11px', color: T.faint },
+    aboutLabel: { fontSize: '11px', fontWeight: 600, color: T.green },
     note: { alignSelf: 'center', fontSize: '12px', color: T.muted, padding: '6px 0', textAlign: 'center' },
 
     // "Chat on Messenger" card
@@ -578,6 +610,34 @@ const styles = {
         flexShrink: 0,
     },
     error: { fontSize: '12px', color: '#b4483a' },
+    // "About #Q-2026-050 · Hybrid · ₱424,000" above the box
+    topicChip: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '8px',
+        padding: '7px 8px 7px 12px',
+        borderRadius: '10px',
+        background: '#eef4f0',
+        border: '1px solid #d6e2da',
+        fontSize: '12.5px',
+        color: T.body,
+    },
+    topicTitle: { fontWeight: 600, color: T.green },
+    topicLabel: { color: T.muted },
+    topicRemove: {
+        flexShrink: 0,
+        width: '24px',
+        height: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 0,
+        borderRadius: '6px',
+        background: 'transparent',
+        color: T.muted,
+        cursor: 'pointer',
+    },
     inputRow: {
         display: 'flex',
         alignItems: 'flex-end',

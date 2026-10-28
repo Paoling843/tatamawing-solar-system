@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChatMessage;
+use App\Models\QuotationRequest;
 use App\Models\User;
 use App\Services\MessengerFallback;
+use App\Services\Notifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -22,6 +24,8 @@ class MessageController extends Controller
             // 'messenger_link' sends the "Chat on Messenger" card (admin only)
             'type' => ['nullable', Rule::in([ChatMessage::TYPE_TEXT, ChatMessage::TYPE_MESSENGER_LINK])],
             'message' => ['required_unless:type,'.ChatMessage::TYPE_MESSENGER_LINK, 'nullable', 'string', 'min:1', 'max:1000'],
+            // "Ask about this quote": the customer's quotation the message is about
+            'quotation_request_id' => ['nullable', 'integer'],
         ]);
 
         if ($validator->fails()) {
@@ -62,10 +66,30 @@ class MessageController extends Controller
                 'meta' => ['auto' => false, 'url' => $url],
             ]);
         } else {
+            // A question about one of the customer's own quotations carries its
+            // reference, so the admin sees which one it's about
+            $meta = null;
+            if ($request->filled('quotation_request_id')) {
+                $quotationRequest = QuotationRequest::query()
+                    ->whereKey($request->quotation_request_id)
+                    ->where('customer_id', $sender->customer?->id)
+                    ->first();
+
+                if (! $quotationRequest) {
+                    return response()->json(['message' => "We couldn't find that quotation on your account."], 422);
+                }
+
+                $meta = [
+                    'quotation_request_id' => $quotationRequest->id,
+                    'quotation_reference' => Notifier::reference($quotationRequest),
+                ];
+            }
+
             $chatMessage = ChatMessage::create([
                 'sender_id' => $sender->id,
                 'receiver_id' => $request->receiver_id,
                 'message' => trim($request->message),
+                'meta' => $meta,
             ]);
         }
 
