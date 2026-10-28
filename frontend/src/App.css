@@ -112,16 +112,33 @@
 .profile-row {
     grid-template-columns: 180px minmax(0, 1fr);
 }
+/* Thin line between the banner's counts */
+.profile-stat + .profile-stat {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
 @media (max-width: 640px) {
     .profile-row {
         grid-template-columns: minmax(0, 1fr);
     }
-    /* Banner: avatar and name above the counts, with less padding */
-    .profile-hero-body {
-        padding: 0 18px 20px !important;
+    /* Banner: less padding; counts stay in three columns */
+    .profile-hero-top {
+        padding: 22px 18px !important;
+        gap: 14px !important;
     }
-    .profile-hero-stats {
-        align-self: flex-start !important;
+    .profile-hero-top > span:first-child {
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 20px !important;
+    }
+    .profile-stat {
+        padding: 12px 14px !important;
+    }
+    .profile-stat dt {
+        font-size: 11px !important;
+        letter-spacing: 0.02em !important;
+    }
+    .profile-stat dd {
+        font-size: 20px !important;
     }
 }
 
