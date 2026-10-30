@@ -14,12 +14,15 @@ import {
     CheckIcon,
     XIcon,
     PlusIcon,
+    FileTextIcon,
 } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, statusColors } from '../styles/theme';
+import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
+import { formatQuotationRef, formatExternalRef } from '../utils/references';
+import { formatPeso } from '../utils/quotationDisplay';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
@@ -150,6 +153,47 @@ export default function AdminSchedulePage() {
         schedule.external_installation_request?.site_description;
 
     const getDateKey = (schedule) => schedule.scheduled_date.split('T')[0];
+
+    // The "Quotation" part of the details window: which quote (or external
+    // request) the installation is for, the system, the price and a phone number
+    const getQuoteDetails = (schedule) => {
+        const request = schedule.quotation?.quotation_request;
+        if (request) {
+            const c = request.solar_computation;
+            const battery = c?.battery_ah
+                ? `${c.battery_qty > 1 ? `${c.battery_qty} × ` : ''}${c.battery_ah} Ah${c.extra_battery_ah ? ` + ${c.extra_battery_ah} Ah` : ''} battery`
+                : null;
+            return {
+                reference: formatQuotationRef(request.id, request.created_at),
+                quotationRequestId: request.id,
+                rows: [
+                    ['System', [
+                        c?.package_kw && `${parseFloat(c.package_kw)} kW inverter`,
+                        c?.panel_count && `${c.panel_count} panels`,
+                        battery,
+                    ].filter(Boolean).join(' · ')],
+                    ['Approved total', schedule.quotation.total_amount != null ? formatPeso(schedule.quotation.total_amount) : null],
+                    ['Contact number', request.customer?.contact_number],
+                ],
+            };
+        }
+
+        const external = schedule.external_installation_request;
+        if (external) {
+            return {
+                reference: formatExternalRef(external.id),
+                rows: [
+                    ['Quoted by', external.other_company_name],
+                    ['Contact number', external.phone],
+                ],
+            };
+        }
+
+        // Booked straight for a customer, without a quotation
+        return { reference: null, rows: [['Contact number', schedule.customer?.contact_number]] };
+    };
+
+    const modalDetails = modalSchedule ? getQuoteDetails(modalSchedule) : null;
 
     const filteredSchedules = statusFilter === 'all'
         ? schedules
@@ -306,7 +350,9 @@ export default function AdminSchedulePage() {
             const res = await api.patch(`/admin/schedules/${modalSchedule.id}/status`, {
                 status: newStatus,
             });
-            setModalSchedule(res.data.schedule);
+            // Only the status changed. The reply leaves out the customer and the
+            // external request, so keep what the window already shows.
+            setModalSchedule((prev) => ({ ...prev, status: res.data.schedule.status }));
             setSuccess('Status updated.');
             fetchSchedules();
         } catch (err) {
@@ -553,7 +599,7 @@ export default function AdminSchedulePage() {
                                     ...styles.modalEyebrow,
                                     color: statusColors[modalSchedule.status]?.text || adminTokens.green,
                                 }}>
-                                    Installation
+                                    Installation{modalDetails.reference ? ` · ${modalDetails.reference}` : ''}
                                 </div>
                                 <h2 style={styles.modalTitle}>{getCustomerName(modalSchedule)}</h2>
                                 <p style={styles.modalSubtitle}>
@@ -567,6 +613,21 @@ export default function AdminSchedulePage() {
                         </div>
 
                         <div style={styles.modalBody}>
+                            <div style={styles.modalSectionLabel}>Quotation</div>
+                            <div style={styles.modalFieldRow}>
+                                <span style={styles.modalFieldLabel}>Reference</span>
+                                {modalDetails.reference
+                                    ? <span style={styles.refCode}>{modalDetails.reference}</span>
+                                    : <span style={styles.modalFieldValue}>Booked without a quotation</span>}
+                            </div>
+                            {modalDetails.rows.filter(([, value]) => value).map(([label, value]) => (
+                                <div key={label} style={styles.modalFieldRow}>
+                                    <span style={styles.modalFieldLabel}>{label}</span>
+                                    <span style={styles.modalFieldValue}>{value}</span>
+                                </div>
+                            ))}
+
+                            <div style={styles.modalSectionLabel}>Installation</div>
                             <div style={styles.modalFieldRow}>
                                 <span style={styles.modalFieldLabel}>Date</span>
                                 <span style={styles.modalFieldValue}>{formatDateLong(getDateKey(modalSchedule))}</span>
@@ -607,6 +668,7 @@ export default function AdminSchedulePage() {
 
                         {statusError && <div role="alert" style={styles.modalError}>{statusError}</div>}
                         <div style={styles.modalFooter}>
+                            <span style={{ ...styles.modalSectionLabel, margin: 0 }}>Update status</span>
                             <div className="status-actions" style={styles.statusActions}>
                                 {STATUSES.map((status) => {
                                     const isCurrent = modalSchedule.status === status;
@@ -614,6 +676,8 @@ export default function AdminSchedulePage() {
                                     return (
                                         <button
                                             key={status}
+                                            type="button"
+                                            className={isCurrent ? undefined : 'btn-secondary'}
                                             onClick={() => setPendingStatus(status)}
                                             style={{
                                                 ...styles.statusActionBtn,
@@ -630,10 +694,23 @@ export default function AdminSchedulePage() {
                                 })}
                             </div>
 
-                            <button onClick={() => openEdit(modalSchedule)} className="btn-secondary" style={styles.rescheduleBtn}>
-                                <EditIcon size={14} color={adminTokens.body} />
-                                <span>Reschedule</span>
-                            </button>
+                            <div style={styles.footerActions}>
+                                {modalDetails.quotationRequestId && (
+                                    <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        onClick={() => navigate(`/admin/quotation-requests/${modalDetails.quotationRequestId}`)}
+                                        style={styles.viewQuoteBtn}
+                                    >
+                                        <FileTextIcon size={15} color={adminTokens.body} />
+                                        <span>View quotation</span>
+                                    </button>
+                                )}
+                                <button type="button" onClick={() => openEdit(modalSchedule)} className="btn-primary" style={styles.rescheduleBtn}>
+                                    <EditIcon size={15} color="#ffffff" />
+                                    <span>Reschedule</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1159,16 +1236,36 @@ const styles = {
         padding: '1.25rem 1.5rem',
         borderTop: '1px solid #eef0ec',
     },
-    rescheduleBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        flexShrink: 0,
-        whiteSpace: 'nowrap',
-        gap: '0.4rem',
-        padding: '0.6rem 1rem',
-        borderRadius: '999px',
-        fontSize: '0.8rem',
+    modalSectionLabel: {
+        fontSize: '0.7rem',
+        fontWeight: '700',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: adminTokens.muted,
+        margin: '0.9rem 0 0.1rem',
+    },
+    refCode: {
+        fontFamily: adminTokens.fontMono,
+        fontSize: '0.85rem',
         fontWeight: '600',
+        color: adminTokens.green,
+    },
+    footerActions: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0.5rem',
+        width: '100%',
+    },
+    // Same buttons as the rest of the admin: white for the secondary action,
+    // green for the main one
+    viewQuoteBtn: { ...whiteButton, minHeight: '40px' },
+    rescheduleBtn: {
+        ...smallGreenButton,
+        minHeight: '40px',
+        padding: '10px 16px',
+        borderRadius: '10px',
+        fontSize: '14px',
+        marginLeft: 'auto',
     },
     statusActions: {
         display: 'flex',
@@ -1184,11 +1281,13 @@ const styles = {
         justifyContent: 'center',
         whiteSpace: 'nowrap',
         gap: '0.3rem',
-        padding: '0.6rem 0.5rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
+        minHeight: '40px',
+        padding: '0.55rem 0.5rem',
+        borderRadius: '10px',
+        fontSize: '0.8rem',
         fontWeight: '600',
-        border: `1px solid ${adminTokens.border}`,
+        fontFamily: 'inherit',
+        border: '1px solid #dcdfd8',
         backgroundColor: 'white',
         color: adminTokens.body,
     },

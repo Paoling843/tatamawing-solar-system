@@ -31,7 +31,8 @@ class ExternalInstallationRequest extends Model
     protected function casts()
     {
         return [
-            'preferred_installation_date' => 'date',
+            // Sent as "2026-10-31", not midnight UTC (see InstallationSchedule)
+            'preferred_installation_date' => 'date:Y-m-d',
             'reviewed_at' => 'datetime',
         ];
     }

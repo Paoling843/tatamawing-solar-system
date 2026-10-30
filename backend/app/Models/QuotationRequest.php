@@ -30,7 +30,8 @@ class QuotationRequest extends Model
     protected function casts()
     {
         return [
-            'submission_date' => 'date',
+            // Sent as "2026-10-31", not midnight UTC (see InstallationSchedule)
+            'submission_date' => 'date:Y-m-d',
         ];
     }
 

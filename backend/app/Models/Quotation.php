@@ -20,7 +20,8 @@ class Quotation extends Model
     protected function casts()
     {
         return [
-            'approval_date' => 'date',
+            // Sent as "2026-10-31", not midnight UTC (see InstallationSchedule)
+            'approval_date' => 'date:Y-m-d',
         ];
     }   
     

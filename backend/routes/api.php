@@ -228,7 +228,6 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/quotation-requests', [QuotationRequestController::class, 'index']);
     Route::post('/quotation-requests', [QuotationRequestController::class, 'store']);
     Route::get('/quotation-requests/{quotationRequest}', [QuotationRequestController::class, 'show']);
-    Route::patch('/quotation-requests/{quotationRequest}/submit', [QuotationRequestController::class, 'submit']);
 
     Route::get('/customer/schedules', [InstallationScheduleController::class, 'customerSchedule']);
 

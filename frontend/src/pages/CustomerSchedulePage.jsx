@@ -5,7 +5,15 @@ import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { colors, typography, radii } from '../styles/theme';
-import { CalendarIcon, CheckCircleIcon, ClockIcon } from '../components/Icons';
+import { CalendarIcon, CheckCircleIcon, ClockIcon, WrenchIcon } from '../components/Icons';
+
+// Colours and icon of the status box, per tone from getInstallStatus()
+const STATUS_TONES = {
+    done: { bg: colors.successTint, border: '#bbf7d0', text: colors.success, Icon: CheckCircleIcon },
+    active: { bg: colors.primaryTint, border: colors.primaryBorder, text: colors.primary, Icon: WrenchIcon },
+    delayed: { bg: colors.dangerTint, border: '#fecaca', text: colors.danger, Icon: ClockIcon },
+    upcoming: { bg: colors.orangeTint, border: '#fed7aa', text: colors.orange, Icon: ClockIcon },
+};
 
 export default function CustomerSchedulePage() {
     const navigate = useNavigate();
@@ -85,9 +93,25 @@ export default function CustomerSchedulePage() {
         return new Date(dateString).toLocaleDateString('en-US', { weekday: 'short' });
     };
 
-    // Derives the install status badge purely from scheduled_date vs today,
-    // since installation_schedules has no separate status column.
-    const getInstallStatus = (dateString) => {
+    // The status box follows the status the admin sets (scheduled, in
+    // progress, completed, delayed). The date only adds the countdown while
+    // it's still "scheduled" — a passed date alone doesn't mean it's installed.
+    const getInstallStatus = (schedule) => {
+        const dateString = schedule.scheduled_date;
+        const onDate = `Scheduled for ${formatDate(dateString)}`;
+
+        if (schedule.status === 'completed') {
+            return { tone: 'done', label: 'Installation complete', subtitle: onDate };
+        }
+
+        if (schedule.status === 'in_progress') {
+            return { tone: 'active', label: 'Installation in progress', subtitle: onDate };
+        }
+
+        if (schedule.status === 'delayed') {
+            return { tone: 'delayed', label: 'Installation delayed', subtitle: "We'll let you know the new date." };
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -97,27 +121,18 @@ export default function CustomerSchedulePage() {
         const diffDays = Math.round((scheduled - today) / (1000 * 60 * 60 * 24));
 
         if (diffDays < 0) {
-            const daysAgo = Math.abs(diffDays);
-            return {
-                completed: true,
-                label: `Installed ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago`,
-                subtitle: `Completed on ${formatDate(dateString)}`,
-            };
+            return { tone: 'upcoming', label: 'Waiting for an update', subtitle: `Was scheduled for ${formatDate(dateString)}` };
         }
 
         if (diffDays === 0) {
-            return { completed: false, label: 'Installation today', subtitle: `Scheduled for ${formatDate(dateString)}` };
+            return { tone: 'upcoming', label: 'Installation today', subtitle: onDate };
         }
 
         if (diffDays === 1) {
-            return { completed: false, label: 'Installation in 1 day', subtitle: `Scheduled for ${formatDate(dateString)}` };
+            return { tone: 'upcoming', label: 'Installation in 1 day', subtitle: onDate };
         }
 
-        return {
-            completed: false,
-            label: `Installation in ${diffDays} days`,
-            subtitle: `Scheduled for ${formatDate(dateString)}`,
-        };
+        return { tone: 'upcoming', label: `Installation in ${diffDays} days`, subtitle: onDate };
     };
 
     const toggleDetails = (id) => {
@@ -167,7 +182,9 @@ export default function CustomerSchedulePage() {
                         </thead>
                         <tbody>
                             {schedules.map((schedule) => {
-                                const status = getInstallStatus(schedule.scheduled_date);
+                                const status = getInstallStatus(schedule);
+                                const tone = STATUS_TONES[status.tone];
+                                const StatusIcon = tone.Icon;
 
                                 return (
                                     <Fragment key={schedule.id}>
@@ -197,23 +214,13 @@ export default function CustomerSchedulePage() {
                                                 <div
                                                     style={{
                                                         ...styles.statusBox,
-                                                        ...(status.completed
-                                                            ? styles.statusBoxCompleted
-                                                            : styles.statusBoxUpcoming),
+                                                        backgroundColor: tone.bg,
+                                                        borderColor: tone.border,
                                                     }}
                                                 >
                                                     <div style={styles.statusHeader}>
-                                                        {status.completed ? (
-                                                            <CheckCircleIcon size={15} color={colors.success} />
-                                                        ) : (
-                                                            <ClockIcon size={15} color={colors.orange} />
-                                                        )}
-                                                        <span
-                                                            style={{
-                                                                ...styles.statusLabel,
-                                                                color: status.completed ? colors.success : colors.orange,
-                                                            }}
-                                                        >
+                                                        <StatusIcon size={15} color={tone.text} />
+                                                        <span style={{ ...styles.statusLabel, color: tone.text }}>
                                                             {status.label}
                                                         </span>
                                                     </div>
@@ -424,14 +431,6 @@ const styles = {
         borderRadius: '8px',
         border: '1px solid',
         padding: '0.5rem 0.75rem',
-    },
-    statusBoxCompleted: {
-        backgroundColor: colors.successTint,
-        borderColor: '#bbf7d0',
-    },
-    statusBoxUpcoming: {
-        backgroundColor: colors.orangeTint,
-        borderColor: '#fed7aa',
     },
     statusHeader: {
         display: 'flex',
