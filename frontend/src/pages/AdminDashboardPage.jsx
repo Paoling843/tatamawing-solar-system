@@ -34,6 +34,8 @@ export default function AdminDashboardPage() {
     const [schedules, setSchedules] = useState([]);
     const [scheduleLoading, setScheduleLoading] = useState(true);
     const [externalRequests, setExternalRequests] = useState([]);
+    // Shown in the External installation requests card (e.g. a missing quotation file)
+    const [externalError, setExternalError] = useState('');
 
     const [statusFilter, setStatusFilter] = useState('all');
     const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
@@ -98,7 +100,7 @@ export default function AdminDashboardPage() {
     const openConfirmExternal = (requestRecord) => {
         setConfirmError('');
         setConfirmingExternal(requestRecord);
-        setError('');
+        setExternalError('');
     };
 
     const closeConfirmExternal = () => {
@@ -131,7 +133,7 @@ export default function AdminDashboardPage() {
         setRejectingExternal(requestRecord);
         setRejectError('');
         setRejectionReason('');
-        setError('');
+        setExternalError('');
     };
 
     const closeRejectExternal = () => {
@@ -142,7 +144,7 @@ export default function AdminDashboardPage() {
         event.preventDefault();
         if (!rejectingExternal || !rejectionReason.trim()) return;
         setRejectLoading(true);
-        setError('');
+        setExternalError('');
         try {
             await api.post(`/admin/external-installation-requests/${rejectingExternal.id}/reject`, {
                 rejection_reason: rejectionReason.trim(),
@@ -158,7 +160,7 @@ export default function AdminDashboardPage() {
 
     const previewExternalQuotation = async (requestRecord) => {
         setQuotationPreviewLoadingId(requestRecord.id);
-        setError('');
+        setExternalError('');
         try {
             const response = await api.get(`/admin/external-installation-requests/${requestRecord.id}/quotation`, {
                 responseType: 'blob',
@@ -170,7 +172,7 @@ export default function AdminDashboardPage() {
                 type: response.data.type || response.headers['content-type'] || '',
             });
         } catch (requestError) {
-            setError(errorMessage(await readBlobError(requestError), "Couldn't open the customer's quotation file. Please try again."));
+            setExternalError(errorMessage(await readBlobError(requestError), "Couldn't open the customer's quotation file. Please try again."));
         } finally {
             setQuotationPreviewLoadingId(null);
         }
@@ -545,6 +547,8 @@ export default function AdminDashboardPage() {
                                 {externalRequests.filter((item) => item.status === 'pending_review').length} pending review
                             </span>
                         </div>
+
+                        {externalError && <div style={styles.error}>{externalError}</div>}
 
                         {externalRequests.length === 0 ? (
                             <div style={styles.queueEmpty}>No external installation requests.</div>
