@@ -187,7 +187,9 @@ export default function AdminDashboardPage() {
         if (!quotationPreview) return;
         const link = document.createElement('a');
         link.href = quotationPreview.url;
-        link.download = `external-quotation-${quotationPreview.requestRecord.id}`;
+        // With the file type on the end, so the computer knows what opens it
+        const extension = { 'application/pdf': '.pdf', 'image/png': '.png', 'image/jpeg': '.jpg' }[quotationPreview.type] || '';
+        link.download = `external-quotation-${quotationPreview.requestRecord.id}${extension}`;
         link.click();
     };
 

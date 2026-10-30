@@ -20,7 +20,7 @@ class MessageController extends Controller
     public function send(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'receiver_id' => ['required', 'exists:users,id', 'different:sender_id'],
+            'receiver_id' => ['required', 'exists:users,id'],
             // 'messenger_link' sends the "Chat on Messenger" card (admin only)
             'type' => ['nullable', Rule::in([ChatMessage::TYPE_TEXT, ChatMessage::TYPE_MESSENGER_LINK])],
             'message' => ['required_unless:type,'.ChatMessage::TYPE_MESSENGER_LINK, 'nullable', 'string', 'min:1', 'max:1000'],
@@ -46,6 +46,13 @@ class MessageController extends Controller
             return response()->json([
                 'message' => 'Messages can only be sent between a customer and the admin.',
             ], 403);
+        }
+
+        // The admins share one inbox, so they don't message each other here
+        if ($sender->role === 'admin' && $receiver->role === 'admin') {
+            return response()->json([
+                'message' => 'Messages are between customers and TataMawing.',
+            ], 422);
         }
 
         if ($request->type === ChatMessage::TYPE_MESSENGER_LINK) {
@@ -104,36 +111,40 @@ class MessageController extends Controller
     public function getConversation(Request $request, $userId)
     {
         $currentUser = $request->user();
-        $targetUserId = (int) $userId;
-        $adminId = User::where('role', 'admin')->value('id');
+        $target = User::find((int) $userId);
 
-        if ($currentUser->role === 'customer' && $targetUserId !== $currentUser->id && $targetUserId !== (int) $adminId) {
-            return response()->json([
-                'message' => 'You can only view your own conversation with the admin.',
-            ], 403);
+        // A customer opens their chat with the team (any admin's id works);
+        // an admin opens one customer's chat
+        if ($currentUser->role === 'customer') {
+            if (! $target || $target->role !== 'admin') {
+                return response()->json([
+                    'message' => 'You can only view your own conversation with the admin.',
+                ], 403);
+            }
+            $customer = $currentUser;
+        } else {
+            if (! $target || $target->role !== 'customer') {
+                return response()->json(['message' => "We couldn't find that conversation."], 404);
+            }
+            $customer = $target;
         }
 
         // Send the slow-response card first if this customer's wait is over
-        $customer = $currentUser->role === 'customer' ? $currentUser : User::find($targetUserId);
-        if ($customer) {
-            $this->fallback->sendDueFor($customer);
-        }
+        $this->fallback->sendDueFor($customer);
 
-        $messages = ChatMessage::where(function ($query) use ($currentUser, $targetUserId) {
-                $query->where('sender_id', $currentUser->id)
-                    ->where('receiver_id', $targetUserId);
-            })
-            ->orWhere(function ($query) use ($currentUser, $targetUserId) {
-                $query->where('sender_id', $targetUserId)
-                    ->where('receiver_id', $currentUser->id);
-            })
+        // One thread per customer, with replies from every admin
+        $messages = ChatMessage::query()
+            ->customerThread($customer->id)
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
-            ->with(['sender', 'receiver'])
+            ->with(['sender:id,name,role', 'receiver:id,name,role'])
             ->get();
 
-        ChatMessage::where('sender_id', $targetUserId)
-            ->where('receiver_id', $currentUser->id)
+        // Read status is shared: once any admin opens the chat, the
+        // customer's messages are read for the whole team
+        ChatMessage::query()
+            ->customerThread($customer->id)
+            ->where($currentUser->role === 'customer' ? 'receiver_id' : 'sender_id', $customer->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
@@ -142,25 +153,31 @@ class MessageController extends Controller
 
     public function getConversations(Request $request)
     {
-        $admin = $request->user();
-
         // Send any slow-response cards that are due before listing
         $this->fallback->sendAllDue();
 
-        $messages = ChatMessage::where('sender_id', $admin->id)
-            ->orWhere('receiver_id', $admin->id)
+        // The admins share one inbox: every customer's chat with any admin
+        $adminIds = User::where('role', 'admin')->pluck('id');
+        $isAdmin = fn ($id) => $adminIds->contains($id);
+
+        $messages = ChatMessage::query()
+            ->where(fn ($q) => $q->whereIn('sender_id', $adminIds)->orWhereIn('receiver_id', $adminIds))
+            ->with('sender:id,name')
             ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc')
-            ->get();
+            ->get()
+            // Older admin-to-admin messages aren't a customer chat
+            ->reject(fn (ChatMessage $m) => $isAdmin($m->sender_id) && $isAdmin($m->receiver_id));
 
-        $unread = ChatMessage::where('receiver_id', $admin->id)
+        $unread = ChatMessage::whereIn('receiver_id', $adminIds)
+            ->whereNotIn('sender_id', $adminIds)
             ->whereNull('read_at')
             ->selectRaw('sender_id, count(*) as total')
             ->groupBy('sender_id')
             ->pluck('total', 'sender_id');
 
-        // Newest message per person (the list is already newest first)
-        $otherId = fn (ChatMessage $m) => $m->sender_id === $admin->id ? $m->receiver_id : $m->sender_id;
+        // Newest message per customer (the list is already newest first)
+        $otherId = fn (ChatMessage $m) => $isAdmin($m->sender_id) ? $m->receiver_id : $m->sender_id;
         $latest = $messages->unique($otherId);
 
         $users = User::with([
@@ -171,7 +188,7 @@ class MessageController extends Controller
             ->get()
             ->keyBy('id');
 
-        $conversations = $latest->map(function (ChatMessage $message) use ($admin, $users, $unread, $otherId) {
+        $conversations = $latest->map(function (ChatMessage $message) use ($isAdmin, $users, $unread, $otherId) {
             $otherUser = $users->get($otherId($message));
             if (! $otherUser) {
                 return null;
@@ -193,7 +210,10 @@ class MessageController extends Controller
                 ],
                 'latest_message' => $message->message,
                 'latest_type' => $message->type,
-                'latest_from_admin' => $message->sender_id === $admin->id,
+                // Sent by any admin; the page says "You:" or the admin's name
+                'latest_from_admin' => $isAdmin($message->sender_id),
+                'latest_sender_id' => $message->sender_id,
+                'latest_sender_name' => $message->sender?->name,
                 'latest_time' => $message->created_at,
                 'unread_count' => (int) ($unread[$otherUser->id] ?? 0),
                 'linked_request' => $this->linkedRequest($customer?->latestQuotationRequest),
@@ -230,7 +250,10 @@ class MessageController extends Controller
     {
         $currentUser = $request->user();
 
-        if ($chatMessage->receiver_id !== $currentUser->id) {
+        // Messages to any admin can be marked read by any admin (shared inbox)
+        $toTeam = $currentUser->role === 'admin' && $chatMessage->receiver?->role === 'admin';
+
+        if ($chatMessage->receiver_id !== $currentUser->id && ! $toTeam) {
             return response()->json([
                 'message' => 'You can only mark your own messages as read.'
             ], 403);
@@ -244,6 +267,8 @@ class MessageController extends Controller
         ]);
     }
 
+    // Where the customer's chat sends messages. Any admin's id would do: the
+    // admins share one inbox, so every admin sees the conversation.
     public function getAdminId()
     {
         $admin = User::where('role', 'admin')->first();
@@ -256,10 +281,9 @@ class MessageController extends Controller
     public function checkUnread(Request $request, $userId)
     {
         $currentUser = $request->user();
-        $targetUserId = (int) $userId;
-        $adminId = User::where('role', 'admin')->value('id');
+        $target = User::find((int) $userId);
 
-        if ($currentUser->role === 'customer' && $targetUserId !== (int) $adminId) {
+        if ($currentUser->role === 'customer' && (! $target || $target->role !== 'admin')) {
             return response()->json([
                 'message' => 'You can only check your conversation with the admin.',
             ], 403);
@@ -267,8 +291,13 @@ class MessageController extends Controller
 
         $this->fallback->sendDueFor($currentUser);
 
-        $unreadCount = ChatMessage::where('sender_id', $targetUserId)
-            ->where('receiver_id', $currentUser->id)
+        // Customer: replies from any admin. Admin: that customer's unread
+        // messages to the team.
+        $customerId = $currentUser->role === 'customer' ? $currentUser->id : (int) $userId;
+
+        $unreadCount = ChatMessage::query()
+            ->customerThread($customerId)
+            ->where($currentUser->role === 'customer' ? 'receiver_id' : 'sender_id', $customerId)
             ->whereNull('read_at')
             ->count();
 
