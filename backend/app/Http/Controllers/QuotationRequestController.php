@@ -246,42 +246,6 @@ class QuotationRequestController extends Controller
     }
 
     /**
-     * Customer confirms the quotation request, and ma change ang status to pending for admin review. 
-     */
-
-    public function submit(Request $request, QuotationRequest $quotationRequest)
-    {
-        $this->authorize('submit', $quotationRequest);
-
-        $customer = $request->user()->customer;
-
-        if(! $customer || $quotationRequest->customer_id !== $customer->id) {
-            return response()->json([
-                'message' => 'You can only send your own quotation requests.'
-            ], 403);
-        }
-
-        $quotationRequest->update([
-            'status' => 'pending',
-        ]);
-
-        AuditLogger::log(
-            'quotation_submitted',
-            'Submitted quotation request for admin review.',
-            QuotationRequest::class,
-            $quotationRequest->id,
-            'Quotation Request #' . $quotationRequest->id
-        );
-
-        Notifier::newQuotationRequest($quotationRequest);
-
-        return response()->json([
-            'message' => 'Quotation submitted for admin review.',
-            'quotation_request' => $quotationRequest,
-        ]);
-    }
-
-    /**
      * List the quotation requests of the authenticated customer.
      */
 

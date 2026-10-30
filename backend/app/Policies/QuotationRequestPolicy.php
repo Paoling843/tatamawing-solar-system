@@ -28,13 +28,6 @@ class QuotationRequestPolicy
         return $user->role === 'customer';
     }
 
-    public function submit(User $user, QuotationRequest $quotationRequest): bool
-    {
-        return $user->role === 'customer'
-            && $user->customer
-            && $quotationRequest->customer_id === $user->customer->id;
-    }
-
     public function approve(User $user, QuotationRequest $quotationRequest): bool
     {
         return $user->role === 'admin' && $quotationRequest->status === 'pending';
