@@ -223,11 +223,11 @@ export default function AuthPage({ initialMode = 'login' }) {
     const [touched, setTouched] = useState({});        // fields the user has left
     const [submitted, setSubmitted] = useState(false); // submit was pressed
     const [showPassword, setShowPassword] = useState(false);
-    const [remember, setRemember] = useState(true);
+    // Logins are always remembered on this device (the checkbox was removed)
+    const remember = true;
     const [serverErrors, setServerErrors] = useState({});
     const [formError, setFormError] = useState('');
     // "not available yet" messages, or why they were sent back here
-    // ("Your session has ended…")
     // ("Your session has ended…"), or "Your password was changed…"
     const [notice, setNotice] = useState(() => sessionNotice || location.state?.notice || '');
     const [success, setSuccess] = useState('');

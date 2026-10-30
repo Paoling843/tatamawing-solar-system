@@ -130,6 +130,14 @@ const describe = (conversation) => {
 export default function AdminInboxPage() {
     const { user } = useAuth();
 
+    // Before the latest message in the list: "You: " for your own, the first
+    // name when another admin sent it, nothing for the customer's
+    const senderPrefix = (c) => {
+        if (!c.latest_from_admin) return '';
+        if (c.latest_sender_id === user?.id) return 'You: ';
+        return c.latest_sender_name ? `${c.latest_sender_name.split(' ')[0]}: ` : '';
+    };
+
     const [conversations, setConversations] = useState([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [selectedUserId, setSelectedUserId] = useState(null);
@@ -348,7 +356,7 @@ export default function AdminInboxPage() {
                                 const on = c.user.id === selectedUserId;
                                 const preview = c.latest_type === 'messenger_link'
                                     ? 'Sent Messenger link'
-                                    : `${c.latest_from_admin ? 'You: ' : ''}${c.latest_message || ''}`;
+                                    : `${senderPrefix(c)}${c.latest_message || ''}`;
                                 return (
                                     <button
                                         key={c.user.id}
@@ -410,11 +418,14 @@ export default function AdminInboxPage() {
                                         <div key={day.key} style={styles.day}>
                                             <div style={styles.dayLabel}>{day.label}</div>
                                             {day.messages.map((m) => {
-                                                const mine = m.sender_id === user?.id;
+                                                // Every admin shares this inbox: anything the team sent sits
+                                                // on the right, with the name when another admin sent it
+                                                const mine = m.sender?.role === 'admin' || m.sender_id === user?.id;
+                                                const byOtherAdmin = mine && m.sender_id !== user?.id;
                                                 if (m.type === 'messenger_link') {
                                                     const who = m.meta?.auto
                                                         ? `Auto-sent after ${m.meta.after_minutes} min without reply`
-                                                        : mine ? 'Sent by you' : 'Sent by an admin';
+                                                        : byOtherAdmin ? `Sent by ${m.sender?.name || 'another admin'}` : 'Sent by you';
                                                     return (
                                                         <MessengerLinkCard
                                                             key={m.id}
@@ -444,7 +455,9 @@ export default function AdminInboxPage() {
                                                             </Link>
                                                         )}
                                                         <div style={mine ? styles.bubbleMine : styles.bubbleTheirs}>{m.message}</div>
-                                                        <span style={styles.bubbleTime}>{formatClock(m.created_at)}</span>
+                                                        <span style={styles.bubbleTime}>
+                                                            {byOtherAdmin && m.sender?.name ? `${m.sender.name} · ` : ''}{formatClock(m.created_at)}
+                                                        </span>
                                                     </div>
                                                 );
                                             })}

@@ -29,6 +29,17 @@ class ChatMessage extends Model
         return $this->type === self::TYPE_MESSENGER_LINK && ($this->meta['auto'] ?? false);
     }
 
+    // Everything between this customer and any admin: the admins share one
+    // inbox, so a customer has a single thread with the whole team
+    public function scopeCustomerThread($query, int $customerId)
+    {
+        $admins = User::where('role', 'admin')->select('id');
+
+        return $query->where(fn ($q) => $q
+            ->where(fn ($q) => $q->where('sender_id', $customerId)->whereIn('receiver_id', $admins))
+            ->orWhere(fn ($q) => $q->whereIn('sender_id', $admins)->where('receiver_id', $customerId)));
+    }
+
     protected function casts()
     {
         return [

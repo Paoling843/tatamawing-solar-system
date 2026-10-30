@@ -317,7 +317,7 @@ export default function SupportMessagePanel() {
 
                         <div ref={threadRef} style={styles.thread}>
                             <p style={styles.privacyNote}>
-                                Messages are read by the TataMawing Solar owner. Please don't send passwords or bank details.{' '}
+                                Messages are read by the TataMawing Solar team. Please don't send passwords or bank details.{' '}
                                 <a href="/privacy" target="_blank" rel="noopener noreferrer" style={styles.privacyLink}>Privacy</a>
                             </p>
                             {messages.length === 0 ? (

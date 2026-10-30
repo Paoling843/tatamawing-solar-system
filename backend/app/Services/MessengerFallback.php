@@ -122,11 +122,8 @@ class MessengerFallback
 
         // Two refreshes at the same moment must not send two cards
         Cache::lock("messenger-fallback:{$customer->id}", 10)->get(function () use ($customer, $settings) {
-            $adminIds = $this->adminIds();
-
             $thread = ChatMessage::query()
-                ->where(fn ($q) => $q->where('sender_id', $customer->id)->whereIn('receiver_id', $adminIds))
-                ->orWhere(fn ($q) => $q->whereIn('sender_id', $adminIds)->where('receiver_id', $customer->id))
+                ->customerThread($customer->id)
                 ->orderBy('created_at')
                 ->orderBy('id')
                 ->get();
