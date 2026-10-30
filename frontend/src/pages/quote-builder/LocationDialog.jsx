@@ -171,10 +171,7 @@ const styles = {
         border: `1px solid ${C.borderSoft}`, background: C.softBg, borderRadius: '8px', padding: '11px 10px',
         fontSize: '14px', color: C.body,
     },
-    error: {
-        margin: '0 26px', padding: '12px 14px', borderRadius: '9px', fontSize: '13.5px', lineHeight: 1.5,
-        background: C.errorBg, border: `1px solid ${C.errorBorder}`, color: C.errorText,
-    },
+    error: { ...s.alert, margin: '0 26px' },
     actions: {
         display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
         padding: '20px 26px 26px',

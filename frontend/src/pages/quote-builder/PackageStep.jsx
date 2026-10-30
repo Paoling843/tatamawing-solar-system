@@ -93,8 +93,8 @@ export default function PackageStep({
                 <div style={styles.warning}>
                     <span style={styles.warningIcon}>!</span>
                     <div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: C.warnText }}>Load exceeds the largest package</div>
-                        <div style={{ fontSize: '13.5px', lineHeight: 1.55, color: C.warnBody, marginTop: '3px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700 }}>Load exceeds the largest package</div>
+                        <div style={{ marginTop: '3px' }}>
                             {formatWhole(load.inverterSize)} W is above our largest {largest.kw} kW package. The quote
                             uses the {largest.kw} kW and an engineer will review it.
                         </div>
@@ -416,16 +416,10 @@ function RecommendedPill() {
 
 const styles = {
     titleRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '36px', flexWrap: 'wrap', marginTop: '16px' },
-    infoBanner: {
-        background: C.mint, border: '1px solid #c7d3cc', borderRadius: '12px', padding: '14px 18px',
-        marginTop: '24px', fontSize: '14px', color: C.green, lineHeight: 1.5,
-    },
-    warning: {
-        display: 'flex', gap: '13px', alignItems: 'flex-start', background: C.warnBg,
-        border: `1px solid ${C.warnBorder}`, borderRadius: '12px', padding: '16px 18px', marginTop: '24px',
-    },
+    infoBanner: { ...s.reminder, marginTop: '24px' },
+    warning: { ...s.alert, display: 'flex', gap: '13px', alignItems: 'flex-start', marginTop: '24px' },
     warningIcon: {
-        flex: 'none', width: '20px', height: '20px', borderRadius: '50%', background: C.warnIcon, color: '#fff',
+        flex: 'none', width: '20px', height: '20px', borderRadius: '50%', background: C.errorText, color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginTop: '1px',
     },
     cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(272px, 100%), 1fr))', gap: '20px', marginTop: '36px', alignItems: 'start' },
@@ -457,7 +451,8 @@ const styles = {
     // About 5 rows tall, then scrolls. The 3px padding keeps the recommended
     // row's ring (a box-shadow outside the row) from being clipped.
     panelList: { maxHeight: '262px', overflowY: 'auto', padding: '3px', margin: '17px -3px 0' },
-    cardFootnote: { margin: '14px 0 0', fontSize: '13px', lineHeight: 1.55, color: C.muted },
+    // The explanation under each card (why this package / panel count / battery): a green reminder
+    cardFootnote: { ...s.reminder, margin: '14px 0 0', fontSize: '13px', lineHeight: 1.55 },
     priceHead: {
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px',
         padding: '20px 26px', borderBottom: `1px solid ${C.borderSoft}`, flexWrap: 'wrap',
@@ -494,10 +489,7 @@ const styles = {
         display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '11px 0',
         borderBottom: `1px solid ${C.rowBorder}`, fontSize: '14px',
     },
-    error: {
-        marginTop: '18px', background: C.errorBg, border: `1px solid ${C.errorBorder}`, color: C.errorText,
-        borderRadius: '10px', padding: '12px 14px', fontSize: '13.5px', lineHeight: 1.5, fontFamily: SANS,
-    },
+    error: { ...s.alert, marginTop: '18px' },
     coverage: { flex: '1 1 280px', minWidth: 0, background: C.darkPanel, padding: '26px', display: 'flex', flexDirection: 'column' },
     checkIcon: (ok) => ({
         flex: 'none', width: '19px', height: '19px', borderRadius: '50%', display: 'flex', alignItems: 'center',

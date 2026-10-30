@@ -30,16 +30,15 @@ export default function ApplianceLoadStep({
                 Daytime is 08:00–16:00, when the panels produce power. Nighttime is 16:00–08:00, covered
                 by the battery.
             </p>
-            {/* Privacy notice for the anonymous calculator tracking (quoteTracker.js) */}
-            <p style={styles.privacyNote}>
+            {/* Reminders: the anonymous calculator tracking (quoteTracker.js) and required fields */}
+            <div style={styles.reminder}>
                 Visits are counted anonymously. Nothing that identifies you is saved until you send a request.{' '}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontWeight: 600 }}>
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontWeight: 700 }}>
                     Privacy Policy
                 </a>
-            </p>
-            <p style={styles.privacyNote}>
+                <br />
                 Fields marked with <span style={{ ...s.requiredMark, marginLeft: 0 }}>*</span> are required.
-            </p>
+            </div>
 
             <div style={{ ...styles.layout, marginTop: '36px' }}>
                 {/* ================= Appliance list ================= */}
@@ -165,7 +164,7 @@ export default function ApplianceLoadStep({
                     Compute recommendation <span style={{ fontSize: '17px' }}>→</span>
                 </button>
                 {!loadReady && attempted && (
-                    <span style={{ fontSize: '13.5px', color: C.errorText }}>
+                    <span role="alert" style={{ ...s.alert, padding: '9px 12px' }}>
                         {rows.length
                             ? 'Fill in the wattage and quantity on every appliance to continue.'
                             : 'Add at least one appliance to continue.'}
@@ -415,7 +414,7 @@ function BillCard({ index, bill, mostRecentPeriod, onChange }) {
 }
 
 const styles = {
-    privacyNote: { margin: '10px 0 0', fontSize: '12.5px', lineHeight: 1.5, color: C.sub, maxWidth: '660px' },
+    reminder: { ...s.reminder, marginTop: '14px', maxWidth: '660px' },
     layout: { display: 'flex', flexWrap: 'wrap', gap: '28px', alignItems: 'flex-start', marginTop: '36px' },
     listCard: { ...s.card, flex: '1 1 760px', minWidth: 0, overflow: 'hidden' },
     listHead: {

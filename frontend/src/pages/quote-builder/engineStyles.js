@@ -26,13 +26,17 @@ export const C = {
     onDark: '#e2ebe6',     // text on the dark green / dark panels
     onDarkMuted: '#c3d4cb',
     required: '#c0392b',   // the red asterisk on required fields
-    errorText: '#9c2f22',
-    errorBorder: '#d9a49b',
+    errorText: '#c0392b',  // warnings and errors, the same red as the login page
+    errorBorder: '#d9a49b',  // invalid input border
     errorBg: '#fdf6f4',
+    // Boxed reminders (green) and warnings (red), matching the login page's
+    // "Signing you in" and error messages
+    reminderBg: '#e4ede8',
+    reminderBorder: '#cfe0d7',
+    alertBg: '#fdf3f2',
+    alertBorder: '#efc9c4',
+    // "FREE CHOICE" tag on the battery card
     warnBg: '#fbf0d9',
-    warnBorder: '#edd9a3',
-    warnText: '#5e4300',
-    warnBody: '#6b5520',
     warnIcon: '#8a6100',
 };
 
@@ -95,6 +99,16 @@ export const s = {
     requiredNote: { fontSize: '12px', color: C.errorText, textAlign: 'right' },
     // Red "*" after a required field's label
     requiredMark: { color: C.required, fontWeight: 700, marginLeft: '3px' },
+
+    // Green box for reminders, red box for warnings (same look as the login page)
+    reminder: {
+        background: C.reminderBg, border: `1px solid ${C.reminderBorder}`, borderRadius: '10px',
+        padding: '12px 14px', fontFamily: SANS, fontSize: '13.5px', lineHeight: 1.5, color: C.green,
+    },
+    alert: {
+        background: C.alertBg, border: `1px solid ${C.alertBorder}`, borderRadius: '10px',
+        padding: '12px 14px', fontFamily: SANS, fontSize: '13.5px', lineHeight: 1.5, color: C.errorText,
+    },
 
     // Buttons
     primaryButton: {
