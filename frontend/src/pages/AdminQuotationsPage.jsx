@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
 import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import { whiteButton } from '../styles/theme';
 import LoadingState from '../components/LoadingState';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -1056,12 +1057,19 @@ const styles = {
         padding: '16px clamp(16px, 5vw, 28px) 22px',
         borderTop: `1px solid ${adminTokens.hairline}`,
     },
-    modalCancelBtn: {
-        padding: '9px 14px',
-        borderRadius: '9px',
-    },
+    modalCancelBtn: { ...whiteButton, minWidth: '92px', minHeight: '40px' },
+    // Same red button as the dashboard's reject dialog
     modalRejectBtn: {
-        padding: '9px 16px',
-        borderRadius: '9px',
+        minWidth: '132px',
+        minHeight: '40px',
+        padding: '10px 16px',
+        border: `1px solid ${adminTokens.danger}`,
+        borderRadius: '10px',
+        backgroundColor: adminTokens.danger,
+        color: '#ffffff',
+        fontSize: '14px',
+        fontWeight: 700,
+        fontFamily: 'inherit',
+        boxShadow: '0 2px 6px rgba(192,57,43,.14)',
     },
 };

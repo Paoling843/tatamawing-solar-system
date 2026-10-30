@@ -90,9 +90,8 @@
             <thead>
                 <tr>
                     <th style="width: 6%;">#</th>
-                    <th style="width: 26%;">Item</th>
+                    <th style="width: 32%;">Item</th>
                     <th>Specification</th>
-                    <th style="width: 13%;">Code</th>
                     <th style="width: 8%; text-align: right;">Qty</th>
                     <th style="width: 10%;">Unit</th>
                 </tr>
@@ -103,7 +102,6 @@
                     <td class="muted">{{ $index + 1 }}</td>
                     <td><strong>{{ $item['name'] }}</strong></td>
                     <td>{{ $item['specification'] ?? '' ?: '—' }}</td>
-                    <td class="muted">{{ $item['code'] ?? '' ?: '—' }}</td>
                     <td class="num">{{ $item['quantity'] }}</td>
                     <td>{{ $item['unit'] ?? '' ?: '—' }}</td>
                 </tr>

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
+import { smallGreenButton } from '../styles/theme';
 import { useBusinessContact } from '../services/businessContact';
 
 // Shared page shell for the Privacy Policy and Terms of Service: a simple
@@ -32,7 +33,7 @@ export default function LegalLayout({ title, updated, intro, children }) {
 
             <footer style={styles.footer}>
                 <span>© {new Date().getFullYear()} TataMawing Solar · Bulan, Sorsogon</span>
-                <Link to="/" style={styles.footerLink}>Back to home</Link>
+                <Link to="/" className="btn-primary" style={smallGreenButton}>← Back to home</Link>
             </footer>
         </div>
     );
@@ -140,5 +141,4 @@ const styles = {
         color: '#7a837e',
         background: '#fff',
     },
-    footerLink: { color: GREEN, textDecoration: 'none', fontWeight: 600 },
 };

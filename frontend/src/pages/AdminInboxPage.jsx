@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
 import { adminText, adminUi } from '../styles/adminTheme';
+import { smallGreenButton } from '../styles/theme';
 import MessengerLinkCard from '../components/MessengerLinkCard';
 import Badge from '../components/Badge';
 import { useAuth } from '../context/auth-context';
@@ -524,7 +525,11 @@ export default function AdminInboxPage() {
                                         <Badge status={STATUS[info.status]} label={info.status} />
                                     </div>
                                     {info.system && <span style={{ fontSize: '13px', color: T.body }}>{info.system}</span>}
-                                    <Link to={`/admin/quotation-requests/${current.linked_request.id}`} style={styles.openLink}>
+                                    <Link
+                                        to={`/admin/quotation-requests/${current.linked_request.id}`}
+                                        className="btn-primary"
+                                        style={{ ...smallGreenButton, alignSelf: 'flex-start' }}
+                                    >
                                         Open quotation →
                                     </Link>
                                 </div>
@@ -760,7 +765,6 @@ const styles = {
     factValue: { textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
     requestCard: { border: '1px solid #ebebe6', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' },
     requestTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' },
-    openLink: { fontSize: '13px', fontWeight: 600, textDecoration: 'none', color: T.green },
     note: { fontSize: '12px', lineHeight: 1.5, color: T.muted, textWrap: 'pretty' },
     fallbackTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' },
     settingBlock: { display: 'flex', flexDirection: 'column', gap: '6px' },

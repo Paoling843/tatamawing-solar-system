@@ -1,7 +1,9 @@
 // TataMawing's product list, copied from the "Product Price" sheet of
 // Quotation.xlsx (115 items). Used by the supplier materials form so
-// each row can be picked by name or code. Prices are left out on purpose:
-// the supplier PDF never shows them.
+// each row can be picked by name. Prices are left out on purpose: the
+// supplier PDF never shows them. The codes (Product Number) are only used
+// inside the system to match a quotation's lines to a product; the
+// supplier list doesn't show them.
 // To update: replace the rows below with the sheet's Product Number,
 // Product Description and Unit columns.
 

@@ -1,17 +1,59 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState from '../components/LoadingState';
+import Badge from '../components/Badge';
 import { adminText, adminUi } from '../styles/adminTheme';
+import { statusColors } from '../styles/theme';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { ShieldIcon, ClockIcon, UserIcon, FileTextIcon } from '../components/Icons';
 
-const statusColor = {
-    quotation_approved: '#16a34a',
-    quotation_rejected: '#a4302a',
-    schedule_created: '#2563eb',
-    purchase_confirmed: '#7c3aed',
-    faq_created: '#f59e0b',
+// Colour groups for the action badges, in legend order. `tone` is a
+// statusColors key, so the colours match the status pills on other pages.
+const GROUPS = [
+    { id: 'approved', label: 'Approved / confirmed', tone: 'approved' },
+    { id: 'rejected', label: 'Rejected', tone: 'rejected' },
+    { id: 'scheduling', label: 'Scheduling', tone: 'scheduled' },
+    { id: 'customer', label: 'New from customers', tone: 'pending' },
+    { id: 'deleted', label: 'Deleted', tone: 'partially_available' },
+    { id: 'content', label: 'Content & settings', tone: 'draft' },
+];
+const TONE_OF = Object.fromEntries(GROUPS.map((group) => [group.id, group.tone]));
+
+// Every action the backend logs (AuditLogger::log calls)
+const ACTION_GROUP = {
+    quotation_approved: 'approved',
+    external_installation_confirmed: 'approved',
+    quotation_rejected: 'rejected',
+    external_installation_rejected: 'rejected',
+    installation_schedule_created: 'scheduling',
+    installation_schedule_updated: 'scheduling',
+    installation_schedule_status_updated: 'scheduling',
+    quotation_created: 'customer',
+    quotation_submitted: 'customer',
+    faq_deleted: 'deleted',
+    faq_created: 'content',
+    faq_updated: 'content',
+    inbox_settings_updated: 'content',
+};
+
+// Actions added later still get a sensible colour from their name
+const groupOf = (action) => ACTION_GROUP[action] ?? (
+    /approved|confirmed/.test(action) ? 'approved'
+        : /rejected/.test(action) ? 'rejected'
+            : /schedule/.test(action) ? 'scheduling'
+                : /deleted/.test(action) ? 'deleted'
+                    : 'content'
+);
+
+// Shorter wording for the long action names; others are spelled out
+const ACTION_LABEL = {
+    external_installation_confirmed: 'External request confirmed',
+    external_installation_rejected: 'External request rejected',
+    installation_schedule_created: 'Schedule created',
+    installation_schedule_updated: 'Schedule updated',
+    installation_schedule_status_updated: 'Schedule status changed',
+    inbox_settings_updated: 'Inbox settings changed',
 };
 
 export default function AdminAuditPage() {
@@ -34,7 +76,8 @@ export default function AdminAuditPage() {
         fetchLogs();
     }, []);
 
-    const formatAction = (action) => action.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+    const formatAction = (action) => ACTION_LABEL[action]
+        ?? action.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase());
 
     return (
         <AdminLayout active="Audit Log">
@@ -53,6 +96,17 @@ export default function AdminAuditPage() {
                         <ShieldIcon size={18} color="#16211c" />
                         <h2 style={styles.cardTitle}>Security Activity</h2>
                     </div>
+                    <ul style={styles.legend} aria-label="Colour key">
+                        {GROUPS.map((group) => (
+                            <li key={group.id} style={styles.legendItem}>
+                                <span
+                                    aria-hidden="true"
+                                    style={{ ...styles.legendDot, backgroundColor: statusColors[group.tone].text }}
+                                />
+                                {group.label}
+                            </li>
+                        ))}
+                    </ul>
                 </div>
 
                 {loading ? (
@@ -74,15 +128,7 @@ export default function AdminAuditPage() {
                         {logs.map((log) => (
                             <div key={log.id} style={styles.row}>
                                 <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <span
-                                        style={{
-                                            ...styles.badge,
-                                            backgroundColor: statusColor[log.action] || '#5d6862',
-                                            color: '#fff',
-                                        }}
-                                    >
-                                        {formatAction(log.action)}
-                                    </span>
+                                    <Badge status={TONE_OF[groupOf(log.action)]} label={formatAction(log.action)} />
                                 </div>
 
                                 <div style={{ flex: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -136,6 +182,11 @@ const styles = {
         ...adminUi.cardAccent,
     },
     cardHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px 24px',
         padding: '18px 20px',
         borderBottom: '1px solid #e6e8e2',
         backgroundColor: '#f9faf8',
@@ -176,14 +227,23 @@ const styles = {
         borderBottom: '1px solid #edf2f7',
         alignItems: 'center',
     },
-    badge: {
-        display: 'inline-flex',
-        padding: '6px 10px',
-        borderRadius: 999,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '0.02em',
+    legend: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px 16px',
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
     },
+    legendItem: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 12.5,
+        color: '#4f5a54',
+        whiteSpace: 'nowrap',
+    },
+    legendDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
     metaText: {
         color: '#4f5a54',
         fontSize: 13,

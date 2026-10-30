@@ -46,6 +46,11 @@ class ExternalInstallationRequest extends Model
         return $this->belongsTo(InstallationSchedule::class);
     }
 
+    public function quotationFile()
+    {
+        return $this->hasOne(ExternalRequestFile::class);
+    }
+
     /**
      * The "Check request status" link in the emails: the website's status
      * page, carrying the signature of the API status route (valid 30 days).
