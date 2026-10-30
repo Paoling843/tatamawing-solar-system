@@ -1,10 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { searchProducts } from '../services/productCatalog';
 
-// Item box for the supplier materials form: type a name or code ("mc4",
-// "dc breaker 32", "tm-0044") and pick from TataMawing's product list. A
-// pick fills in the name, code and unit; typing something not on the list
-// is still allowed (e.g. a part bought elsewhere).
+// Item box for the supplier materials form: type a name ("mc4",
+// "dc breaker 32") and pick from TataMawing's product list. A pick fills
+// in the name and unit; typing something not on the list is still allowed
+// (e.g. a part bought elsewhere).
 //   value      the item name typed so far
 //   onChange   (text) on every keystroke
 //   onPick     (product) when a product is picked: { code, name, unit }
@@ -136,9 +136,6 @@ export default function ProductPicker({ value, onChange, onPick, inputStyle, col
                                 onMouseEnter={() => setActive(i)}
                                 style={{ ...optionStyle, ...(i === activeIndex ? { background: colors.active } : {}) }}
                             >
-                                <span style={{ fontVariantNumeric: 'tabular-nums', color: colors.muted, fontSize: '0.75rem', flexShrink: 0 }}>
-                                    {product.code}
-                                </span>
                                 <span style={{ flex: 1, minWidth: 0 }}>{product.name}</span>
                                 <span style={{ color: colors.muted, fontSize: '0.75rem', flexShrink: 0 }}>{product.unit}</span>
                             </li>

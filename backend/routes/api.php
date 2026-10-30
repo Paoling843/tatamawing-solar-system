@@ -14,6 +14,7 @@ use App\Http\Controllers\FaqController;
 use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -175,6 +176,13 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // ----------------------------
 
         Route::get('/audit-logs', [\App\Http\Controllers\AuditLogController::class, 'index']);
+
+
+        // ----------------------------
+        // Users (all accounts)
+        // ----------------------------
+
+        Route::get('/users', [UserController::class, 'index']);
 
 
         // ----------------------------

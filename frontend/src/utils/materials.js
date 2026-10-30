@@ -1,7 +1,11 @@
 // Starting rows for the supplier materials PDF, built from an approved
 // quotation's price lines (solar_computation.line_items). The admin can
 // edit, remove or add rows before downloading; nothing is saved.
-// Installation labour is a service, not a material, so it's left out.
+// Only single products are added: the inverter, panels and batteries.
+// The mounting kit and safety devices are sets in the quote, and their
+// individual parts per package are still to come from the client, so the
+// admin adds those parts from the product list. Installation labour is a
+// service, not a material, so it's left out too.
 import { productByCode } from '../services/productCatalog';
 
 let nextId = 1;
@@ -11,20 +15,21 @@ export const materialRow = (fields = {}) => ({
     id: nextId++,
     name: '',
     specification: '',
-    code: '',
     quantity: 1,
     unit: '',
     ...fields,
 });
 
 // A row for a product from the price list, named exactly as on the list
-// (the supplier's own wording). Falls back to our own name when the code
-// isn't on the list (e.g. quotations saved before a product was added).
+// (the supplier's own wording). The quote's product code only finds the
+// product; the supplier list leaves codes out. Falls back to our own name
+// when the code isn't on the list (e.g. quotations saved before a product
+// was added).
 const productRow = (code, quantity, fallback) => {
     const product = productByCode(code);
     return materialRow(product
-        ? { name: product.name, code: product.code, unit: product.unit, quantity }
-        : { ...fallback, code: code ?? '', quantity });
+        ? { name: product.name, unit: product.unit, quantity }
+        : { ...fallback, quantity });
 };
 
 export function materialsFromComputation(computation) {
@@ -62,27 +67,9 @@ export function materialsFromComputation(computation) {
                     unit: 'each',
                 }));
                 break;
-            // The two "complete set" lines have no product code yet: the
-            // client's parts list for them is still to come. The admin can
-            // swap each for the individual parts from the product list.
-            case 'mounting':
-                rows.push(materialRow({
-                    name: 'Mounting kit (complete set)',
-                    specification: 'Rails, clamps and roof brackets (per panel)',
-                    quantity: item.qty,
-                    unit: 'sets',
-                }));
-                break;
-            case 'safety':
-                rows.push(materialRow({
-                    name: 'Safety devices and cables (complete set)',
-                    specification: 'Breakers, surge protection, cables and earthing',
-                    quantity: item.qty,
-                    unit: 'set',
-                }));
-                break;
             default:
-                // Installation labour and anything unknown: not a material
+                // Mounting kit and safety devices (sets), installation
+                // labour, and anything unknown
                 break;
         }
     });

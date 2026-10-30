@@ -508,9 +508,6 @@ export default function AuthPage({ initialMode = 'login' }) {
 
                             {mode === 'login' ? (
                                 <div style={styles.optionsRow}>
-                                    <Checkbox checked={remember} onChange={setRemember}>
-                                        Keep me signed in on this device
-                                    </Checkbox>
                                     <button
                                         type="button"
                                         className="auth-link"

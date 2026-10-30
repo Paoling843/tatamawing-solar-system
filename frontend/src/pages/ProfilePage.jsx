@@ -6,6 +6,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
 import { CalendarIcon, MailIcon } from '../components/Icons';
+import { smallGreenButton } from '../styles/theme';
 
 // My Profile (routes /customer/profile and /admin/profile), opened from the
 // account menu in the top bar.
@@ -131,7 +132,7 @@ export default function ProfilePage() {
                 <section style={styles.card}>
                     <div style={{ ...styles.cardHead, alignItems: 'center' }}>
                         <span style={styles.cardTitle}>Recent activity</span>
-                        <Link to={isAdmin ? '/admin/audit-logs' : '/customer/my-quotations'} style={styles.headLink}>
+                        <Link to={isAdmin ? '/admin/audit-logs' : '/customer/my-quotations'} className="btn-primary" style={smallGreenButton}>
                             {isAdmin ? 'Audit log →' : 'My quotations →'}
                         </Link>
                     </div>
@@ -537,7 +538,6 @@ const styles = {
     },
     cardTitle: { fontSize: '18px', fontWeight: 700, color: C.ink },
     cardSub: { fontSize: '14px', color: C.muted },
-    headLink: { fontSize: '14px', fontWeight: 600, color: '#174a37', whiteSpace: 'nowrap' },
     cardFoot: {
         display: 'flex',
         justifyContent: 'flex-end',

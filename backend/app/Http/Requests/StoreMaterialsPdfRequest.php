@@ -25,7 +25,6 @@ class StoreMaterialsPdfRequest extends FormRequest
             'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.name' => ['required', 'string', 'max:120'],
             'items.*.specification' => ['nullable', 'string', 'max:160'],
-            'items.*.code' => ['nullable', 'string', 'max:40'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'items.*.unit' => ['nullable', 'string', 'max:20'],
         ];
@@ -55,7 +54,7 @@ class StoreMaterialsPdfRequest extends FormRequest
                 continue;
             }
 
-            foreach (['name', 'specification', 'code', 'unit'] as $field) {
+            foreach (['name', 'specification', 'unit'] as $field) {
                 if (isset($item[$field])) {
                     $items[$index][$field] = trim((string) $item[$field]);
                 }

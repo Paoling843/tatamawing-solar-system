@@ -53,6 +53,52 @@ export const shadows = {
     card: '0 1px 4px rgba(0,0,0,0.06)',
 };
 
+// Small green button for links such as "View full details" and
+// "All quotations" (buttons or <Link>s). Add className="btn-primary" for
+// the hover and keyboard focus ring.
+export const smallGreenButton = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    minHeight: '34px',
+    padding: '7px 14px',
+    border: 'none',
+    borderRadius: '8px',
+    backgroundColor: '#0f3b2c',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 600,
+    fontFamily: 'inherit',
+    lineHeight: 1.2,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    boxShadow: '0 2px 6px rgba(15,59,44,.14)',
+};
+
+// White button with a light border (Cancel, Close, and the login page's
+// Register / Log in). Add className="btn-secondary" for the hover and
+// keyboard focus ring.
+export const whiteButton = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    padding: '10px 16px',
+    border: '1px solid #dcdfd8',
+    borderRadius: '10px',
+    backgroundColor: '#ffffff',
+    color: '#293530',
+    fontSize: '14px',
+    fontWeight: 600,
+    fontFamily: 'inherit',
+    lineHeight: 1.2,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+};
+
 
 // One set of status colours for every page (used by <Badge> and the
 // schedule calendar). Each text colour has at least 4.5:1 contrast on its

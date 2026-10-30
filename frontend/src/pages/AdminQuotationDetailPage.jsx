@@ -12,7 +12,7 @@ import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { materialsFromComputation, materialRow } from '../utils/materials';
-import { colors } from '../styles/theme';
+import { colors, smallGreenButton } from '../styles/theme';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
 function formatTime(time) {
@@ -160,10 +160,10 @@ export default function AdminQuotationDetailPage() {
     const handleMaterialChange = (rowId, field, value) => {
         setMaterials(materials.map((m) => (m.id === rowId ? { ...m, [field]: value } : m)));
     };
-    // A product picked from the list fills the row's name, code and unit
+    // A product picked from the list fills the row's name and unit
     const pickProduct = (rowId, product) => {
         setMaterials(materials.map((m) => (m.id === rowId
-            ? { ...m, name: product.name, code: product.code, unit: product.unit }
+            ? { ...m, name: product.name, unit: product.unit }
             : m)));
     };
 
@@ -172,7 +172,7 @@ export default function AdminQuotationDetailPage() {
         const lines = materials
             .filter((m) => m.name.trim())
             .map((m, i) => {
-                const details = [m.specification.trim(), m.code.trim()].filter(Boolean).join(', ');
+                const details = m.specification.trim();
                 return `${i + 1}. ${m.name.trim()}${details ? ` (${details})` : ''} — ${m.quantity} ${m.unit.trim()}`.trimEnd();
             });
         const deliverTo = materialsForm.deliver_to === 'site'
@@ -367,7 +367,7 @@ export default function AdminQuotationDetailPage() {
 
                 {/* ---- Sticky header: breadcrumb, title, stepper ---- */}
                 <div className="m-pad" style={styles.shellHeader}>
-                    <button onClick={() => navigate('/admin/quotations')} style={styles.backBtn}>
+                    <button type="button" className="btn-primary" onClick={() => navigate('/admin/quotations')} style={styles.backBtn}>
                         <span style={styles.backArrow}>←</span>
                         <span>Back to Quotations</span>
                     </button>
@@ -951,10 +951,6 @@ export default function AdminQuotationDetailPage() {
                                     <div style={styles.matHead}>
                                         <div>
                                             <h3 style={{ ...styles.cardTitle, margin: 0 }}>Materials for supplier</h3>
-                                            <p style={styles.matSub}>
-                                                Filled in from the approved quote. Edit anything before downloading —
-                                                type a name or code under Item to pick from the product list.
-                                            </p>
                                         </div>
                                         <span style={styles.matCount}>
                                             {materials.length} {materials.length === 1 ? 'item' : 'items'}
@@ -963,12 +959,11 @@ export default function AdminQuotationDetailPage() {
 
                                     {/* Reads like the PDF: plain text until you hover or click a cell */}
                                     <div className="scroll-x">
-                                        <div style={{ minWidth: '680px' }}>
+                                        <div style={{ minWidth: '580px' }}>
                                             <div style={{ ...styles.matGrid, ...styles.matHeaderRow }}>
                                                 <span>#</span>
                                                 <span>Item</span>
                                                 <span>Specification</span>
-                                                <span>Code</span>
                                                 <span style={{ textAlign: 'center' }}>Qty</span>
                                                 <span>Unit</span>
                                                 <span />
@@ -984,7 +979,7 @@ export default function AdminQuotationDetailPage() {
                                                         className="input-field mat-cell"
                                                         inputStyle={{ ...styles.matCell, fontWeight: 600, color: adminTokens.ink }}
                                                         colors={PICKER_COLORS}
-                                                        placeholder="Name or code, e.g. MC4"
+                                                        placeholder="Name, e.g. MC4"
                                                         maxLength={120}
                                                         aria-label={`Item ${index + 1}`}
                                                         required
@@ -997,15 +992,6 @@ export default function AdminQuotationDetailPage() {
                                                         placeholder="add details"
                                                         maxLength={160}
                                                         aria-label={`Specification ${index + 1}`}
-                                                    />
-                                                    <input
-                                                        value={material.code}
-                                                        onChange={(e) => handleMaterialChange(material.id, 'code', e.target.value)}
-                                                        className="input-field mat-cell"
-                                                        style={{ ...styles.matCell, ...styles.matCode }}
-                                                        placeholder="add code"
-                                                        maxLength={40}
-                                                        aria-label={`Code ${index + 1}`}
                                                     />
                                                     <input
                                                         type="number"
@@ -1279,18 +1265,7 @@ const styles = {
         borderBottom: `1px solid ${adminTokens.border}`,
         padding: '1.375rem 1.75rem 1.25rem',
     },
-    backBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        backgroundColor: 'transparent',
-        color: adminTokens.muted,
-        border: 'none',
-        padding: 0,
-        marginBottom: '0.875rem',
-        fontSize: '0.8125rem',
-        cursor: 'pointer',
-    },
+    backBtn: { ...smallGreenButton, marginBottom: '0.875rem' },
     backArrow: {
         fontSize: '0.9375rem',
         lineHeight: 1,
@@ -1737,10 +1712,10 @@ const styles = {
         color: adminTokens.muted,
         paddingTop: '0.2rem',
     },
-    // # · Item · Specification · Code · Qty · Unit · remove
+    // # · Item · Specification · Qty · Unit · remove
     matGrid: {
         display: 'grid',
-        gridTemplateColumns: '28px minmax(150px, 2.2fr) minmax(150px, 3fr) 108px 64px 72px 32px',
+        gridTemplateColumns: '28px minmax(160px, 2.4fr) minmax(160px, 3fr) 64px 72px 32px',
         alignItems: 'center',
         columnGap: '0.5rem',
     },
@@ -1774,11 +1749,6 @@ const styles = {
         color: adminTokens.body,
         boxSizing: 'border-box',
         textOverflow: 'ellipsis',
-    },
-    matCode: {
-        fontFamily: adminTokens.fontMono,
-        fontSize: '0.75rem',
-        color: adminTokens.muted,
     },
     matQty: {
         width: '100%',

@@ -8,7 +8,7 @@ import {
     HOME_MUNICIPALITY, HOME_PROVINCE, SITE_DESCRIPTION_MAX,
     barangayError, officialBarangay,
 } from '../services/installLocation';
-import { colors, typography } from '../styles/theme';
+import { colors, typography, smallGreenButton } from '../styles/theme';
 
 const MIN_DATE = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
@@ -107,7 +107,7 @@ export default function ExternalInstallationRequestPage() {
     return (
         <main style={styles.page}>
             <section style={styles.card}>
-                <button type="button" onClick={() => navigate('/')} style={styles.backButton}>
+                <button type="button" className="btn-primary" onClick={() => navigate('/')} style={smallGreenButton}>
                     ← Back to TataMawing Solar
                 </button>
                 <div style={styles.eyebrow}>INSTALLATION SERVICE</div>
@@ -266,7 +266,6 @@ const styles = {
     pageFooterLink: { color: colors.primary, fontWeight: 600, textDecoration: 'none' },
     page: { minHeight: '100vh', background: '#f6f7f4', padding: 'clamp(20px, 6vw, 48px) clamp(12px, 4vw, 20px)', fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif", color: colors.textDark },
     card: { maxWidth: '780px', margin: '0 auto', padding: 'clamp(18px, 5vw, 36px)', background: 'white', border: '1px solid #e6e8e2', borderRadius: '14px', boxShadow: '0 12px 40px rgba(15,59,44,.08)' },
-    backButton: { border: 'none', background: 'transparent', color: colors.primary, padding: 0, cursor: 'pointer', fontSize: '13px', fontWeight: 700 },
     eyebrow: { ...typography.label, marginTop: '32px', color: colors.primary },
     title: { ...typography.h1, margin: '10px 0 0' },
     subtitle: { ...typography.body, color: colors.textMuted, maxWidth: '620px', margin: '12px 0 28px' },

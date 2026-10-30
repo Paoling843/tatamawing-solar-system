@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
 import { adminTokens, adminUi } from '../styles/adminTheme';
+import { smallGreenButton, whiteButton } from '../styles/theme';
 
 import LoadingState from '../components/LoadingState';
 import Badge from '../components/Badge';
@@ -488,8 +489,8 @@ export default function AdminDashboardPage() {
                                 <h2 style={styles.cardTitle}>Upcoming schedules</h2>
                                 <button
                                     type="button"
-                                    className="m-tap"
-                                    style={{ ...styles.scheduleLink, ...styles.linkButton }}
+                                    className="btn-primary m-tap"
+                                    style={smallGreenButton}
                                     onClick={() => navigate('/admin/schedule')}
                                 >
                                     Schedule
@@ -678,8 +679,8 @@ export default function AdminDashboardPage() {
                             </span>
                             <button
                                 type="button"
-                                className="m-tap"
-                                style={{ ...styles.footerLink, ...styles.linkButton }}
+                                className="btn-primary m-tap"
+                                style={smallGreenButton}
                                 onClick={() => navigate('/admin/quotations')}
                             >
                                 View all
@@ -940,8 +941,8 @@ export default function AdminDashboardPage() {
                         {/* The row's ⋯ button used to open the full page; it's here now */}
                         <button
                             type="button"
-                            className="m-tap"
-                            style={{ ...styles.footerLink, ...styles.linkButton, marginTop: '14px', alignSelf: 'flex-start' }}
+                            className="btn-primary m-tap"
+                            style={{ ...smallGreenButton, marginTop: '14px', alignSelf: 'flex-start' }}
                             onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
                         >
                             View full details →
@@ -1187,13 +1188,6 @@ const styles = {
         alignItems: 'center',
         marginBottom: '14px',
     },
-    scheduleLink: {
-        fontSize: '12.5px',
-        fontWeight: 600,
-        color: adminTokens.green,
-        cursor: 'pointer',
-        textDecoration: 'underline',
-    },
     scheduleList: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
     scheduleRow: {
         display: 'flex',
@@ -1365,7 +1359,7 @@ const styles = {
     confirmField: { display: 'flex', flexDirection: 'column', gap: '7px' },
     confirmLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: adminTokens.body },
     confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', flexWrap: 'wrap', padding: '16px clamp(16px, 5vw, 28px) 22px', borderTop: `1px solid ${adminTokens.hairline}` },
-    modalSecondaryBtn: { minWidth: '92px', minHeight: '40px', padding: '10px 16px', borderRadius: '9px', fontWeight: 600 },
+    modalSecondaryBtn: { ...whiteButton, minWidth: '92px', minHeight: '40px' },
     modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '9px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },
     modalDangerBtn: { minWidth: '132px', minHeight: '40px', padding: '10px 16px', border: '1px solid #c0392b', borderRadius: '9px', backgroundColor: '#c0392b', color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(192,57,43,.14)' },
 
@@ -1447,9 +1441,6 @@ const styles = {
         borderTop: `1px solid ${adminTokens.hairline}`,
     },
     footerText: { fontSize: '12.5px', color: adminTokens.muted },
-    footerLink: { fontSize: '12.5px', fontWeight: 600, color: adminTokens.green, cursor: 'pointer', textDecoration: 'underline' },
-    // Text-looking links that are real buttons (keyboard-reachable, bigger tap area on phones)
-    linkButton: { background: 'none', border: 'none', padding: '4px 2px', fontFamily: 'inherit' },
 
     scrim: { position: 'fixed', inset: 0, backgroundColor: 'rgba(16,33,26,.32)', zIndex: 200 },
     drawer: {

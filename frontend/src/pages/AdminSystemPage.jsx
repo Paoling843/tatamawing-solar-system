@@ -9,8 +9,8 @@ import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { colors } from '../styles/theme';
 
-// Users: the customers who have submitted quotation requests, and a link to
-// the real audit log. Only shows data the system actually has.
+// Users: every account (customers and admins), newest first, from
+// GET /api/admin/users, plus a link to the audit log.
 export default function AdminSystemPage() {
     const navigate = useNavigate();
 
@@ -22,18 +22,10 @@ export default function AdminSystemPage() {
         setLoading(true);
         setError('');
         try {
-            const res = await api.get('/admin/quotation-requests');
-            const uniqueUsers = [];
-            const seen = new Set();
-            res.data.forEach(qr => {
-                if (qr.customer?.user && !seen.has(qr.customer.user.id)) {
-                    seen.add(qr.customer.user.id);
-                    uniqueUsers.push(qr.customer.user);
-                }
-            });
-            setUsers(uniqueUsers);
+            const res = await api.get('/admin/users');
+            setUsers(res.data || []);
         } catch (err) {
-            setError(errorMessage(err, "Couldn't load the customer list. Please try again."));
+            setError(errorMessage(err, "Couldn't load the user list. Please try again."));
         } finally {
             setLoading(false);
         }
@@ -65,6 +57,8 @@ export default function AdminSystemPage() {
         return labels[role] || role;
     };
 
+    const customerCount = users.filter((user) => user.role === 'customer').length;
+
     const formatJoined = (value) => (value
         ? new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
         : '—');
@@ -76,7 +70,7 @@ export default function AdminSystemPage() {
                 <div>
                     <h1 style={styles.pageTitle}>Users</h1>
                     <p style={styles.pageSubtitle}>
-                        Customers who have requested a quotation, and the record of admin actions.
+                        Everyone with an account, newest first, and the record of admin actions.
                     </p>
                 </div>
 
@@ -97,7 +91,7 @@ export default function AdminSystemPage() {
             <div className="content-grid-sidebar" style={styles.contentGrid}>
 
                 <div className="m-pad" style={styles.usersCard}>
-                    <h2 style={styles.sectionTitle}>Customers</h2>
+                    <h2 style={styles.sectionTitle}>All users</h2>
 
                     {loading ? (
                         <LoadingState label="Loading users..." />
@@ -105,13 +99,14 @@ export default function AdminSystemPage() {
                         <EmptyState
                             icon={<UserIcon size={32} color={colors.textFaint} />}
                             title="No users found"
-                            description="Customers will appear here once they submit a quotation request."
+                            description="Accounts appear here as soon as someone registers."
                         />
                     ) : (
                         <div>
                             <div className="m-hide" style={styles.usersTableHeader}>
                                 <span style={{ flex: 3 }}>User</span>
                                 <span style={{ flex: 1.2 }}>Role</span>
+                                <span style={{ flex: 1.1 }}>Requests</span>
                                 <span style={{ flex: 1.3 }}>Joined</span>
                             </div>
 
@@ -136,6 +131,12 @@ export default function AdminSystemPage() {
                                         </span>
                                     </span>
 
+                                    <span style={{ flex: '1.1 1 90px', fontSize: '0.8rem', color: '#5d6862' }}>
+                                        {user.quotation_requests_count == null
+                                            ? '—'
+                                            : `${user.quotation_requests_count} ${user.quotation_requests_count === 1 ? 'request' : 'requests'}`}
+                                    </span>
+
                                     <span style={{ flex: '1.3 1 110px', fontSize: '0.8rem', color: '#5d6862' }}>
                                         {formatJoined(user.created_at)}
                                     </span>
@@ -143,7 +144,8 @@ export default function AdminSystemPage() {
                             ))}
 
                             <div style={styles.listFooter}>
-                                Showing {users.length} {users.length === 1 ? 'customer' : 'customers'}
+                                Showing {users.length} {users.length === 1 ? 'user' : 'users'}
+                                {' · '}{customerCount} {customerCount === 1 ? 'customer' : 'customers'}, {users.length - customerCount} {users.length - customerCount === 1 ? 'admin' : 'admins'}
                             </div>
                         </div>
                     )}

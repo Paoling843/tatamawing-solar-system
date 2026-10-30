@@ -10,7 +10,7 @@ import {
     DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
     EyeIcon,
 } from '../components/Icons';
-import { colors, typography, statusColors } from '../styles/theme';
+import { colors, typography, statusColors, smallGreenButton } from '../styles/theme';
 
 const SORT_OPTIONS = ['Newest first', 'Oldest first', 'Highest value', 'Lowest value'];
 
@@ -381,7 +381,7 @@ export default function CustomerDashboardPage() {
                             <span style={styles.tableFooterText}>
                                 Showing {visibleQuotations.length} of {totalCount}
                             </span>
-                            <Link to="/customer/quotations" className="m-tap" style={styles.tableFooterLink}>
+                            <Link to="/customer/my-quotations" className="btn-primary m-tap" style={smallGreenButton}>
                                 All quotations →
                             </Link>
                         </div>
@@ -716,15 +716,6 @@ const styles = {
     tableFooterText: {
         fontSize: '0.8rem',
         color: colors.textMuted,
-    },
-    tableFooterLink: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        color: colors.primary,
-        textDecoration: 'none',
-        cursor: 'pointer',
     },
 
     footer: {

@@ -56,8 +56,8 @@ class MaterialsPdfTest extends TestCase
             'needed_by' => now()->addWeek()->toDateString(),
             'notes' => 'Please deliver in the morning.',
             'items' => [
-                ['name' => 'Hybrid inverter', 'specification' => '8 kW, DEYE', 'code' => 'tm-0029', 'quantity' => 1, 'unit' => 'unit'],
-                ['name' => 'Solar panel', 'specification' => 'Canadian 610 W bifacial', 'code' => 'tm-0040', 'quantity' => 10, 'unit' => 'pcs'],
+                ['name' => 'Hybrid inverter', 'specification' => '8 kW, DEYE', 'quantity' => 1, 'unit' => 'unit'],
+                ['name' => 'Solar panel', 'specification' => 'Canadian 610 W bifacial', 'quantity' => 10, 'unit' => 'pcs'],
                 ['name' => 'PV cable', 'quantity' => 50, 'unit' => 'm'],
             ],
         ], $overrides);

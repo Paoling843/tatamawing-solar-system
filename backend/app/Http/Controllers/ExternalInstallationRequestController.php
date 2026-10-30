@@ -26,21 +26,35 @@ class ExternalInstallationRequestController extends Controller
         $barangay = BulanBarangays::canonical($request->barangay);
         $purok = $request->purok ?: null;
 
-        $requestRecord = ExternalInstallationRequest::create([
-            'name' => trim($request->name),
-            'email' => strtolower(trim($request->email)),
-            'phone' => preg_replace('/\s+/', '', trim($request->phone)),
-            'address' => collect([$purok, "Brgy. {$barangay}", BulanBarangays::MUNICIPALITY, BulanBarangays::PROVINCE])->filter()->implode(', '),
-            'install_purok' => $purok,
-            'install_barangay' => $barangay,
-            'install_municipality' => BulanBarangays::MUNICIPALITY,
-            'install_province' => BulanBarangays::PROVINCE,
-            'site_description' => trim((string) $request->site_description) ?: null,
-            'preferred_installation_date' => $request->preferred_installation_date,
-            'other_company_name' => trim($request->other_company_name),
-            'quotation_file_path' => $request->file('quotation_file')->store('external-installation-quotations'),
-            'status' => 'pending_review',
-        ]);
+        $file = $request->file('quotation_file');
+
+        // The request and its file are saved together, or not at all
+        $requestRecord = DB::transaction(function () use ($request, $barangay, $purok, $file) {
+            $record = ExternalInstallationRequest::create([
+                'name' => trim($request->name),
+                'email' => strtolower(trim($request->email)),
+                'phone' => preg_replace('/\s+/', '', trim($request->phone)),
+                'address' => collect([$purok, "Brgy. {$barangay}", BulanBarangays::MUNICIPALITY, BulanBarangays::PROVINCE])->filter()->implode(', '),
+                'install_purok' => $purok,
+                'install_barangay' => $barangay,
+                'install_municipality' => BulanBarangays::MUNICIPALITY,
+                'install_province' => BulanBarangays::PROVINCE,
+                'site_description' => trim((string) $request->site_description) ?: null,
+                'preferred_installation_date' => $request->preferred_installation_date,
+                'other_company_name' => trim($request->other_company_name),
+                'status' => 'pending_review',
+            ]);
+
+            // Kept in the database: Render's disk is wiped on every restart
+            $record->quotationFile()->create([
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'content' => base64_encode($file->get()),
+            ]);
+
+            return $record;
+        });
     
         try{
              Mail::to($requestRecord->email)->send(new ExternalInstallationRequestSubmitted($requestRecord));
@@ -105,11 +119,30 @@ class ExternalInstallationRequestController extends Controller
     {
         $this->authorize('view', $externalInstallationRequest);
 
-        if (!Storage::exists($externalInstallationRequest->quotation_file_path)) {
-            return response()->json(['message' => 'Quotation file not found.'], 404);
+        $file = $externalInstallationRequest->quotationFile;
+
+        if ($file) {
+            $extension = match ($file->mime_type) {
+                'application/pdf' => 'pdf',
+                'image/png' => 'png',
+                default => 'jpg',
+            };
+
+            return response(base64_decode($file->content), 200, [
+                'Content-Type' => $file->mime_type,
+                'Content-Disposition' => 'attachment; filename="quotation-'.$externalInstallationRequest->id.'.'.$extension.'"',
+            ]);
         }
 
-        return Storage::download($externalInstallationRequest->quotation_file_path);
+        // Requests sent before files moved into the database
+        $path = $externalInstallationRequest->quotation_file_path;
+        if ($path && Storage::exists($path)) {
+            return Storage::download($path);
+        }
+
+        return response()->json([
+            'message' => 'The file for this request is no longer available. Ask the customer to send it again.',
+        ], 404);
     }
 
     public function confirm(ConfirmExternalInstallationRequest $request, ExternalInstallationRequest $externalInstallationRequest)

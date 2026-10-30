@@ -5,6 +5,7 @@ import {
 } from '../../services/solarEngine';
 import { C, NUM, SANS, COST_RAMP, s } from './engineStyles';
 import SavingsCard from './SavingsCard';
+import { smallGreenButton } from '../../styles/theme';
 import {
     BoltIcon, SunIcon, WrenchIcon, GridIcon, ShieldIcon, BatteryIcon,
 } from '../../components/Icons';
@@ -114,7 +115,7 @@ export default function PackageStep({
                         {pkgIndex === recommendedPkgIndex ? (
                             <RecommendedPill />
                         ) : (
-                            <button type="button" onClick={() => onPickPackage(recommendedPkgIndex)} style={styles.useRecommended}>
+                            <button type="button" className="btn-primary" onClick={() => onPickPackage(recommendedPkgIndex)} style={styles.useRecommended}>
                                 Use recommended ({PACKAGES[recommendedPkgIndex].kw} kW)
                             </button>
                         )}
@@ -162,7 +163,7 @@ export default function PackageStep({
                         {panels === recommendedPanels ? (
                             <RecommendedPill />
                         ) : (
-                            <button type="button" onClick={() => onPanelsChange(recommendedPanels)} style={styles.useRecommended}>
+                            <button type="button" className="btn-primary" onClick={() => onPanelsChange(recommendedPanels)} style={styles.useRecommended}>
                                 Use recommended ({recommendedPanels})
                             </button>
                         )}
@@ -215,7 +216,7 @@ export default function PackageStep({
                         {batteryIndex === recommendedBatteryIndex ? (
                             <RecommendedPill />
                         ) : (
-                            <button type="button" onClick={() => onPickBattery(recommendedBatteryIndex)} style={styles.useRecommended}>
+                            <button type="button" className="btn-primary" onClick={() => onPickBattery(recommendedBatteryIndex)} style={styles.useRecommended}>
                                 Use recommended ({recommendedBatteryLabel})
                             </button>
                         )}
@@ -448,11 +449,7 @@ const styles = {
         letterSpacing: '.06em', background: C.green, color: '#fff', borderRadius: '20px',
         padding: '4px 9px', whiteSpace: 'nowrap',
     },
-    useRecommended: {
-        marginLeft: 'auto', alignSelf: 'center', background: 'none', border: 'none', padding: 0,
-        fontFamily: SANS, fontSize: '13px', fontWeight: 600, color: C.green, textDecoration: 'underline',
-        cursor: 'pointer', whiteSpace: 'nowrap',
-    },
+    useRecommended: { ...smallGreenButton, marginLeft: 'auto', alignSelf: 'center', fontFamily: SANS },
     optionTag: (highlight) => ({
         marginLeft: 'auto', fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.06em',
         color: highlight ? C.green : C.dim,
