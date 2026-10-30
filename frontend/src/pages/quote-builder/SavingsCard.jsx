@@ -262,8 +262,9 @@ const styles = {
         flex: '1 1 140px', background: '#fff', padding: '18px 28px', display: 'flex', flexDirection: 'column',
         gap: '2px', fontVariantNumeric: 'tabular-nums',
     },
+    // The "Estimate only" reminder, green like the other calculator reminders
     footer: {
-        padding: '16px 28px', background: C.fieldBg, borderTop: `1px solid ${C.border}`,
-        fontSize: '13px', lineHeight: 1.6, color: C.muted,
+        padding: '16px 28px', background: C.reminderBg, borderTop: `1px solid ${C.reminderBorder}`,
+        fontSize: '13px', lineHeight: 1.6, color: C.green,
     },
 };
