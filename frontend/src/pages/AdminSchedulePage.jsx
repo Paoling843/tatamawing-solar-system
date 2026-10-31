@@ -24,6 +24,7 @@ import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/t
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { formatPeso } from '../utils/quotationDisplay';
 import { formatPhone } from '../utils/phone';
+import { readSeenCounts } from '../utils/adminSeen';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
@@ -80,6 +81,11 @@ export default function AdminSchedulePage() {
         }
     };
     const [statusFilter, setStatusFilter] = useState('all');
+
+    // The newest schedule id seen on the last visit. Read before the sidebar
+    // updates it, so schedules added since then can be marked "New".
+    const [seenUpTo] = useState(() => readSeenCounts().scheduleLatest ?? null);
+    const isNew = (schedule) => seenUpTo !== null && schedule.id > seenUpTo;
 
     const [modalSchedule, setModalSchedule] = useState(null);
     const [statusUpdating, setStatusUpdating] = useState(false);
@@ -195,6 +201,21 @@ export default function AdminSchedulePage() {
     };
 
     const modalDetails = modalSchedule ? getQuoteDetails(modalSchedule) : null;
+
+    // Added since the last visit, soonest first
+    const newSchedules = schedules
+        .filter(isNew)
+        .sort((a, b) => getDateKey(a).localeCompare(getDateKey(b)));
+
+    // From the "New" list: go to that day on the calendar and open it
+    const showSchedule = (schedule) => {
+        const key = getDateKey(schedule);
+        const [y, m] = key.split('-').map(Number);
+        setViewYear(y);
+        setViewMonth(m - 1);
+        setSelectedDate(key);
+        openModal(schedule);
+    };
 
     const filteredSchedules = statusFilter === 'all'
         ? schedules
@@ -319,6 +340,8 @@ export default function AdminSchedulePage() {
             setLinkedQuotation(null);
             setSuccess('Installation schedule created successfully.');
             fetchSchedules();
+            // Made on this page, so the sidebar shouldn't call it new later
+            window.dispatchEvent(new Event('admin:counts-refresh'));
         } catch (err) {
             setCreateError(errorMessage(err, "Couldn't create the installation schedule. Please try again."));
         } finally {
@@ -519,6 +542,7 @@ export default function AdminSchedulePage() {
                                                     color: statusColors[s.status]?.text || adminTokens.muted,
                                                 }}
                                             >
+                                                {isNew(s) && <span style={styles.newDot} title="New" aria-label="New" />}
                                                 {s.scheduled_time && (
                                                     <span style={styles.chipTime}>{formatTime(s.scheduled_time)}</span>
                                                 )}
@@ -532,6 +556,28 @@ export default function AdminSchedulePage() {
                     </div>
 
                     <div ref={sidePanelRef} className="m-static" style={styles.sideColumn}>
+
+                        {newSchedules.length > 0 && (
+                            <div style={{ ...styles.sidePanel, ...styles.newPanel }}>
+                                <div style={styles.sidePanelEyebrow}>New since your last visit</div>
+                                <div style={styles.selectedCountLabel}>
+                                    {newSchedules.length} new installation{newSchedules.length === 1 ? '' : 's'}
+                                </div>
+                                <div style={styles.newList}>
+                                    {newSchedules.map((s) => (
+                                        <button key={s.id} type="button" onClick={() => showSchedule(s)} style={styles.newItem}>
+                                            <span style={styles.newDot} aria-hidden="true" />
+                                            <span style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={styles.newItemName}>{getCustomerName(s)}</span>
+                                                <span style={styles.newItemWhen}>
+                                                    {formatDateLong(getDateKey(s))}{s.scheduled_time ? ` · ${formatTime(s.scheduled_time)}` : ''}
+                                                </span>
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div style={styles.sidePanel}>
                             <div style={styles.sidePanelEyebrow}>Selected day</div>
@@ -556,12 +602,15 @@ export default function AdminSchedulePage() {
                                                     <ClockIcon size={12} color={adminTokens.muted} />
                                                     {formatTime(s.scheduled_time) || 'Time TBD'}
                                                 </span>
-                                                <span style={{
-                                                    ...styles.statusPill,
-                                                    backgroundColor: statusColors[s.status]?.bg,
-                                                    color: statusColors[s.status]?.text,
-                                                }}>
-                                                    {STATUS_LABELS[s.status] || s.status}
+                                                <span style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                                                    {isNew(s) && <span style={styles.newPill}>New</span>}
+                                                    <span style={{
+                                                        ...styles.statusPill,
+                                                        backgroundColor: statusColors[s.status]?.bg,
+                                                        color: statusColors[s.status]?.text,
+                                                    }}>
+                                                        {STATUS_LABELS[s.status] || s.status}
+                                                    </span>
                                                 </span>
                                             </div>
                                             <div style={styles.dayEventName}>{getCustomerName(s)}</div>
@@ -1045,6 +1094,42 @@ const styles = {
         overflow: 'hidden',
         textOverflow: 'ellipsis',
     },
+    // Marks a schedule added since the last visit (gold, like the sidebar dot)
+    newDot: {
+        display: 'inline-block',
+        width: '7px',
+        height: '7px',
+        borderRadius: '50%',
+        backgroundColor: '#e0a800',
+        marginRight: '4px',
+        flexShrink: 0,
+        verticalAlign: 'middle',
+    },
+    newPill: {
+        padding: '0.2rem 0.55rem',
+        borderRadius: '999px',
+        fontSize: '0.7rem',
+        fontWeight: '700',
+        backgroundColor: '#fdf3d0',
+        color: '#7a5600',
+    },
+    newPanel: { borderTop: '3px solid #e0a800' },
+    newList: { display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' },
+    newItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        width: '100%',
+        padding: '0.65rem 0.75rem',
+        border: '1px solid #f1e3b0',
+        borderRadius: '10px',
+        backgroundColor: '#fffbeb',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+    },
+    newItemName: { display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#16211c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    newItemWhen: { display: 'block', fontSize: '0.75rem', color: '#5d6862' },
     sideColumn: {
         display: 'flex',
         flexDirection: 'column',
