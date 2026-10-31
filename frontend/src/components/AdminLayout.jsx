@@ -10,6 +10,7 @@ import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
 import AccountMenu from './AccountMenu';
+import { readSeenCounts, writeSeenCounts } from '../utils/adminSeen';
 import { adminTokens, adminText } from '../styles/adminTheme';
 
 // Sidebar on the brand green, with the brand yellow for the current page
@@ -22,31 +23,17 @@ const SIDE = {
     onHighlight: adminTokens.green,
 };
 
+// Schedule uses the newest schedule id rather than a count: the dot means
+// "a schedule was added since you last opened the page", and that page marks
+// which ones (see AdminSchedulePage)
 const NAV_COUNT_KEYS = {
     Quotations: 'quotations',
-    Schedule: 'schedule',
+    Schedule: 'scheduleLatest',
     Messages: 'messages',
 };
 
-const SEEN_STORAGE_KEY = 'admin_seen_counts';
 const COUNTS_STORAGE_KEY = 'admin_last_counts';
-const EMPTY_COUNTS = { quotations: 0, schedule: 0, messages: 0 };
-
-const readSeenCounts = () => {
-    try {
-        return JSON.parse(localStorage.getItem(SEEN_STORAGE_KEY)) || {};
-    } catch {
-        return {};
-    }
-};
-
-const writeSeenCounts = (seen) => {
-    try {
-        localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(seen));
-    } catch {
-        // Storage unavailable (private mode, quota, etc.) — the dot just won't persist.
-    }
-};
+const EMPTY_COUNTS = { quotations: 0, scheduleLatest: 0, messages: 0 };
 
 // AdminLayout remounts on every page navigation, so counts start from this cache
 // instead of zero — otherwise every dot would blink out on each click while the
@@ -95,11 +82,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                 next.quotations = quotationsRes.value.data.length;
             }
             if (scheduleRes.status === 'fulfilled') {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                next.schedule = scheduleRes.value.data.filter(
-                    (s) => new Date(s.scheduled_date) >= today
-                ).length;
+                next.scheduleLatest = scheduleRes.value.data.reduce((max, s) => Math.max(max, s.id), 0);
             }
             if (messagesRes.status === 'fulfilled') {
                 next.messages = messagesRes.value.data.reduce(
@@ -111,10 +94,15 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             // and stays cleared (across visits) until its count rises again.
             const activeCountKey = NAV_COUNT_KEYS[active];
             const seen = readSeenCounts();
+            // First time on this browser: start from what exists now instead
+            // of calling every existing schedule new
+            if (seen.scheduleLatest === undefined && scheduleRes.status === 'fulfilled') {
+                seen.scheduleLatest = next.scheduleLatest;
+            }
             if (activeCountKey) {
                 seen[activeCountKey] = next[activeCountKey];
-                writeSeenCounts(seen);
             }
+            writeSeenCounts(seen);
 
             setCounts(next);
             writeCachedCounts(next);
@@ -154,7 +142,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             items: [
                 { label: 'Overview', path: '/admin/dashboard', icon: <GridIcon size={16} /> },
                 { label: 'Quotations', path: '/admin/quotations', icon: <DocumentIcon size={16} />, countKey: 'quotations' },
-                { label: 'Schedule', path: '/admin/schedule', icon: <CalendarIcon size={16} />, countKey: 'schedule' },
+                { label: 'Schedule', path: '/admin/schedule', icon: <CalendarIcon size={16} />, countKey: 'scheduleLatest' },
                 { label: 'Analytics', path: '/admin/reports', icon: <ChartIcon /> },
             ],
         },
