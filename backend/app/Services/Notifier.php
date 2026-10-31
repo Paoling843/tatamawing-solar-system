@@ -221,7 +221,7 @@ class Notifier
 
     private static function toAdmins(AppNotification $notification): void
     {
-        self::send(fn () => User::where('role', 'admin')->get()->each->notify($notification));
+        self::send(fn () => User::active()->where('role', 'admin')->get()->each->notify($notification));
     }
 
     // Sends a reminder unless this user already has one for the same thing

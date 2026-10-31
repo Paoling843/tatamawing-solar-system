@@ -15,7 +15,6 @@ use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 
@@ -38,10 +37,6 @@ Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->m
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1,reset-password');
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
@@ -183,6 +178,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // ----------------------------
 
         Route::get('/users', [UserController::class, 'index']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
 
         // ----------------------------
@@ -205,17 +201,6 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/conversations', [MessageController::class, 'getConversations']);
     Route::get('/admin/inbox-settings', [InboxSettingsController::class, 'show']);
     Route::put('/admin/inbox-settings', [InboxSettingsController::class, 'update']);
-});
-
-
-// ============================================================
-// Admin Test Route
-// ============================================================
-
-Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin-only', function () {
-    return response()->json([
-        'message' => 'Welcome, Admin.'
-    ]);
 });
 
 

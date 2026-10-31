@@ -10,6 +10,7 @@ import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
+import { formatPhone } from '../utils/phone';
 
 // Admin Messages — conversations | thread | details (customer, linked
 // request, and the slow-response fallback that sends a "Chat on Messenger"
@@ -123,7 +124,7 @@ const describe = (conversation) => {
         location,
         system,
         email: conversation.user.email,
-        phone: customer?.contact_number || '—',
+        phone: formatPhone(customer?.contact_number) || '—',
     };
 };
 

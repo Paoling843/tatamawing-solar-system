@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\RejectQuotationRequest;
 use App\Mail\QuotationApproved;
+use App\Mail\QuotationRejected;
 use App\Services\AuditLogger;
 use App\Services\Notifier;
 use Illuminate\Http\Request;
@@ -172,6 +173,15 @@ class AdminQuotationController extends Controller
             'status' => 'rejected',
             'notes' => trim($request->rejection_reason),
         ]);
+
+        $quotationRequest->loadMissing('customer.user');
+        try {
+            Mail::to($quotationRequest->customer->user->email)
+                ->send(new QuotationRejected($quotationRequest));
+        } catch (\Throwable $e) {
+            // The rejection is already saved — log the mail failure instead of returning a 500
+            report($e);
+        }
 
         Notifier::quotationRejected($quotationRequest);
 

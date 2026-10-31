@@ -48,6 +48,10 @@ class MessageController extends Controller
             ], 403);
         }
 
+        if ($receiver->account_deleted_at) {
+            return response()->json(['message' => 'This account was deleted, so it can no longer get messages.'], 422);
+        }
+
         // The admins share one inbox, so they don't message each other here
         if ($sender->role === 'admin' && $receiver->role === 'admin') {
             return response()->json([
@@ -271,7 +275,7 @@ class MessageController extends Controller
     // admins share one inbox, so every admin sees the conversation.
     public function getAdminId()
     {
-        $admin = User::where('role', 'admin')->first();
+        $admin = User::active()->where('role', 'admin')->first();
 
         return response()->json([
             'admin_id' =>$admin?->id,

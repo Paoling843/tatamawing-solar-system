@@ -1,22 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { adminText, adminUi } from '../styles/adminTheme';
+import { adminText, adminUi, adminTokens } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
-import { ClockIcon, UserIcon } from '../components/Icons';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { ClockIcon, UserIcon, TrashIcon } from '../components/Icons';
+import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { colors } from '../styles/theme';
 
 // Users: every account (customers and admins), newest first, from
-// GET /api/admin/users, plus a link to the audit log.
+// GET /api/admin/users, a Delete button per account, and a link to the audit log.
 export default function AdminSystemPage() {
     const navigate = useNavigate();
+    const { user: me } = useAuth();
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    // The account waiting for "Delete" to be confirmed
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -36,6 +43,33 @@ export default function AdminSystemPage() {
         // this effect returns rather than cascading a render inside it
         Promise.resolve().then(fetchUsers);
     }, [fetchUsers]);
+
+    const askDelete = (user) => {
+        setError('');
+        setSuccess('');
+        setDeleteTarget(user);
+    };
+
+    // The server refuses with a reason (e.g. an unfinished installation),
+    // shown in the page's error banner
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        try {
+            await api.delete(`/admin/users/${deleteTarget.id}`);
+            setSuccess(`${deleteTarget.name}'s account was deleted.`);
+            setUsers((list) => list.filter((u) => u.id !== deleteTarget.id));
+        } catch (err) {
+            setError(errorMessage(err, "Couldn't delete the account. Please try again."));
+        } finally {
+            setDeleting(false);
+            setDeleteTarget(null);
+        }
+    };
+
+    const deleteMessage = (user) => (user?.role === 'admin'
+        ? `They won't be able to log in anymore. Their past work stays. You can't undo this.`
+        : `Their personal details and messages will be erased. Their quotations stay in your records. You can't undo this.`);
 
     const getInitials = (name) => {
         if (!name) return '?';
@@ -86,7 +120,8 @@ export default function AdminSystemPage() {
                 </button>
             </div>
 
-            {error && <div style={styles.error}>{error}</div>}
+            {error && <div role="alert" style={styles.error}>{error}</div>}
+            {success && <div role="status" style={styles.success}>{success}</div>}
 
             <div className="content-grid-sidebar" style={styles.contentGrid}>
 
@@ -108,6 +143,7 @@ export default function AdminSystemPage() {
                                 <span style={{ flex: 1.2 }}>Role</span>
                                 <span style={{ flex: 1.1 }}>Requests</span>
                                 <span style={{ flex: 1.3 }}>Joined</span>
+                                <span style={{ flex: '0 0 84px' }} aria-label="Actions" />
                             </div>
 
                             {users.map((user) => (
@@ -140,6 +176,22 @@ export default function AdminSystemPage() {
                                     <span style={{ flex: '1.3 1 110px', fontSize: '0.8rem', color: '#5d6862' }}>
                                         {formatJoined(user.created_at)}
                                     </span>
+
+                                    <span style={{ flex: '0 0 84px', display: 'flex', justifyContent: 'flex-end' }}>
+                                        {user.id === me?.id ? (
+                                            <span style={styles.youLabel}>You</span>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => askDelete(user)}
+                                                style={styles.deleteBtn}
+                                                aria-label={`Delete ${user.name}'s account`}
+                                            >
+                                                <TrashIcon size={14} color="currentColor" />
+                                                <span>Delete</span>
+                                            </button>
+                                        )}
+                                    </span>
                                 </div>
                             ))}
 
@@ -171,6 +223,16 @@ export default function AdminSystemPage() {
                     </button>
                 </div>
             </div>
+            <ConfirmDialog
+                open={Boolean(deleteTarget)}
+                title={`Delete ${deleteTarget?.name}'s account?`}
+                message={deleteMessage(deleteTarget)}
+                confirmLabel={deleting ? 'Deleting…' : 'Delete account'}
+                danger
+                busy={deleting}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </AdminLayout>
     );
 }
@@ -198,6 +260,28 @@ const styles = {
         flexShrink: 0,
     },
     error: adminUi.errorBanner,
+    success: {
+        ...adminUi.errorBanner,
+        backgroundColor: colors.successTint,
+        color: '#166534',
+        border: '1px solid #bbf7d0',
+    },
+    deleteBtn: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '6px 10px',
+        border: '1px solid #f0d0cb',
+        borderRadius: '8px',
+        backgroundColor: '#ffffff',
+        color: adminTokens.danger,
+        fontSize: '0.8rem',
+        fontWeight: '600',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+    },
+    youLabel: { fontSize: '0.75rem', fontWeight: '600', color: '#5d6862' },
     contentGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 280px',
