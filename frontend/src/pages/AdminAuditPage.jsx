@@ -32,6 +32,7 @@ const ACTION_GROUP = {
     quotation_created: 'customer',
     quotation_submitted: 'customer',
     faq_deleted: 'deleted',
+    user_deleted: 'deleted',
     faq_created: 'content',
     faq_updated: 'content',
     inbox_settings_updated: 'content',
@@ -54,7 +55,11 @@ const ACTION_LABEL = {
     installation_schedule_updated: 'Schedule updated',
     installation_schedule_status_updated: 'Schedule status changed',
     inbox_settings_updated: 'Inbox settings changed',
+    user_deleted: 'Account deleted',
 };
+
+// Under the person's name in the User column
+const ROLE_LABEL = { admin: 'Admin', customer: 'Customer' };
 
 export default function AdminAuditPage() {
     const [logs, setLogs] = useState([]);
@@ -131,9 +136,14 @@ export default function AdminAuditPage() {
                                     <Badge status={TONE_OF[groupOf(log.action)]} label={formatAction(log.action)} />
                                 </div>
 
-                                <div style={{ flex: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ flex: 1.4, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                     <UserIcon size={14} color="#5d6862" />
-                                    <span style={styles.metaText}>{log.actor_id || 'System'}</span>
+                                    <span style={{ minWidth: 0 }}>
+                                        <span style={{ ...styles.metaText, display: 'block' }}>
+                                            {log.actor_name || (log.actor_id ? `User #${log.actor_id}` : 'System')}
+                                        </span>
+                                        {log.actor_role && <span style={styles.actorRole}>{ROLE_LABEL[log.actor_role] || log.actor_role}</span>}
+                                    </span>
                                 </div>
 
                                 <div style={{ flex: 1.8, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -248,6 +258,7 @@ const styles = {
         color: '#4f5a54',
         fontSize: 13,
     },
+    actorRole: { display: 'block', fontSize: 11.5, color: '#646e68' },
     empty: {
         padding: 30,
         textAlign: 'center',

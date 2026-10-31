@@ -45,7 +45,14 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'account_deleted_at' => 'datetime',
         ];
+    }
+
+    // Accounts that haven't been deleted by the admin (see AccountDeletion)
+    public function scopeActive($query)
+    {
+        return $query->whereNull('account_deleted_at');
     }
 
     public function customer()

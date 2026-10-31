@@ -115,7 +115,7 @@
                 </td>
                 <td>
                     <div class="label">Contact Number</div>
-                    <div class="value">{{ $quotation->quotationRequest->customer->contact_number }}</div>
+                    <div class="value">{{ \App\Support\Phone::local($quotation->quotationRequest->customer->contact_number) }}</div>
                 </td>
             </tr>
             <tr>

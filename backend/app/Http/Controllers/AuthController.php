@@ -63,6 +63,12 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Tidy up this person's expired logins (there's no scheduled job on the
+        // hosting plan to run sanctum:prune-expired)
+        if ($minutes = config('sanctum.expiration')) {
+            $user->tokens()->where('created_at', '<', now()->subMinutes($minutes))->delete();
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
 import { CalendarIcon, MailIcon } from '../components/Icons';
 import { smallGreenButton } from '../styles/theme';
+import { formatPhone } from '../utils/phone';
 
 // My Profile (routes /customer/profile and /admin/profile), opened from the
 // account menu in the top bar.
@@ -257,7 +258,7 @@ function DetailsCard({ isAdmin }) {
         },
         ...(isAdmin ? [] : [{
             label: 'Mobile number',
-            view: user?.customer?.contact_number ? `+63 ${localMobile(user.customer.contact_number)}` : '—',
+            view: formatPhone(user?.customer?.contact_number) || '—',
             input: (
                 <div style={{ display: 'flex', gap: '8px', minWidth: 0 }}>
                     <span aria-hidden="true" style={styles.countryCode}>+63</span>

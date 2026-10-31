@@ -76,7 +76,7 @@
                     <tr>
                         <td>{{ str_pad($r->id, 3, '0', STR_PAD_LEFT) }}</td>
                         <td>{{ $r->created_at->format('M d, Y') }}</td>
-                        <td>{{ $r->name }}<br><span class="muted">{{ $r->phone }}</span></td>
+                        <td>{{ $r->name }}<br><span class="muted">{{ \App\Support\Phone::local($r->phone) }}</span></td>
                         <td>{{ $r->address }}</td>
                         <td>{{ $r->other_company_name }}</td>
                         <td>{{ \Carbon\Carbon::parse($r->preferred_installation_date)->format('M d, Y') }}</td>

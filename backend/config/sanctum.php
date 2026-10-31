@@ -50,7 +50,9 @@ return [
     |
     */
 
-    'expiration' => null,
+    // A login lasts 30 days, then the person signs in again (the app shows
+    // "Your session has ended"). Change with SANCTUM_EXPIRATION, in minutes.
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 60 * 24 * 30) ?: null,
 
     /*
     |--------------------------------------------------------------------------

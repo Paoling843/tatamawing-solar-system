@@ -13,6 +13,7 @@ import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { materialsFromComputation, materialRow } from '../utils/materials';
 import { colors, smallGreenButton } from '../styles/theme';
+import { formatPhone } from '../utils/phone';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
 
 function formatTime(time) {
@@ -465,7 +466,7 @@ export default function AdminQuotationDetailPage() {
                             <div style={styles.infoItem}>
                                 <span style={styles.infoLabel}>Contact Number</span>
                                 <span style={styles.infoValue}>
-                                    {quotation?.customer?.contact_number}
+                                    {formatPhone(quotation?.customer?.contact_number) || '—'}
                                 </span>
                             </div>
 

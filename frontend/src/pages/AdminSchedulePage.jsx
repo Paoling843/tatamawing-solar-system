@@ -23,6 +23,7 @@ import { errorMessage } from '../utils/errorMessage';
 import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { formatPeso } from '../utils/quotationDisplay';
+import { formatPhone } from '../utils/phone';
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
@@ -173,7 +174,7 @@ export default function AdminSchedulePage() {
                         battery,
                     ].filter(Boolean).join(' · ')],
                     ['Approved total', schedule.quotation.total_amount != null ? formatPeso(schedule.quotation.total_amount) : null],
-                    ['Contact number', request.customer?.contact_number],
+                    ['Contact number', formatPhone(request.customer?.contact_number)],
                 ],
             };
         }
@@ -184,13 +185,13 @@ export default function AdminSchedulePage() {
                 reference: formatExternalRef(external.id),
                 rows: [
                     ['Quoted by', external.other_company_name],
-                    ['Contact number', external.phone],
+                    ['Contact number', formatPhone(external.phone)],
                 ],
             };
         }
 
         // Booked straight for a customer, without a quotation
-        return { reference: null, rows: [['Contact number', schedule.customer?.contact_number]] };
+        return { reference: null, rows: [['Contact number', formatPhone(schedule.customer?.contact_number)]] };
     };
 
     const modalDetails = modalSchedule ? getQuoteDetails(modalSchedule) : null;
@@ -746,7 +747,7 @@ export default function AdminSchedulePage() {
                                 </option>
                                 {customers.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.user?.name} — {c.contact_number}
+                                        {c.user?.name} — {formatPhone(c.contact_number)}
                                     </option>
                                 ))}
                             </select>

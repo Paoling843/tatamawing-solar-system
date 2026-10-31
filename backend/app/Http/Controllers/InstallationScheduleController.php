@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreScheduleRequest;
 use App\Http\Requests\UpdateScheduleRequest;
+use App\Mail\InstallationRescheduled;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use App\Models\InstallationSchedule;
 use App\Models\Quotation;
 use App\Models\Customer;
@@ -88,7 +90,9 @@ class InstallationScheduleController extends Controller
 
     public function customersIndex()
     {
+        // Deleted accounts can't be booked
         $customers = Customer::with('user')
+            ->whereHas('user', fn ($q) => $q->active())
             ->get()
             ->sortBy(fn ($c) => $c->user->name ?? '')
             ->values();
@@ -100,6 +104,14 @@ class InstallationScheduleController extends Controller
     {
         $this->authorize('update', $installationSchedule);
 
+        // For the email: "Previously October 27, 2026 · 8:00 AM"
+        $previous = InstallationRescheduled::formatWhen($installationSchedule->scheduled_date, $installationSchedule->scheduled_time);
+
+        // Compared by hand: MySQL returns the time as "08:00:00" while the form
+        // sends "08:00", so wasChanged() would call a technician-only edit a move
+        $moved = $installationSchedule->scheduled_date->toDateString() !== $request->date('scheduled_date')->toDateString()
+            || substr((string) $installationSchedule->scheduled_time, 0, 5) !== substr((string) $request->scheduled_time, 0, 5);
+
         $installationSchedule->update([
             'scheduled_date' => $request->scheduled_date,
             'scheduled_time' => $request->scheduled_time,
@@ -107,8 +119,9 @@ class InstallationScheduleController extends Controller
         ]);
 
         // The customer only needs to know when the date or time moved
-        if ($installationSchedule->wasChanged(['scheduled_date', 'scheduled_time'])) {
+        if ($moved) {
             Notifier::installationScheduled($installationSchedule, false);
+            $this->emailReschedule($installationSchedule, $previous);
         }
 
         AuditLogger::log(
@@ -127,6 +140,40 @@ class InstallationScheduleController extends Controller
                 'quotation.quotationRequest.solarComputation',
             ]),
         ]);
+    }
+
+    /**
+     * Emails the new date to whoever the installation is for: the customer's
+     * account (through their quotation, or booked directly), or the visitor
+     * who sent an external request (with their status-page link).
+     */
+    private function emailReschedule(InstallationSchedule $schedule, string $previous): void
+    {
+        try {
+            $schedule->loadMissing(['quotation.quotationRequest.customer.user', 'customer.user', 'externalInstallationRequest']);
+
+            $user = $schedule->quotation?->quotationRequest?->customer?->user ?? $schedule->customer?->user;
+            $external = $schedule->externalInstallationRequest;
+
+            if ($user?->account_deleted_at) {
+                return; // a deleted account has no real email address
+            }
+
+            if ($user) {
+                $to = $user->email;
+                $mail = new InstallationRescheduled($schedule, $user->name, config('app.frontend_url') . '/customer/schedule', $previous);
+            } elseif ($external) {
+                $to = $external->email;
+                $mail = new InstallationRescheduled($schedule, $external->name, $external->statusPageUrl(), $previous);
+            } else {
+                return;
+            }
+
+            Mail::to($to)->send($mail);
+        } catch (\Throwable $e) {
+            // The new date is already saved — log the mail failure instead of returning a 500
+            report($e);
+        }
     }
 
     public function updateStatus(Request $request, InstallationSchedule $installationSchedule)
