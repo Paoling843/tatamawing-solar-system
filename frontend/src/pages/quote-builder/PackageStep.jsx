@@ -1,9 +1,10 @@
 import {
     PACKAGES, BATTERIES, PANEL_WATTS,
     arrayKwp, batteryBank, bankWh, bankLabel, panelOptions, panelsForInverterSize,
-    formatWhole, formatDecimal, peso, recommendationReason,
+    formatWhole, formatDecimal, peso,
 } from '../../services/solarEngine';
 import { C, NUM, SANS, COST_RAMP, s } from './engineStyles';
+import { Em, RecommendationReason } from './ReasonText';
 import SavingsCard from './SavingsCard';
 import { smallGreenButton } from '../../styles/theme';
 import {
@@ -31,9 +32,13 @@ export default function PackageStep({
 
     // Inverter size ÷ 610 W before it's kept inside the package's panel range
     const sizedPanels = panelsForInverterSize(load.inverterSize);
-    const panelNote = sizedPanels < recommendedPanels
-        ? `, raised to the ${pkg.kw} kW minimum`
-        : sizedPanels > recommendedPanels ? `, capped at the ${pkg.kw} kW maximum` : '';
+    // The result (the panel count) is in bold
+    const panelMath = `${formatWhole(load.inverterSize)} W ÷ ${PANEL_WATTS} W = `;
+    const panelReason = sizedPanels < recommendedPanels
+        ? <>{panelMath}{sizedPanels}, but the {pkg.kw} kW package starts at <Em>{recommendedPanels} panels</Em>.</>
+        : sizedPanels > recommendedPanels
+            ? <>{panelMath}{sizedPanels}, but the {pkg.kw} kW package takes up to <Em>{recommendedPanels} panels</Em>.</>
+            : <>{panelMath}<Em>{recommendedPanels} panels</Em>. Add more if you like.</>;
 
     // Biggest cost first, so the bar colours, band widths and the list below
     // all read in the same order.
@@ -148,7 +153,7 @@ export default function PackageStep({
                             );
                         })}
                     </div>
-                    <p style={styles.cardFootnote}>{recommendationReason(load)}</p>
+                    <p style={styles.cardFootnote}><RecommendationReason load={load} /></p>
                 </div>
 
                 {/* ================= Panels ================= */}
@@ -195,10 +200,7 @@ export default function PackageStep({
                             );
                         })}
                     </div>
-                    <p style={styles.cardFootnote}>
-                        {formatWhole(load.inverterSize)} W ÷ {PANEL_WATTS} W = {recommendedPanels} panels, rounded
-                        down{panelNote}.
-                    </p>
+                    <p style={styles.cardFootnote}>{panelReason}</p>
                 </div>
 
                 {/* ================= Battery ================= */}
@@ -252,9 +254,14 @@ export default function PackageStep({
                         })}
                     </div>
                     <p style={styles.cardFootnote}>
-                        {load.night > 0
-                            ? `${formatWhole(load.night)} Wh at night needs at least ${recommendedBatteryLabel}.${recommendedIsBank ? ' One 314 Ah can\'t cover it, so the rest is covered by the cheapest battery that fits.' : ''} Any battery can be picked.`
-                            : 'No nighttime load, so the smallest battery is suggested.'}
+                        {load.night > 0 ? (
+                            <>
+                                About {formatWhole(load.night)} Wh at night needs at least <Em>{recommendedBatteryLabel}</Em>.
+                                {recommendedIsBank ? ' We added more batteries to cover it.' : ''} Any battery can be picked.
+                            </>
+                        ) : (
+                            <>No night use, so the <Em>smallest battery</Em> is enough.</>
+                        )}
                     </p>
                 </div>
             </div>
