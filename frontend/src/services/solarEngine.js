@@ -269,17 +269,8 @@ export function bankLabel(battery, bank) {
     return bank.extra ? `${main} + ${bank.extra.ah} Ah` : main;
 }
 
-// One-sentence explanation of why the package was recommended
-export function recommendationReason(load) {
-    const largest = PACKAGES[PACKAGES.length - 1];
-    const sizing = `${formatWhole(load.totalLoad)} W of appliances + ${formatWhole(INVERTER_BUFFER_W)} W buffer = ${formatWhole(load.inverterSize)} W`;
-
-    if (exceedsLargestPackage(load.inverterSize)) {
-        return `${sizing}, above our largest package. The ${largest.kw} kW is recommended and an engineer will check if you need more.`;
-    }
-    const recommended = PACKAGES[recommendPackageIndex(load.inverterSize)];
-    return `${sizing}, the first size the ${recommended.kw} kW package covers.`;
-}
+// The explanation of why a package was recommended is RecommendationReason
+// in pages/quote-builder/ReasonText.jsx (it needs bold text, so it's JSX)
 
 // Every allowed panel count for a package: default, default + 1, … max
 export function panelOptions(pkg) {

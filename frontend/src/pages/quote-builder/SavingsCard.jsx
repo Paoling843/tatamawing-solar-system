@@ -70,12 +70,10 @@ export default function SavingsCard({ savings, total }) {
             </div>
 
             <footer className="se-pad" style={styles.footer}>
-                Estimate only. Daytime use is powered first; what's left charges the battery for the night.
-                Night use the battery can't cover is bought from SORECO. Savings can't exceed your bill, and
-                weather and usage will vary.
+                Estimates only. Solar covers your daytime use first, then charges the battery for the night.
+                Results vary with weather and usage.
                 {savings.rateSource === 'default' && (
-                    <> Using SORECO's ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add a bill amount and kWh in Step 1 to
-                        use yours.</>
+                    <> Based on SORECO's ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add your bill and kWh in Step 1 to use yours.</>
                 )}
             </footer>
         </div>

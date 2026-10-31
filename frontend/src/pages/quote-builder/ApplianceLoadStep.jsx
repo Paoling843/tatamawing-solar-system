@@ -1,9 +1,9 @@
 import {
     APPLIANCES, HP_OPTIONS, DAY_SLOTS, NIGHT_SLOTS, PACKAGES,
     computeRow, formatHour, formatWhole, formatDecimal, monthLabel,
-    recommendationReason,
 } from '../../services/solarEngine';
 import { C, NUM, SANS, s } from './engineStyles';
+import { RecommendationReason } from './ReasonText';
 
 // Column widths shared by the table header and every appliance row
 const GRID = 'minmax(0,1.9fr) minmax(0,0.85fr) minmax(0,0.8fr) minmax(0,0.5fr) minmax(0,1.7fr) minmax(0,1.7fr) 38px';
@@ -32,12 +32,12 @@ export default function ApplianceLoadStep({
             </p>
             {/* Reminders: the anonymous calculator tracking (quoteTracker.js) and required fields */}
             <div style={styles.reminder}>
-                Visits are counted anonymously. Nothing that identifies you is saved until you send a request.{' '}
+                Your visit stays anonymous until you send a request.{' '}
                 <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontWeight: 700 }}>
                     Privacy Policy
                 </a>
                 <br />
-                Fields marked with <span style={{ ...s.requiredMark, marginLeft: 0 }}>*</span> are required.
+                Fields with <span style={{ ...s.requiredMark, marginLeft: 0 }}>*</span> are required.
             </div>
 
             <div style={{ ...styles.layout, marginTop: '36px' }}>
@@ -128,7 +128,7 @@ export default function ApplianceLoadStep({
                             <span style={{ fontSize: '13px', color: C.sub }}>hybrid inverter</span>
                         </div>
                         <p style={{ margin: '10px 0 0', fontSize: '13px', lineHeight: 1.55, color: C.muted }}>
-                            {recommendationReason(load)}
+                            <RecommendationReason load={load} />
                         </p>
                     </div>
                 </div>
@@ -139,7 +139,12 @@ export default function ApplianceLoadStep({
                 <div style={{ padding: '18px 26px', borderBottom: `1px solid ${C.borderSoft}` }}>
                     <div style={s.cardTitle}>Recent electricity bills</div>
                     <div style={s.cardNote}>
-                        Only used to estimate your savings in Step 3. Adding the kWh lets us use your actual rate.
+                        Used only to estimate your savings. Add the kWh for your exact rate.
+                    </div>
+                    {/* Reminder: the bills drive the savings and ROI in Step 3 */}
+                    <div style={{ ...s.reminder, marginTop: '12px' }}>
+                        <strong>Tip:</strong> Add your bills for a more accurate ROI. No bills? We'll estimate
+                        from your appliances.
                     </div>
                 </div>
                 <div style={styles.billGrid}>

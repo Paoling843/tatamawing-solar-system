@@ -338,7 +338,7 @@ export default function QuotationFormPage({ embedded = false }) {
     let resumeNotice = null;
     if (awaitingLogin && user && activeScreen === 'package') {
         resumeNotice = user.role === 'customer'
-            ? `Welcome back, ${user.name}. Press Request quotation below, add where the system will be installed, and send it.`
+            ? `Welcome back, ${user.name}! Press Request quotation below to send it.`
             : STAFF_SIGNED_IN;
     }
 
@@ -477,7 +477,7 @@ export default function QuotationFormPage({ embedded = false }) {
 }
 
 // Shown on Step 3 when the admin (not a customer) is signed in
-const STAFF_SIGNED_IN = "You're signed in as the admin. Log out and sign in as a customer to send this. Your inputs will be kept.";
+const STAFF_SIGNED_IN = "You're signed in as an admin. Sign in as a customer to send this. Your inputs are kept.";
 
 const styles = {
     // Step indicator above the calculator on the home page, lined up with Step 1
