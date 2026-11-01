@@ -178,6 +178,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // ----------------------------
 
         Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
 
@@ -213,6 +214,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/quotation-requests', [QuotationRequestController::class, 'index']);
     Route::post('/quotation-requests', [QuotationRequestController::class, 'store']);
     Route::get('/quotation-requests/{quotationRequest}', [QuotationRequestController::class, 'show']);
+    Route::post('/quotation-requests/{quotationRequest}/cancel', [QuotationRequestController::class, 'cancel']);
 
     Route::get('/customer/schedules', [InstallationScheduleController::class, 'customerSchedule']);
 

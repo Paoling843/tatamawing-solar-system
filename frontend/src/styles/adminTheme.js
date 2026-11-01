@@ -14,7 +14,7 @@ export const adminTokens = {
     hairline2: '#f1f3ef',
     danger: '#c0392b',
     fontUI: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif",
-    fontMono: "'IBM Plex Mono', monospace",
+    // One font for everything; numbers use tabular-nums so columns line up
 };
 
 // Shared text styles, so every admin page heading looks the same

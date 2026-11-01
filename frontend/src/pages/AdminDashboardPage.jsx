@@ -345,7 +345,8 @@ export default function AdminDashboardPage() {
         return 0;
     });
 
-    const filterCounts = { all: totalCount, approved: approvedCount, pending: pendingCount, rejected: rejectedCount };
+    const cancelledCount = quotations.filter((q) => q.status === 'cancelled').length;
+    const filterCounts = { all: totalCount, approved: approvedCount, pending: pendingCount, rejected: rejectedCount, cancelled: cancelledCount };
 
     return (
         <AdminLayout
@@ -608,7 +609,7 @@ export default function AdminDashboardPage() {
                             </div>
 
                             <div className="m-wrap" style={styles.segmented}>
-                                {['all', 'approved', 'pending', 'rejected'].map((tab) => (
+                                {['all', 'approved', 'pending', 'rejected', 'cancelled'].map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setStatusFilter(tab)}
@@ -1041,7 +1042,7 @@ const styles = {
         padding: '16px 18px',
     },
     metricLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -1079,7 +1080,7 @@ const styles = {
         gap: '0.75rem',
     },
     countPill: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '11px',
         fontWeight: 600,
         padding: '4px 11px',
@@ -1105,7 +1106,7 @@ const styles = {
     },
     externalInfo: { minWidth: 0, flex: '1 1 280px' },
     externalSource: {
-        fontFamily: adminTokens.fontMono, fontSize: '10px', fontWeight: 600, padding: '3px 8px',
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, padding: '3px 8px',
         borderRadius: '999px', backgroundColor: '#fdf4dc', color: '#8a6a12',
     },
     externalMeta: { fontSize: '12px', color: adminTokens.muted, marginTop: '5px' },
@@ -1120,7 +1121,7 @@ const styles = {
     },
     queueTopLine: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
     queueRef: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '12.5px',
         color: adminTokens.green,
         textDecoration: 'underline',
@@ -1131,7 +1132,7 @@ const styles = {
     },
     queueCustomer: { fontSize: '13.5px', fontWeight: 600, color: adminTokens.ink },
     queueAgePill: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 600,
         padding: '3px 9px',
@@ -1151,7 +1152,7 @@ const styles = {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
     },
-    queueValue: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink },
+    queueValue: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.ink },
     queueActions: { display: 'flex', gap: '6px' },
     queueApproveBtn: {
         padding: '5px 12px',
@@ -1213,7 +1214,7 @@ const styles = {
         gap: '2px',
     },
     scheduleMonth: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10px',
         color: adminTokens.faint,
         textTransform: 'uppercase',
@@ -1235,7 +1236,7 @@ const styles = {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
     },
-    scheduleTime: { fontFamily: adminTokens.fontMono, fontSize: '12px', color: adminTokens.muted, flexShrink: 0 },
+    scheduleTime: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: adminTokens.muted, flexShrink: 0 },
 
     tableCardHeader: {
         display: 'flex',
@@ -1271,7 +1272,7 @@ const styles = {
         color: adminTokens.ink,
         boxShadow: '0 1px 3px rgba(16,33,26,.12)',
     },
-    segmentCount: { fontFamily: adminTokens.fontMono, fontSize: '10.5px', color: adminTokens.faint },
+    segmentCount: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10.5px', color: adminTokens.faint },
 
     error: adminUi.errorBanner,
 
@@ -1324,7 +1325,7 @@ const styles = {
     quotationPreviewFrame: { display: 'block', width: '100%', height: 'min(620px, calc(100vh - 270px))', border: 'none', borderRadius: '8px', backgroundColor: 'white' },
     quotationUnsupported: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', color: adminTokens.muted, textAlign: 'center' },
     modalEyebrow: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10px',
         fontWeight: 600,
         letterSpacing: '.1em',
@@ -1334,7 +1335,7 @@ const styles = {
     confirmModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
     confirmModalSubtitle: { margin: 0, color: adminTokens.muted, fontSize: '13px' },
     rejectModalHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', padding: '24px clamp(16px, 5vw, 28px) 20px', backgroundColor: '#fbeae7', borderBottom: '1px solid #f0d0cb' },
-    rejectModalEyebrow: { fontFamily: adminTokens.fontMono, fontSize: '10px', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: adminTokens.danger },
+    rejectModalEyebrow: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase', color: adminTokens.danger },
     rejectModalTitle: { margin: '7px 0 3px', fontSize: '22px', color: adminTokens.ink },
     modalCloseBtn: {
         display: 'grid',
@@ -1350,7 +1351,7 @@ const styles = {
     rejectModalBody: { padding: '24px clamp(16px, 5vw, 28px) 12px' },
     rejectIntro: { margin: '0 0 18px', color: adminTokens.body, fontSize: '13px', lineHeight: 1.55 },
     rejectTextarea: { width: '100%', boxSizing: 'border-box', minHeight: '126px', padding: '10px 11px', resize: 'vertical', fontFamily: adminTokens.fontUI, lineHeight: 1.5 },
-    rejectCharacterCount: { marginTop: '6px', color: adminTokens.faint, fontFamily: adminTokens.fontMono, fontSize: '10px', textAlign: 'right' },
+    rejectCharacterCount: { marginTop: '6px', color: adminTokens.faint, fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10px', textAlign: 'right' },
     confirmPreferredNote: {
         display: 'flex',
         alignItems: 'center',
@@ -1371,7 +1372,7 @@ const styles = {
 
     tableScrollWrap: { overflowX: 'auto' },
     th: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -1385,7 +1386,7 @@ const styles = {
         border: 'none',
         cursor: 'pointer',
         padding: 0,
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -1412,7 +1413,7 @@ const styles = {
         borderBottom: `1px solid ${adminTokens.hairline2}`,
         cursor: 'pointer',
     },
-    tdMono: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink },
+    tdMono: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.ink },
     tdCustomerName: {
         fontSize: '14px',
         fontWeight: 600,
@@ -1429,8 +1430,8 @@ const styles = {
         whiteSpace: 'nowrap',
     },
     tdSystem: { fontSize: '13.5px', color: adminTokens.body, textTransform: 'capitalize' },
-    tdValue: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.ink, textAlign: 'right' },
-    tdAge: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.muted, textAlign: 'right' },
+    tdValue: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.ink, textAlign: 'right' },
+    tdAge: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.muted, textAlign: 'right' },
     tdAgeDanger: { color: adminTokens.danger, fontWeight: 500 },
     emptyFilterState: {
         padding: '32px 0',
@@ -1462,7 +1463,7 @@ const styles = {
         boxShadow: '-4px 0 24px rgba(16,33,26,.12)',
     },
     drawerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' },
-    drawerRef: { fontFamily: adminTokens.fontMono, fontSize: '12.5px', color: adminTokens.muted },
+    drawerRef: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.muted },
     drawerClose: { background: 'none', border: 'none', fontSize: '18px', color: adminTokens.muted, cursor: 'pointer', lineHeight: 1 },
     drawerCustomer: { fontSize: '22px', fontWeight: 800, color: adminTokens.ink, margin: '8px 0 2px' },
     drawerLocation: { fontSize: '13px', color: adminTokens.muted, margin: '0 0 20px' },
@@ -1476,7 +1477,7 @@ const styles = {
     },
     drawerRowLast: { borderBottom: 'none' },
     drawerRowLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 500,
         textTransform: 'uppercase',

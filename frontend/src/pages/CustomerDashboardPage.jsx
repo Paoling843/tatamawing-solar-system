@@ -224,7 +224,7 @@ export default function CustomerDashboardPage() {
 
                             <div style={styles.headerControls}>
                                 <div style={styles.filterTabs}>
-                                    {['all', 'approved', 'pending', 'rejected'].map((tab) => (
+                                    {['all', 'approved', 'pending', 'rejected', 'cancelled'].map((tab) => (
                                         <button
                                             key={tab}
                                             onClick={() => setStatusFilter(tab)}

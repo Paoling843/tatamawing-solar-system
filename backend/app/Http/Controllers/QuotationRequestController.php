@@ -256,7 +256,8 @@ class QuotationRequestController extends Controller
         $customer = $request->user()->customer;
 
         $quotations = QuotationRequest::where('customer_id', $customer->id)
-            ->with(['applianceItems', 'solarComputation', 'electricityBills', 'quotation'])
+            // The schedule tells the page whether the request can still be cancelled
+            ->with(['applianceItems', 'solarComputation', 'electricityBills', 'quotation.installationSchedule'])
             ->latest()
             ->get();
 
@@ -279,9 +280,72 @@ class QuotationRequestController extends Controller
             ], 403);
         }
 
-        $quotationRequest->load(['applianceItems', 'solarComputation', 'electricityBills', 'quotation']);
+        $quotationRequest->load(['applianceItems', 'solarComputation', 'electricityBills', 'quotation.installationSchedule']);
 
         return response()->json($quotationRequest);
+    }
+
+    /**
+     * The customer cancels their own request: while it's waiting for review,
+     * or after approval until the installation starts. A booked installation
+     * that hasn't started is removed, and the admins are notified.
+     */
+    public function cancel(Request $request, QuotationRequest $quotationRequest)
+    {
+        $this->authorize('cancel', $quotationRequest);
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ], [
+            'reason.max' => 'Keep the reason under 500 characters.',
+        ]);
+
+        if (! in_array($quotationRequest->status, ['pending', 'approved'], true)) {
+            return response()->json([
+                'message' => 'Only a request that is waiting for review or approved can be cancelled.',
+            ], 422);
+        }
+
+        $schedule = $quotationRequest->quotation?->installationSchedule;
+        if ($schedule && in_array($schedule->status, ['in_progress', 'completed'], true)) {
+            return response()->json([
+                'message' => $schedule->status === 'completed'
+                    ? 'This installation is already finished, so the request can no longer be cancelled.'
+                    : 'Your installation has already started. Please message us if you need to stop it.',
+            ], 422);
+        }
+
+        $reason = trim((string) ($data['reason'] ?? '')) ?: null;
+
+        DB::transaction(function () use ($quotationRequest, $schedule, $reason) {
+            $quotationRequest->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $reason,
+            ]);
+
+            // The installation won't happen, so free up that day
+            $schedule?->delete();
+        });
+
+        AuditLogger::log(
+            'quotation_cancelled',
+            'Cancelled their quotation request.',
+            QuotationRequest::class,
+            $quotationRequest->id,
+            'Quotation Request #' . $quotationRequest->id,
+            array_filter([
+                'reason' => $reason,
+                'removed_schedule_date' => $schedule?->scheduled_date?->toDateString(),
+            ])
+        );
+
+        Notifier::quotationCancelled($quotationRequest, (bool) $schedule);
+
+        return response()->json([
+            'message' => 'Your quotation request was cancelled.',
+            'quotation_request' => $quotationRequest->fresh(['applianceItems', 'solarComputation', 'electricityBills', 'quotation.installationSchedule']),
+        ]);
     }
 
     /**

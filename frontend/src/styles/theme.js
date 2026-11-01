@@ -128,4 +128,5 @@ export const statusColors = {
     limited:              tone.partial,
     scheduled:            tone.planned,
     draft:                tone.neutral,
+    cancelled:            tone.neutral,
 };

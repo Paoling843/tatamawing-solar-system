@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
+import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
@@ -33,6 +34,7 @@ const TABS = [
     { id: 'approved', label: 'Approved' },
     { id: 'pending', label: 'Pending' },
     { id: 'rejected', label: 'Rejected' },
+    { id: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS = {
@@ -40,6 +42,15 @@ const STATUS = {
     approved: { label: 'APPROVED', bg: '#e3f4e8', fg: '#1c7a3e' },
     rejected: { label: 'REJECTED', bg: '#fde5e3', fg: '#b42318' },
     draft: { label: 'DRAFT', bg: '#f1f3f1', fg: '#4b554f' },
+    cancelled: { label: 'CANCELLED', bg: '#f1f3f1', fg: '#4b554f' },
+};
+
+// The customer can cancel while it's waiting for review, or after approval
+// until the installation starts (the server checks this too)
+const canCancel = (qr) => {
+    if (qr.status === 'pending') return true;
+    const installStatus = qr.quotation?.installation_schedule?.status;
+    return qr.status === 'approved' && !['in_progress', 'completed'].includes(installStatus);
 };
 
 const peso = (amount) => {
@@ -97,6 +108,15 @@ function notice(qr, info) {
             bg: '#e8f4ec', fg: '#1c5a35',
         };
     }
+    if (qr.status === 'cancelled') {
+        return {
+            title: 'Cancelled.',
+            text: qr.cancellation_reason
+                ? `You cancelled this request. Your reason: "${qr.cancellation_reason}"`
+                : 'You cancelled this request. You can request a new quotation anytime.',
+            bg: '#f1f3f1', fg: '#3d4741',
+        };
+    }
     if (qr.status === 'rejected') {
         return {
             title: 'Not approved.',
@@ -129,6 +149,11 @@ export default function CustomerMyQuotationsPage() {
     const [error, setError] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [expandedId, setExpandedId] = useState(null);
+    // The request waiting for "Cancel request" to be confirmed
+    const [cancelTarget, setCancelTarget] = useState(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelling, setCancelling] = useState(false);
+    const [success, setSuccess] = useState('');
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
@@ -170,6 +195,31 @@ export default function CustomerMyQuotationsPage() {
         }
     };
 
+    const askCancel = (qr) => {
+        setError('');
+        setSuccess('');
+        setCancelReason('');
+        setCancelTarget(qr);
+    };
+
+    const confirmCancel = async () => {
+        if (!cancelTarget) return;
+        setCancelling(true);
+        try {
+            const res = await api.post(`/quotation-requests/${cancelTarget.id}/cancel`, {
+                reason: cancelReason.trim() || null,
+            });
+            const updated = res.data.quotation_request;
+            setQuotationRequests((list) => list.map((q) => (q.id === updated.id ? updated : q)));
+            setSuccess(`${formatQuotationRef(cancelTarget.id, cancelTarget.created_at)} was cancelled.`);
+        } catch (err) {
+            setError(errorMessage(err, "We couldn't cancel this request. Please try again."));
+        } finally {
+            setCancelling(false);
+            setCancelTarget(null);
+        }
+    };
+
     const countFor = (tab) => (tab === 'all'
         ? quotationRequests.length
         : quotationRequests.filter((q) => q.status === tab).length);
@@ -201,7 +251,8 @@ export default function CustomerMyQuotationsPage() {
                 </div>
             </div>
 
-            {error && <div style={styles.error}>{error}</div>}
+            {error && <div role="alert" style={styles.error}>{error}</div>}
+            {success && <div role="status" style={styles.success}>{success}</div>}
 
             {loading ? (
                 <div style={styles.card(false)}>
@@ -232,17 +283,46 @@ export default function CustomerMyQuotationsPage() {
                                 label: `${systemType(qr.solar_system_type)} · ${peso(describe(qr).total)}`,
                             })}
                             onSchedule={() => navigate('/customer/schedule')}
+                            onCancel={() => askCancel(qr)}
                         />
                     ))}
                 </div>
             )}
 
             <Footer />
+
+            <ConfirmDialog
+                open={Boolean(cancelTarget)}
+                title="Cancel this quotation request?"
+                message={cancelTarget?.quotation?.installation_schedule
+                    ? 'Your booked installation will be removed too. You can\'t undo this.'
+                    : 'We\'ll stop working on it. You can\'t undo this.'}
+                confirmLabel={cancelling ? 'Cancelling…' : 'Cancel request'}
+                cancelLabel="Keep it"
+                danger
+                busy={cancelling}
+                onConfirm={confirmCancel}
+                onCancel={() => setCancelTarget(null)}
+            >
+                <label style={styles.reasonLabel} htmlFor="cancel-reason">
+                    Reason <span style={{ fontWeight: 400 }}>(optional)</span>
+                </label>
+                <textarea
+                    id="cancel-reason"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="e.g. I found another installer"
+                    disabled={cancelling}
+                    style={styles.reasonBox}
+                />
+            </ConfirmDialog>
         </CustomerLayout>
     );
 }
 
-function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule }) {
+function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule, onCancel }) {
     const info = describe(qr);
     const status = STATUS[qr.status] ?? STATUS.draft;
     const paybackColor = info.slowPayback ? C.bad : C.good;
@@ -308,6 +388,11 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule }
                             <button className="btn-secondary" onClick={onAsk} style={styles.secondaryButton}>
                                 Ask about this quote
                             </button>
+                            {canCancel(qr) && (
+                                <button className="btn-secondary" onClick={onCancel} style={styles.cancelButton}>
+                                    Cancel request
+                                </button>
+                            )}
                         </div>
                         {qr.status === 'approved' && (
                             <button className="btn-primary" onClick={onSchedule} style={styles.primaryButton}>
@@ -582,6 +667,20 @@ const styles = {
     secondaryButton: {
         height: '42px', padding: '0 16px', border: '1px solid #d9ddd9', borderRadius: '9px', background: '#fff',
         fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: C.ink, fontFamily: 'inherit',
+    },
+    // Red text so it doesn't look like the other actions
+    cancelButton: {
+        height: '42px', padding: '0 16px', border: '1px solid #f0d0cb', borderRadius: '9px', background: '#fff',
+        fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: C.bad, fontFamily: 'inherit',
+    },
+    success: {
+        background: '#e8f4ec', border: '1px solid #c6e3cf', color: '#1c5a35', borderRadius: '10px',
+        padding: '12px 14px', fontSize: '14px', marginBottom: '16px',
+    },
+    reasonLabel: { display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '6px' },
+    reasonBox: {
+        width: '100%', boxSizing: 'border-box', border: '1px solid #d1d5db', borderRadius: '10px',
+        padding: '10px 12px', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical', marginBottom: '1.25rem',
     },
     primaryButton: {
         height: '42px', padding: '0 18px', border: 0, borderRadius: '9px', background: C.green, color: '#fff',

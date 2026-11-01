@@ -180,6 +180,7 @@ export default function AdminQuotationsPage() {
         pending: quotations.filter((q) => q.status === 'pending').length,
         approved: quotations.filter((q) => q.status === 'approved').length,
         rejected: quotations.filter((q) => q.status === 'rejected').length,
+        cancelled: quotations.filter((q) => q.status === 'cancelled').length,
     };
 
     const sortFn = (a, b) => {
@@ -228,7 +229,7 @@ export default function AdminQuotationsPage() {
 
                 <div style={styles.headerControls}>
                     <div className="m-wrap" style={styles.segmented}>
-                        {['all', 'pending', 'approved', 'rejected'].map((tab) => (
+                        {['all', 'pending', 'approved', 'rejected', 'cancelled'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setStatusFilter(tab)}
@@ -606,7 +607,7 @@ const styles = {
         boxShadow: '0 1px 3px rgba(16,33,26,.12)',
     },
     segmentCount: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 600,
         padding: '1px 6px',
@@ -628,7 +629,7 @@ const styles = {
         padding: '5px 8px',
     },
     sortLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -680,7 +681,7 @@ const styles = {
         borderRadius: 0,
     },
     listCount: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -750,7 +751,7 @@ const styles = {
         gap: '8px',
     },
     listRowCapacity: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '12px',
         color: adminTokens.green,
         flexShrink: 0,
@@ -770,7 +771,7 @@ const styles = {
         minWidth: 0,
     },
     listRowAge: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '12px',
         color: adminTokens.muted,
         flexShrink: 0,
@@ -804,7 +805,7 @@ const styles = {
         marginBottom: '20px',
     },
     detailRef: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '11.5px',
         color: adminTokens.muted,
         marginBottom: '4px',
@@ -837,7 +838,7 @@ const styles = {
         padding: '12px 14px',
     },
     figureLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -851,13 +852,13 @@ const styles = {
         color: adminTokens.ink,
     },
     figureValueMono: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '16px',
     },
 
     applianceSection: { marginBottom: '22px' },
     sectionLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -881,7 +882,7 @@ const styles = {
     },
     applianceHeaderRow: {
         backgroundColor: '#eef4f0',
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '9.5px',
         fontWeight: 500,
         textTransform: 'uppercase',
@@ -897,7 +898,7 @@ const styles = {
         minWidth: 0,
     },
     applianceFigure: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '12.5px',
         color: adminTokens.body,
     },
@@ -988,7 +989,7 @@ const styles = {
         borderBottom: '1px solid #f0d0cb',
     },
     rejectEyebrow: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10px',
         fontWeight: 600,
         letterSpacing: '.1em',
@@ -1046,7 +1047,7 @@ const styles = {
     rejectCount: {
         marginTop: '6px',
         textAlign: 'right',
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10px',
         color: adminTokens.faint,
     },

@@ -334,20 +334,23 @@ export default function AdminQuotationDetailPage() {
     const steps = [
         { label: 'Submitted', state: 'done' },
         {
-            label: quotation?.status === 'rejected' ? 'Rejected' : 'Approved',
-            state: quotation?.status === 'approved'
+            // A request cancelled after approval still shows that it was approved
+            label: quotation?.status === 'rejected' ? 'Rejected'
+                : quotation?.status === 'cancelled' && !quotation?.quotation ? 'Cancelled' : 'Approved',
+            state: quotation?.status === 'approved' || (quotation?.status === 'cancelled' && quotation?.quotation)
                 ? 'done'
-                : quotation?.status === 'rejected'
+                : ['rejected', 'cancelled'].includes(quotation?.status)
                     ? 'rejected'
                     : 'current',
         },
         // Materials are arranged with the supplier over Messenger (the PDF
         // below), so there's no procurement step to track here
         {
-            label: 'Installation',
+            label: quotation?.status === 'cancelled' && quotation?.quotation ? 'Cancelled' : 'Installation',
             state: installSchedule
                 ? 'done'
-                : isApproved ? 'current' : 'todo',
+                : quotation?.status === 'cancelled' && quotation?.quotation ? 'rejected'
+                    : isApproved ? 'current' : 'todo',
         },
     ];
 
@@ -731,6 +734,25 @@ export default function AdminQuotationDetailPage() {
                                     {formatCurrency(quotation.quotation.total_amount)}
                                 </span>
                             </div>
+                        </section>
+                    )}
+
+                    {/* ---- Cancelled by the customer ---- */}
+                    {quotation?.status === 'cancelled' && (
+                        <section className="m-pad" style={{ ...styles.card, ...styles.cardDanger }}>
+                            <h3 style={{ ...styles.cardTitle, color: adminTokens.danger }}>
+                                Cancelled by the customer
+                            </h3>
+                            <p style={styles.cardBodyText}>
+                                {quotation.cancellation_reason || 'No reason was given.'}
+                                {quotation.cancelled_at && (
+                                    <span style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.8rem', color: adminTokens.muted }}>
+                                        {new Date(quotation.cancelled_at).toLocaleString('en-PH', {
+                                            month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+                                        })}
+                                    </span>
+                                )}
+                            </p>
                         </section>
                     )}
 

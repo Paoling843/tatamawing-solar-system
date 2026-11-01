@@ -28,6 +28,15 @@ class QuotationRequestPolicy
         return $user->role === 'customer';
     }
 
+    // Only the customer's own request; whether it can still be cancelled
+    // (status, installation started) is checked in the controller
+    public function cancel(User $user, QuotationRequest $quotationRequest): bool
+    {
+        return $user->role === 'customer'
+            && $user->customer
+            && $quotationRequest->customer_id === $user->customer->id;
+    }
+
     public function approve(User $user, QuotationRequest $quotationRequest): bool
     {
         return $user->role === 'admin' && $quotationRequest->status === 'pending';
