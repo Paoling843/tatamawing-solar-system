@@ -359,7 +359,7 @@ const styles = {
         marginBottom: '0.35rem',
     },
     navGroupLabel: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '10.5px',
         fontWeight: 500,
         textTransform: 'uppercase',

@@ -13,6 +13,8 @@ export default function ConfirmDialog({
     busy = false,
     onConfirm,
     onCancel,
+    // Extra content under the message, e.g. an optional "reason" box
+    children,
 }) {
     // Escape closes the dialog, like clicking outside it
     useEffect(() => {
@@ -37,6 +39,7 @@ export default function ConfirmDialog({
             >
                 <h3 id="confirm-dialog-title" style={styles.title}>{title}</h3>
                 {message && <p style={styles.message}>{message}</p>}
+                {children}
                 <div style={styles.actions}>
                     <button
                         type="button"

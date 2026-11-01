@@ -46,6 +46,7 @@ const STATUS = {
     Quoted: 'scheduled',
     Scheduled: 'approved',
     Rejected: 'rejected',
+    Cancelled: 'cancelled',
 };
 
 const FILTERS = [
@@ -100,6 +101,7 @@ const describe = (conversation) => {
     let status = null;
     if (request) {
         if (request.status === 'rejected') status = 'Rejected';
+        else if (request.status === 'cancelled') status = 'Cancelled';
         else if (request.has_schedule) status = 'Scheduled';
         else if (request.status === 'approved') status = 'Quoted';
         else status = 'New';

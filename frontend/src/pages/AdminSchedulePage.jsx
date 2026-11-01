@@ -1331,7 +1331,7 @@ const styles = {
         margin: '0.9rem 0 0.1rem',
     },
     refCode: {
-        fontFamily: adminTokens.fontMono,
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
         fontSize: '0.85rem',
         fontWeight: '600',
         color: adminTokens.green,

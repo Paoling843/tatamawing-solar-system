@@ -5,6 +5,7 @@ import { adminText, adminUi, adminTokens } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import CreateUserModal from '../components/CreateUserModal';
 import { ClockIcon, UserIcon, TrashIcon } from '../components/Icons';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
@@ -12,7 +13,7 @@ import { errorMessage } from '../utils/errorMessage';
 import { colors } from '../styles/theme';
 
 // Users: every account (customers and admins), newest first, from
-// GET /api/admin/users, a Delete button per account, and a link to the audit log.
+// GET /api/admin/users, creating and deleting accounts, and a link to the audit log.
 export default function AdminSystemPage() {
     const navigate = useNavigate();
     const { user: me } = useAuth();
@@ -24,6 +25,7 @@ export default function AdminSystemPage() {
     // The account waiting for "Delete" to be confirmed
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [creating, setCreating] = useState(false);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -43,6 +45,14 @@ export default function AdminSystemPage() {
         // this effect returns rather than cascading a render inside it
         Promise.resolve().then(fetchUsers);
     }, [fetchUsers]);
+
+    // The new account goes to the top of the list (it's the newest)
+    const handleCreated = (user) => {
+        setCreating(false);
+        setError('');
+        setUsers((list) => [user, ...list]);
+        setSuccess(`Account created for ${user.name}. Share their password with them; they can change it in My Profile.`);
+    };
 
     const askDelete = (user) => {
         setError('');
@@ -108,13 +118,14 @@ export default function AdminSystemPage() {
                     </p>
                 </div>
 
-                {/* Disabled for now: public registration only creates customer
-                    accounts, so creating users from here needs its own admin-only
-                    form and endpoint */}
                 <button
-                    style={{ ...styles.createUserBtn, opacity: 0.55, cursor: 'not-allowed' }}
-                    disabled
-                    title="Creating users from here isn't available yet"
+                    type="button"
+                    className="btn-primary"
+                    style={styles.createUserBtn}
+                    onClick={() => {
+                        setSuccess('');
+                        setCreating(true);
+                    }}
                 >
                     + Create New User
                 </button>
@@ -223,6 +234,8 @@ export default function AdminSystemPage() {
                     </button>
                 </div>
             </div>
+            <CreateUserModal open={creating} onClose={() => setCreating(false)} onCreated={handleCreated} />
+
             <ConfirmDialog
                 open={Boolean(deleteTarget)}
                 title={`Delete ${deleteTarget?.name}'s account?`}

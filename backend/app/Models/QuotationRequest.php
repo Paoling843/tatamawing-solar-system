@@ -14,6 +14,10 @@ class QuotationRequest extends Model
         'status',
         'notes',
 
+        // Set when the customer cancels the request
+        'cancelled_at',
+        'cancellation_reason',
+
         // Installation site (asked at the top of the quote builder)
         'install_purok',
         'install_barangay',
@@ -32,6 +36,7 @@ class QuotationRequest extends Model
         return [
             // Sent as "2026-10-31", not midnight UTC (see InstallationSchedule)
             'submission_date' => 'date:Y-m-d',
+            'cancelled_at' => 'datetime',
         ];
     }
 

@@ -34,7 +34,6 @@ const C = {
     soft: '#faf9f5',
     error: '#b42318',
 };
-const MONO = "'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace";
 
 // Dot colour for an activity item
 const TONE = {
@@ -594,7 +593,7 @@ const styles = {
         display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 0', borderBottom: `1px solid ${C.rowLine}`, color: C.ink,
     },
     dot: { width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 },
-    activityTime: { fontFamily: MONO, fontSize: '12px', color: '#8a958e', whiteSpace: 'nowrap' },
+    activityTime: { fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#8a958e', whiteSpace: 'nowrap' },
     emptyNote: { margin: '10px 0', fontSize: '14px', color: C.muted },
 
     // Buttons and banners

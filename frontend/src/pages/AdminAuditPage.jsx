@@ -12,7 +12,7 @@ import { ShieldIcon, ClockIcon, UserIcon, FileTextIcon } from '../components/Ico
 // statusColors key, so the colours match the status pills on other pages.
 const GROUPS = [
     { id: 'approved', label: 'Approved / confirmed', tone: 'approved' },
-    { id: 'rejected', label: 'Rejected', tone: 'rejected' },
+    { id: 'rejected', label: 'Rejected / cancelled', tone: 'rejected' },
     { id: 'scheduling', label: 'Scheduling', tone: 'scheduled' },
     { id: 'customer', label: 'New from customers', tone: 'pending' },
     { id: 'deleted', label: 'Deleted', tone: 'partially_available' },
@@ -25,6 +25,7 @@ const ACTION_GROUP = {
     quotation_approved: 'approved',
     external_installation_confirmed: 'approved',
     quotation_rejected: 'rejected',
+    quotation_cancelled: 'rejected',
     external_installation_rejected: 'rejected',
     installation_schedule_created: 'scheduling',
     installation_schedule_updated: 'scheduling',
@@ -33,6 +34,7 @@ const ACTION_GROUP = {
     quotation_submitted: 'customer',
     faq_deleted: 'deleted',
     user_deleted: 'deleted',
+    user_created: 'content',
     faq_created: 'content',
     faq_updated: 'content',
     inbox_settings_updated: 'content',
@@ -41,7 +43,7 @@ const ACTION_GROUP = {
 // Actions added later still get a sensible colour from their name
 const groupOf = (action) => ACTION_GROUP[action] ?? (
     /approved|confirmed/.test(action) ? 'approved'
-        : /rejected/.test(action) ? 'rejected'
+        : /rejected|cancelled/.test(action) ? 'rejected'
             : /schedule/.test(action) ? 'scheduling'
                 : /deleted/.test(action) ? 'deleted'
                     : 'content'
@@ -56,6 +58,8 @@ const ACTION_LABEL = {
     installation_schedule_status_updated: 'Schedule status changed',
     inbox_settings_updated: 'Inbox settings changed',
     user_deleted: 'Account deleted',
+    user_created: 'Account created',
+    quotation_cancelled: 'Quotation cancelled',
 };
 
 // Under the person's name in the User column

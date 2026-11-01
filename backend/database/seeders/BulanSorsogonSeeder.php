@@ -394,7 +394,9 @@ class BulanSorsogonSeeder extends Seeder
             $daysAvailable = $m === 5 ? max(0, now()->day - 2) : $monthStart->daysInMonth - 1;
 
             for ($v = 0; $v < $visits; $v++) {
-                $at = $monthStart->copy()->addDays(($v * 7 + $m * 3) % ($daysAvailable + 1))->setTime(8 + ($v * 5) % 13, ($v * 17) % 60);
+                $at = $monthStart->copy()->addDays(($v * 7 + $m * 3) % ($daysAvailable + 1))->setTime(8 + ($v * 5) % 13, ($v * 17) % 60)
+                    // On the 1st, "this month" is only today, so keep the time in the past
+                    ->min(now()->subMinutes(30));
                 $step = [3, 3, 1, 3, 2, 3, 3][$v % 7];
                 $requested = $step === 3 && $v % 3 === 0;
 

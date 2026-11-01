@@ -102,6 +102,22 @@ class Notifier
         ));
     }
 
+    // The customer cancelled; $hadSchedule: their booked installation was removed
+    public static function quotationCancelled(QuotationRequest $request, bool $hadSchedule): void
+    {
+        $request->loadMissing('customer.user');
+
+        self::toAdmins(new AppNotification(
+            kind: 'quotation_cancelled',
+            title: self::reference($request) . ' cancelled by ' . ($request->customer?->user?->name ?? 'the customer'),
+            body: ($hadSchedule ? 'Their installation was removed from the schedule. ' : '')
+                . self::short($request->cancellation_reason ?: 'No reason given.'),
+            link: '/admin/quotation-requests/' . $request->id,
+            tone: 'rejected',
+            subject: 'quotation_request:' . $request->id,
+        ));
+    }
+
     public static function newExternalRequest(ExternalInstallationRequest $request): void
     {
         self::toAdmins(new AppNotification(
