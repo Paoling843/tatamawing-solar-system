@@ -247,15 +247,15 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                         {HP_OPTIONS.map((hp) => <option key={hp} value={String(hp)}>{hp} hp</option>)}
                     </select>
                 ) : (
-                    <div style={styles.naCell}>n/a</div>
+                    <div className="se-readonly" style={styles.naCell}>None</div>
                 )}
             </div>
 
             {/* Watts — computed from HP, or typed in */}
             {c.usesHp ? (
                 <div className="se-appl-watts" style={styles.cellStack}>
-                    <span className="se-m-label">Watts</span>
-                    <div style={styles.computedWatts}>{formatWhole(c.watts)} W</div>
+                    <span className="se-m-label">Watts (auto)</span>
+                    <div className="se-readonly" style={styles.computedWatts}>{formatWhole(c.watts)} W</div>
                 </div>
             ) : (
                 <div className="se-appl-watts" style={{ ...styles.cellStack, gap: '5px' }}>
@@ -265,7 +265,7 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                         onChange={(e) => onChange('watts', e.target.value)}
                         onBlur={() => onTouch('watts')}
                         inputMode="numeric"
-                        placeholder="required"
+                        placeholder="e.g. 150"
                         aria-required="true"
                         aria-invalid={wattsMissing}
                         style={s.numberInput(wattsMissing)}
@@ -282,7 +282,7 @@ function ApplianceRow({ row, isLast, hour, wattsInvalid, qtyInvalid, onChange, o
                     onChange={(e) => onChange('qty', e.target.value)}
                     onBlur={() => onTouch('qty')}
                     inputMode="numeric"
-                    placeholder="req."
+                    placeholder="e.g. 1"
                     aria-required="true"
                     aria-invalid={qtyMissing}
                     style={s.numberInput(qtyMissing)}
@@ -440,9 +440,16 @@ const styles = {
     empty: { padding: '34px 26px', textAlign: 'center' },
     row: { display: 'grid', gridTemplateColumns: GRID, gap: '16px', padding: '20px 26px', alignItems: 'start' },
     cellStack: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: 0 },
-    naCell: { display: 'flex', alignItems: 'center', minHeight: '42px', fontFamily: NUM, fontSize: '12px', color: C.dim },
+    // Read-only values (no HP for this appliance, watts worked out from HP):
+    // a soft box the same size as the inputs, so the columns line up
+    naCell: {
+        display: 'flex', alignItems: 'center', minHeight: '42px', boxSizing: 'border-box', padding: '0 9px',
+        border: `1px solid ${C.borderSoft}`, borderRadius: '8px', background: C.softBg,
+        fontFamily: NUM, fontSize: '12.5px', color: C.dim,
+    },
     computedWatts: {
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minHeight: '42px',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minHeight: '42px', boxSizing: 'border-box',
+        padding: '0 9px', border: `1px solid ${C.borderSoft}`, borderRadius: '8px', background: C.softBg,
         fontFamily: NUM, fontSize: '14px', color: C.muted,
     },
     removeButton: {

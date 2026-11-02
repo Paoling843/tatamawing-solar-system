@@ -194,5 +194,15 @@
         letter-spacing: 0.05em;
         text-transform: uppercase;
         color: #4f5a54;
+        /* Same height for every label, so the boxes under them start level */
+        line-height: 15px;
+        min-height: 15px;
+        white-space: nowrap;
+    }
+    /* Values start on the left, right under their label */
+    .se-appl-row input,
+    .se-appl-row .se-readonly {
+        text-align: left !important;
+        justify-content: flex-start !important;
     }
 }
