@@ -4,7 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
-import { colors, typography } from '../styles/theme';
+import { colors, pageHero, pageHeroTitle } from '../styles/theme';
 
 export default function CustomerDownloadsPage() {
     const navigate = useNavigate();
@@ -78,7 +78,9 @@ export default function CustomerDownloadsPage() {
     return (
         <CustomerLayout active="Downloads">
 
-            <h1 style={styles.pageTitle}>Downloads</h1>
+            <div style={pageHero}>
+                <h1 style={pageHeroTitle}>Downloads</h1>
+            </div>
 
             {error && <div style={styles.error}>{error}</div>}
 
@@ -164,10 +166,6 @@ export default function CustomerDownloadsPage() {
 }
 
 const styles = {
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '1.5rem',
-    },
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',
@@ -178,21 +176,20 @@ const styles = {
     },
     tableCard: {
         backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        borderRadius: '16px',
+        border: '1px solid #e3e8e2',
         marginBottom: '1.5rem',
         overflow: 'hidden',
     },
     tableHeader: {
         display: 'flex',
-        padding: '0.875rem 1.5rem',
-        fontSize: '0.7rem',
-        color: '#9ca3af',
+        padding: '0.75rem 1.5rem',
+        fontSize: '12px',
+        color: '#cfe0d6',
+        backgroundColor: '#0f3b2c',
         fontWeight: '600',
         textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        borderBottom: '1px solid #f3f4f6',
+        letterSpacing: '0.12em',
     },
     tableRow: {
         display: 'flex',

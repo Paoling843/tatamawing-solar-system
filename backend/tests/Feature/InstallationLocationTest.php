@@ -95,7 +95,7 @@ class InstallationLocationTest extends TestCase
             ->assertJsonPath('message', 'Keep the description of your house under 1,000 characters.');
     }
 
-    public function test_bulan_barangays_must_be_official_and_are_saved_with_official_spelling(): void
+    public function test_barangays_must_be_official_and_are_saved_with_official_spelling(): void
     {
         $user = $this->customer();
 
@@ -110,18 +110,71 @@ class InstallationLocationTest extends TestCase
             ->assertJsonPath('quotation_request.install_barangay', 'Zone II Poblacion');
 
         // Forgiving matching, same as the website's suggestions
-        $this->assertSame('J. P. Laurel', \App\Support\BulanBarangays::canonical('jp laurel'));
-        $this->assertSame('Osmeña', \App\Support\BulanBarangays::canonical('osmena'));
-        $this->assertSame('Santa Remedios', \App\Support\BulanBarangays::canonical('Sta. Remedios'));
-        $this->assertSame('Zone II Poblacion', \App\Support\BulanBarangays::canonical('zone 2'));
-        $this->assertSame('Cocok-Cabitan', \App\Support\BulanBarangays::canonical('cocok cabitan'));
-        $this->assertNull(\App\Support\BulanBarangays::canonical('Not A Barangay'));
+        $canonical = fn ($town, $name) => \App\Support\SorsogonBarangays::canonical($town, $name);
+        $this->assertSame('J. P. Laurel', $canonical('Bulan', 'jp laurel'));
+        $this->assertSame('Osmeña', $canonical('Bulan', 'osmena'));
+        $this->assertSame('Santa Remedios', $canonical('Bulan', 'Sta. Remedios'));
+        $this->assertSame('Zone II Poblacion', $canonical('Bulan', 'zone 2'));
+        $this->assertSame('Cocok-Cabitan', $canonical('Bulan', 'cocok cabitan'));
+        $this->assertSame('Santo Niño', $canonical('Sorsogon City', 'sto nino'));
+        $this->assertSame('Bitan-o/Dalipay', $canonical('Sorsogon City', 'bitan o dalipay'));
+        $this->assertSame('San Antonio (Sapa)', $canonical('Pilar', 'san antonio sapa'));
+        $this->assertNull($canonical('Bulan', 'Not A Barangay'));
+        // Two barangays share this start, so the customer has to pick one
+        $this->assertNull($canonical('Sorsogon City', 'balogo'));
+    }
 
-        // Outside Bulan, any barangay name is accepted as typed
+    public function test_every_official_name_matches_itself(): void
+    {
+        foreach (\App\Support\SorsogonBarangays::TOWNS as $town => $barangays) {
+            $this->assertSame($town, \App\Support\SorsogonBarangays::canonicalTown($town));
+
+            foreach ($barangays as $barangay) {
+                $this->assertSame($barangay, \App\Support\SorsogonBarangays::canonical($town, $barangay));
+            }
+        }
+    }
+
+    public function test_every_town_in_sorsogon_is_accepted_with_its_own_barangays(): void
+    {
+        $user = $this->customer();
+
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/quotation-requests', $this->payload(['province' => 'Albay', 'municipality' => 'Legazpi City', 'barangay' => 'Bitano']))
+            ->postJson('/api/quotation-requests', $this->payload(['province' => 'Sorsogon', 'municipality' => 'sorsogon city', 'barangay' => 'bibincahan', 'purok' => 'Purok 1']))
             ->assertStatus(201)
-            ->assertJsonPath('quotation_request.install_barangay', 'Bitano');
+            ->assertJsonPath('quotation_request.install_barangay', 'Bibincahan')
+            ->assertJsonPath('quotation_request.install_municipality', 'Sorsogon City')
+            ->assertJsonPath('quotation_request.installation_address', 'Purok 1, Brgy. Bibincahan, Sorsogon City, Sorsogon');
+
+        // A barangay of another town isn't accepted
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/quotation-requests', $this->payload(['province' => 'Sorsogon', 'municipality' => 'Irosin', 'barangay' => 'Bical']))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Choose a barangay of Irosin from the list.');
+
+        // Outside Sorsogon isn't either
+        foreach ([['Sorsogon', 'Legazpi City'], ['Albay', 'Bulan']] as [$province, $town]) {
+            $this->actingAs($user, 'sanctum')
+                ->postJson('/api/quotation-requests', $this->payload(['province' => $province, 'municipality' => $town, 'barangay' => 'Gate']))
+                ->assertStatus(422)
+                ->assertJsonPath('message', 'Choose a town in Sorsogon from the list.');
+        }
+    }
+
+    public function test_the_same_barangay_name_in_two_towns_counts_separately(): void
+    {
+        $user = $this->customer();
+        foreach (['Bulan', 'Irosin'] as $town) {
+            $this->actingAs($user, 'sanctum')
+                ->postJson('/api/quotation-requests', $this->payload(['province' => 'Sorsogon', 'municipality' => $town, 'barangay' => 'San Isidro']))
+                ->assertStatus(201);
+        }
+
+        $names = collect($this->actingAs(User::factory()->create(['role' => 'admin']), 'sanctum')
+            ->getJson('/api/admin/analytics?days=30')
+            ->json('locations'))->pluck('name')->sort()->values()->all();
+
+        $this->assertSame(['San Isidro, Bulan', 'San Isidro, Irosin'], $names);
     }
 
     public function test_backend_and_frontend_barangay_lists_match(): void
@@ -129,11 +182,20 @@ class InstallationLocationTest extends TestCase
         $js = file_get_contents(base_path('../frontend/src/services/installLocation.js'));
         $this->assertNotFalse($js);
 
-        preg_match('/export const BULAN_BARANGAYS = \[(.*?)\];/s', $js, $m);
-        preg_match_all("/'([^']+)'/", $m[1] ?? '', $names);
+        preg_match('/export const SORSOGON_BARANGAYS = \{(.*?)\n\};/s', $js, $m);
+        preg_match_all("/^\s*'?([A-Za-z ]+?)'?: \[(.*?)\n\s*\],$/ms", $m[1] ?? '', $towns, PREG_SET_ORDER);
 
-        $this->assertCount(63, \App\Support\BulanBarangays::NAMES);
-        $this->assertSame(\App\Support\BulanBarangays::NAMES, $names[1]);
+        $frontend = [];
+        foreach ($towns as [, $town, $list]) {
+            preg_match_all("/'([^']+)'/", $list, $names);
+            $frontend[$town] = $names[1];
+        }
+
+        $backend = \App\Support\SorsogonBarangays::TOWNS;
+        $this->assertCount(15, $backend);
+        $this->assertSame(541, count($backend, COUNT_RECURSIVE) - count($backend));
+        $this->assertCount(63, $backend['Bulan']);
+        $this->assertSame($backend, $frontend);
     }
 
     public function test_top_locations_group_spellings_together(): void

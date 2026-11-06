@@ -29,8 +29,8 @@ const T = {
     ink: '#16211c',
     green: '#0f3b2c',
     gold: '#f4c542',
-    page: '#f6f7f4',
-    border: '#e6e8e2',
+    page: '#f4f6f2',
+    border: '#e3e8e2',
     inputBorder: '#dcdfd8',
     muted: '#6b7670',
     // The spec's label grey (#9aa39d) is only 2.6:1 on white, below the

@@ -8,6 +8,7 @@ import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { useMessagePanel } from '../context/message-panel-context';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
+import { pageHero, pageHeroSubtitle, pageHeroTitle, statusColors } from '../styles/theme';
 
 // Customer's list of quotation requests. Each one is a card; opening it shows
 // what the system includes, the estimated bill before/after solar, and
@@ -38,11 +39,11 @@ const TABS = [
 ];
 
 const STATUS = {
-    pending: { label: 'PENDING', bg: '#fdf3d7', fg: '#8a6100' },
-    approved: { label: 'APPROVED', bg: '#e3f4e8', fg: '#1c7a3e' },
-    rejected: { label: 'REJECTED', bg: '#fde5e3', fg: '#b42318' },
-    draft: { label: 'DRAFT', bg: '#f1f3f1', fg: '#4b554f' },
-    cancelled: { label: 'CANCELLED', bg: '#f1f3f1', fg: '#4b554f' },
+    pending: { label: 'PENDING', bg: statusColors.pending.bg, fg: statusColors.pending.text },
+    approved: { label: 'APPROVED', bg: statusColors.approved.bg, fg: statusColors.approved.text },
+    rejected: { label: 'REJECTED', bg: statusColors.rejected.bg, fg: statusColors.rejected.text },
+    draft: { label: 'DRAFT', bg: statusColors.draft.bg, fg: statusColors.draft.text },
+    cancelled: { label: 'CANCELLED', bg: statusColors.cancelled.bg, fg: statusColors.cancelled.text },
 };
 
 // The customer can cancel while it's waiting for review, or after approval
@@ -588,20 +589,21 @@ function Footer() {
 
 const styles = {
     pageHeader: {
-        display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between',
-        gap: '20px', marginBottom: '24px',
+        ...pageHero,
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+        gap: '20px',
     },
-    pageTitle: { margin: 0, fontSize: 'clamp(26px, 7vw, 32px)', fontWeight: 700, letterSpacing: '-0.02em', color: C.ink },
-    pageLead: { margin: '6px 0 0', color: C.muted, fontSize: '15px' },
+    pageTitle: pageHeroTitle,
+    pageLead: pageHeroSubtitle,
     filterTabs: {
-        display: 'flex', flexWrap: 'wrap', gap: '4px', background: '#fff', border: `1px solid ${C.border}`,
-        borderRadius: '10px', padding: '4px',
+        display: 'flex', flexWrap: 'wrap', gap: '4px', background: '#eef2ec',
+        borderRadius: '12px', padding: '4px',
     },
     filterTab: (active) => ({
-        border: 0, borderRadius: '7px', padding: '8px 14px', fontSize: '14px', cursor: 'pointer',
+        border: 0, borderRadius: '9px', padding: '8px 14px', fontSize: '14px', cursor: 'pointer',
         display: 'flex', gap: '8px', alignItems: 'center', fontFamily: 'inherit',
-        background: active ? C.green : 'transparent', color: active ? '#fff' : '#4b554f',
-        fontWeight: active ? 600 : 500,
+        background: active ? '#0f3b2c' : 'transparent', color: active ? '#fff' : '#4a5a52',
+        fontWeight: 600,
     }),
     tabCount: (active) => ({
         fontSize: '12px', padding: '1px 7px', borderRadius: '99px',
@@ -613,7 +615,7 @@ const styles = {
     },
     list: { display: 'flex', flexDirection: 'column', gap: '12px' },
     card: (expanded) => ({
-        background: '#fff', border: `1px solid ${expanded ? '#bcd3c3' : C.border}`, borderRadius: '14px',
+        background: '#fff', border: `1px solid ${expanded ? '#bcd3c3' : '#e3e8e2'}`, borderRadius: '16px',
         overflow: 'hidden',
     }),
     rowButton: {

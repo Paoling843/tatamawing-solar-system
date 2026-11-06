@@ -10,9 +10,16 @@ import {
     DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
     EyeIcon,
 } from '../components/Icons';
-import { colors, typography, statusColors, smallGreenButton } from '../styles/theme';
+import { colors, statusColors, smallGreenButton } from '../styles/theme';
 
 const SORT_OPTIONS = ['Newest first', 'Oldest first', 'Highest value', 'Lowest value'];
+
+// Dashboard colours
+const GREEN = '#0f3b2c';
+const SUN = '#f4c542';
+const INK = '#14201a';
+const MUTED = '#5a6a62';
+const LINE = '#e3e8e2';
 
 export default function CustomerDashboardPage() {
     const { user } = useAuth();
@@ -157,21 +164,27 @@ export default function CustomerDashboardPage() {
 
     const solarQuote = '';
 
+    // tint: the icon's square; tone: the icon and the number
     const stats = [
         {
-            label: 'Total Quotations', icon: <DocumentIcon size={16} color={colors.textFaint} />,
+            label: 'Total Quotations', tint: '#e3f1ea', tone: '#1d6b4f',
+            icon: <DocumentIcon size={20} color="#1d6b4f" />,
             value: totalCount, unit: '', note: 'All requests submitted',
         },
         {
-            label: 'Pending Quotations', icon: <ClockIcon size={16} color={colors.textFaint} />,
+            label: 'Pending Quotations', tint: '#fdf0d2', tone: '#a15c07',
+            icon: <ClockIcon size={20} color="#a15c07" />,
             value: pendingCount, unit: '', note: 'Awaiting review',
         },
         {
-            label: 'Scheduled Installations', icon: <CalendarIcon size={16} color={colors.textFaint} />,
+            label: 'Scheduled Installations', tint: '#e0ecfb', tone: '#1f5fae',
+            icon: <CalendarIcon size={20} color="#1f5fae" />,
             value: scheduleCount, unit: '', note: 'Upcoming site visits',
         },
         {
-            label: 'Approved Value', icon: <PesoIcon size={16} color={colors.textFaint} />,
+            // The one solid green card, so the total stands out
+            label: 'Approved Value', tint: SUN, tone: '#ffffff', solid: true,
+            icon: <PesoIcon size={20} color={GREEN} />,
             value: approvedCompact.value, unit: approvedCompact.unit,
             note: 'Across approved quotations',
         },
@@ -179,6 +192,7 @@ export default function CustomerDashboardPage() {
 
     return (
         <CustomerLayout active="Overview">
+        <div style={styles.page}>
 
             <div style={styles.welcomeSection}>
                 <div style={styles.eyebrow}>{today}</div>
@@ -196,16 +210,16 @@ export default function CustomerDashboardPage() {
                 <>
                     <div className="responsive-grid-4" style={styles.statStrip}>
                         {stats.map((s) => (
-                            <div key={s.label} className="m-pad" style={styles.statCell}>
+                            <div key={s.label} className="m-pad" style={{ ...styles.statCell, ...(s.solid ? styles.statCellSolid : {}) }}>
                                 <div style={styles.statTop}>
-                                    <span style={styles.statLabel}>{s.label}</span>
-                                    <span style={styles.statIcon}>{s.icon}</span>
+                                    <span style={{ ...styles.statLabel, ...(s.solid ? styles.onGreen : {}) }}>{s.label}</span>
+                                    <span style={{ ...styles.statIcon, backgroundColor: s.tint }}>{s.icon}</span>
                                 </div>
                                 <div style={styles.statValueRow}>
-                                    <span style={styles.statValue}>{s.value}</span>
-                                    {s.unit && <span style={styles.statUnit}>{s.unit}</span>}
+                                    <span style={{ ...styles.statValue, color: s.tone }}>{s.value}</span>
+                                    {s.unit && <span style={{ ...styles.statUnit, ...(s.solid ? styles.onGreen : {}) }}>{s.unit}</span>}
                                 </div>
-                                <div style={styles.statNote}>{s.note}</div>
+                                <div style={{ ...styles.statNote, ...(s.solid ? styles.onGreen : {}) }}>{s.note}</div>
                             </div>
                         ))}
                     </div>
@@ -286,7 +300,7 @@ export default function CustomerDashboardPage() {
 
                         {/* Scrolls sideways inside the card on narrow screens */}
                         <div className="scroll-x">
-                            <div style={{ minWidth: '720px' }}>
+                            <div style={{ minWidth: '820px' }}>
                                 <div style={styles.tableHeader}>
                                     <div>Reference</div>
                                     <div>System</div>
@@ -301,7 +315,8 @@ export default function CustomerDashboardPage() {
                                     </div>
                                 ) : (
                                     visibleQuotations.map((qr) => {
-                                        const badge = statusColors[qr.status] || statusColors.draft;
+                                        const { bg: badgeBg, text: badgeText } = statusColors[qr.status] || statusColors.draft;
+                                        const kw = qr.solar_computation?.panel_capacity_kw;
 
                                         return (
                                             <div key={qr.id}>
@@ -328,9 +343,10 @@ export default function CustomerDashboardPage() {
                                                         </span>
                                                         <span style={{
                                                             ...styles.statusBadge,
-                                                            backgroundColor: badge.bg,
-                                                            color: badge.text,
+                                                            backgroundColor: badgeBg,
+                                                            color: badgeText,
                                                         }}>
+                                                            <span style={{ ...styles.statusDot, backgroundColor: badgeText }} />
                                                             {qr.status.charAt(0).toUpperCase() +
                                                                 qr.status.slice(1)}
                                                         </span>
@@ -341,8 +357,8 @@ export default function CustomerDashboardPage() {
                                                             {systemLabel(qr.solar_system_type)}
                                                         </div>
                                                         <div style={styles.systemSpec}>
-                                                            {qr.solar_computation?.panel_capacity_kw
-                                                                ? `${qr.solar_computation.panel_capacity_kw} kW array`
+                                                            {kw
+                                                                ? <><span style={styles.systemKw}>{kw} kW</span> array</>
                                                                 : 'Awaiting computation'}
                                                             {qr.monthly_bill
                                                                 ? ` · ₱${parseFloat(qr.monthly_bill).toLocaleString('en-PH')} monthly bill`
@@ -365,7 +381,7 @@ export default function CustomerDashboardPage() {
                                                         button, so this is only a visual cue */}
                                                     <div style={styles.actionCell}>
                                                         <span className="qd-view" style={styles.viewBtn} aria-hidden="true">
-                                                            <EyeIcon size={14} color={colors.primary} />
+                                                            <EyeIcon size={16} color={GREEN} />
                                                             View
                                                         </span>
                                                     </div>
@@ -400,6 +416,7 @@ export default function CustomerDashboardPage() {
                     </div>
                 </>
             )}
+        </div>
 
             {detailsFor && (
                 <QuotationDetailsModal
@@ -419,24 +436,33 @@ export default function CustomerDashboardPage() {
 }
 
 const styles = {
+    // Keeps the cards from stretching too far on very wide screens
+    page: { maxWidth: '1240px', width: '100%' },
+
     welcomeSection: {
+        backgroundColor: GREEN,
+        color: '#ffffff',
+        borderRadius: '18px',
+        padding: 'clamp(1.5rem, 4vw, 2rem) clamp(1.25rem, 4vw, 2.25rem)',
         marginBottom: '1.5rem',
     },
     eyebrow: {
-        ...typography.label,
-        fontSize: '0.7rem',
-        letterSpacing: '0.12em',
-        color: colors.textMuted,
+        fontSize: '13px',
+        fontWeight: 600,
+        letterSpacing: '0.14em',
+        color: SUN,
         marginBottom: '0.5rem',
     },
     welcomeTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
+        margin: 0,
+        fontSize: 'clamp(26px, 6vw, 34px)',
+        fontWeight: 800,
+        lineHeight: 1.2,
+        color: '#ffffff',
     },
     welcomeQuote: {
-        fontSize: '0.875rem',
-        color: colors.primary,
-        fontStyle: 'italic',
+        fontSize: '16px',
+        color: '#d3e2d9',
         margin: 0,
     },
     error: {
@@ -449,19 +475,22 @@ const styles = {
     },
 
     statStrip: {
-        // The 1px gaps show this colour, drawing the lines between the boxes
-        // whether they sit four across or two by two on phones
-        backgroundColor: colors.borderLight,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '12px',
-        overflow: 'hidden',
-        gap: '1px',
+        gap: '1rem',
         marginBottom: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
     },
     statCell: {
-        backgroundColor: colors.bgCard,
-        padding: '1.25rem 1.375rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '14px',
+        minWidth: 0,
+        backgroundColor: '#ffffff',
+        border: `1px solid ${LINE}`,
+        borderRadius: '16px',
+        padding: '1.5rem',
+    },
+    statCellSolid: {
+        backgroundColor: GREEN,
+        borderColor: GREEN,
     },
     statTop: {
         display: 'flex',
@@ -470,91 +499,98 @@ const styles = {
         gap: '0.5rem',
     },
     statLabel: {
-        fontSize: '0.8rem',
+        fontSize: '15px',
         fontWeight: 600,
-        color: colors.textMuted,
+        color: '#3d4d45',
+    },
+    onGreen: {
+        color: '#cfe0d6',
     },
     statIcon: {
+        width: '44px',
+        height: '44px',
+        flexShrink: 0,
+        borderRadius: '12px',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     statValueRow: {
         display: 'flex',
         alignItems: 'baseline',
         gap: '0.5rem',
-        marginTop: '0.875rem',
         flexWrap: 'wrap',
     },
-    statValue: {
-        fontSize: 'clamp(1.5rem, 6vw, 2rem)',
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
-        color: colors.textDark,
-    },
     statUnit: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
+        fontSize: '14px',
+        color: MUTED,
+    },
+    statValue: {
+        fontSize: 'clamp(28px, 6vw, 38px)',
+        fontWeight: 800,
+        lineHeight: 1.1,
+        fontVariantNumeric: 'tabular-nums',
     },
     statNote: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
-        marginTop: '0.375rem',
+        fontSize: '14px',
+        color: MUTED,
     },
 
     tableCard: {
-        backgroundColor: colors.bgCard,
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        backgroundColor: '#ffffff',
+        borderRadius: '16px',
         marginBottom: '1.5rem',
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${LINE}`,
     },
     tableCardHeader: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '1.25rem',
+        gap: '1rem',
         flexWrap: 'wrap',
-        padding: '1.25rem 1.375rem 1rem',
+        padding: '1.5rem 1.75rem',
     },
     tableTitle: {
-        ...typography.h2,
         margin: 0,
+        fontSize: '22px',
+        fontWeight: 700,
+        color: INK,
     },
     tableSubtitle: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
-        marginTop: '0.2rem',
+        fontSize: '14px',
+        color: MUTED,
+        marginTop: '4px',
     },
     headerControls: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.625rem',
+        gap: '0.75rem',
         flexWrap: 'wrap',
     },
     filterTabs: {
         display: 'flex',
         flexWrap: 'wrap',
         maxWidth: '100%',
-        gap: '0.25rem',
-        backgroundColor: colors.bgSubtle,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '9px',
-        padding: '3px',
+        gap: '4px',
+        backgroundColor: '#eef2ec',
+        borderRadius: '12px',
+        padding: '4px',
     },
     filterTab: {
-        padding: '0.375rem 0.875rem',
+        minHeight: '40px',
+        padding: '0 1rem',
         border: 'none',
-        borderRadius: '6px',
+        borderRadius: '9px',
         backgroundColor: 'transparent',
-        color: colors.textMuted,
-        fontSize: '0.8rem',
+        color: '#4a5a52',
+        fontSize: '15px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
         cursor: 'pointer',
     },
     filterTabActive: {
-        backgroundColor: colors.bgCard,
-        color: colors.textDark,
-        fontWeight: 600,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        backgroundColor: GREEN,
+        color: '#ffffff',
     },
     sortWrap: {
         position: 'relative',
@@ -563,27 +599,28 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        padding: '0.5rem 0.75rem',
-        border: `1px solid ${colors.border}`,
-        borderRadius: '9px',
-        fontSize: '0.8rem',
+        minHeight: '44px',
+        padding: '0 0.875rem',
+        border: '1px solid #dfe5de',
+        borderRadius: '10px',
+        fontSize: '15px',
         fontWeight: 600,
-        color: colors.textBody,
+        fontFamily: 'inherit',
+        color: INK,
         cursor: 'pointer',
     },
     sortTag: {
-        fontSize: '0.65rem',
-        fontWeight: 600,
+        fontSize: '12px',
         letterSpacing: '0.1em',
-        color: colors.textMuted,
+        color: MUTED,
     },
     caret: {
-        fontSize: '0.6rem',
-        color: colors.textMuted,
+        fontSize: '0.75rem',
+        color: MUTED,
     },
     sortDropdown: {
         position: 'absolute',
-        top: '2.5rem',
+        top: '3rem',
         // Opens to the right of the button, so it stays on screen when the
         // controls wrap to the left edge on phones
         left: 0,
@@ -606,78 +643,90 @@ const styles = {
         borderRadius: '8px',
         backgroundColor: 'transparent',
         color: colors.textBody,
-        fontSize: '0.825rem',
+        fontSize: '0.875rem',
         fontWeight: 500,
+        fontFamily: 'inherit',
         textAlign: 'left',
         cursor: 'pointer',
     },
     checkMark: {
         marginLeft: 'auto',
-        color: colors.primary,
+        color: GREEN,
         fontSize: '0.75rem',
     },
 
     tableHeader: {
         display: 'grid',
-        gridTemplateColumns: '150px 1fr 130px 160px 88px',
+        gridTemplateColumns: '200px minmax(0, 1fr) 160px 160px 110px',
         gap: '1rem',
-        padding: '0.625rem 1.375rem',
-        borderTop: `1px solid ${colors.borderLight}`,
-        borderBottom: `1px solid ${colors.borderLight}`,
-        backgroundColor: colors.bgSubtle,
-        fontSize: '0.65rem',
-        color: colors.textMuted,
+        padding: '0.75rem 1.75rem',
+        backgroundColor: GREEN,
+        fontSize: '12px',
+        color: '#cfe0d6',
         fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '0.1em',
+        letterSpacing: '0.12em',
     },
     tableRow: {
         display: 'grid',
-        gridTemplateColumns: '150px 1fr 130px 160px 88px',
+        gridTemplateColumns: '200px minmax(0, 1fr) 160px 160px 110px',
         gap: '1rem',
         alignItems: 'center',
-        padding: '1rem 1.375rem',
-        borderBottom: `1px solid ${colors.borderLight}`,
-        fontSize: '0.875rem',
-        color: colors.textBody,
+        padding: '1.25rem 1.75rem',
+        borderBottom: '1px solid #edf1ec',
+        color: INK,
         position: 'relative',
     },
     refCell: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: '0.3rem',
+        gap: '0.5rem',
     },
     referenceText: {
-        fontWeight: 600,
-        color: colors.textDark,
+        fontSize: '16px',
+        fontWeight: 700,
+        color: INK,
     },
     statusBadge: {
-        padding: '0.15rem 0.5rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '4px 10px',
         borderRadius: '999px',
-        fontSize: '0.7rem',
-        fontWeight: 600,
+        fontSize: '13px',
+        fontWeight: 700,
+    },
+    statusDot: {
+        width: '6px',
+        height: '6px',
+        borderRadius: '50%',
     },
     systemName: {
-        fontSize: '0.875rem',
+        fontSize: '16px',
         fontWeight: 600,
-        color: colors.textDark,
+        color: INK,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
     },
     systemSpec: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
-        marginTop: '0.2rem',
+        fontSize: '14px',
+        color: MUTED,
+        marginTop: '4px',
+    },
+    systemKw: {
+        fontWeight: 600,
+        color: '#1d6b4f',
     },
     dateCell: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
+        fontSize: '15px',
+        color: '#3d4d45',
     },
     valueCell: {
-        fontSize: '0.9rem',
-        color: colors.textDark,
+        fontSize: '17px',
+        fontWeight: 700,
+        color: GREEN,
         textAlign: 'right',
         fontVariantNumeric: 'tabular-nums',
     },
@@ -689,33 +738,31 @@ const styles = {
     viewBtn: {
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.35rem',
-        padding: '0.4rem 0.75rem',
-        borderRadius: '8px',
-        border: `1px solid ${colors.primaryBorder}`,
-        backgroundColor: colors.primaryTint,
-        color: colors.primary,
-        fontSize: '0.8rem',
-        fontWeight: 600,
+        gap: '8px',
+        padding: '10px 1rem',
+        borderRadius: '10px',
+        border: `1.5px solid ${GREEN}`,
+        color: GREEN,
+        fontSize: '15px',
+        fontWeight: 700,
         whiteSpace: 'nowrap',
     },
 
     emptyState: {
         textAlign: 'center',
-        color: colors.textMuted,
-        padding: '3rem',
-        fontSize: '0.875rem',
+        color: MUTED,
+        padding: '2.5rem 1.75rem',
+        fontSize: '15px',
     },
     tableFooter: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0.875rem 1.375rem',
-        borderTop: `1px solid ${colors.borderLight}`,
+        padding: '1.125rem 1.75rem',
     },
     tableFooterText: {
-        fontSize: '0.8rem',
-        color: colors.textMuted,
+        fontSize: '14px',
+        color: MUTED,
     },
 
     footer: {

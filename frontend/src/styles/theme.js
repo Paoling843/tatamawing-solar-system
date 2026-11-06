@@ -8,10 +8,10 @@ export const colors = {
     textMuted: '#6b7280',
     textFaint: '#878f8a',   // icons only (3.3:1, enough for non-text)
 
-    bgPage: '#f8f9fb',
+    bgPage: '#f4f6f2',
     bgSubtle: '#f9fafb',
     bgCard: '#ffffff',
-    border: '#e5e7eb',
+    border: '#e3e8e2',
     borderLight: '#f3f4f6',
 
     success: '#16a34a',
@@ -51,6 +51,55 @@ export const radii = {
 
 export const shadows = {
     card: '0 1px 4px rgba(0,0,0,0.06)',
+};
+
+// The solid green banner at the top of every signed-in page
+export const pageHero = {
+    backgroundColor: '#0f3b2c',
+    color: '#ffffff',
+    borderRadius: '18px',
+    padding: 'clamp(1.25rem, 4vw, 2rem) clamp(1.25rem, 4vw, 2.25rem)',
+    marginBottom: '1.5rem',
+};
+export const pageHeroTitle = {
+    margin: 0,
+    // Shrinks on phones so long page titles don't push the banner wider than the screen
+    fontSize: 'clamp(26px, 6vw, 34px)',
+    fontWeight: 800,
+    lineHeight: 1.2,
+    color: '#ffffff',
+};
+export const pageHeroSubtitle = {
+    margin: '8px 0 0',
+    fontSize: '16px',
+    color: '#d3e2d9',
+};
+// Main button on the green banner
+export const sunButton = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    minHeight: '44px',
+    padding: '0 1.25rem',
+    border: 'none',
+    borderRadius: '10px',
+    backgroundColor: '#f4c542',
+    color: '#0f3b2c',
+    fontSize: '15px',
+    fontWeight: 700,
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    flexShrink: 0,
+};
+// The round bell in the top bar
+export const roundBell = {
+    width: '44px',
+    height: '44px',
+    padding: 0,
+    borderRadius: '50%',
+    border: '1px solid #e3e8e2',
+    background: '#ffffff',
 };
 
 // Small green button for links such as "View full details" and
@@ -104,12 +153,12 @@ export const whiteButton = {
 // schedule calendar). Each text colour has at least 4.5:1 contrast on its
 // background.
 const tone = {
-    waiting:  { bg: '#fdf4dc', text: '#8a6a12', border: '#f3e3ad' },
-    good:     { bg: '#e4ede8', text: '#0f3b2c', border: '#cfe0d7' },
-    bad:      { bg: '#fbeae7', text: '#a4302a', border: '#f0d0cb' },
-    partial:  { bg: '#fdeee0', text: '#9a4a10', border: '#f5d6bb' },
-    planned:  { bg: '#e8eef8', text: '#2f5fb8', border: '#cfdcf2' },
-    neutral:  { bg: '#f1f3ef', text: '#4f5a54', border: '#e6e8e2' },
+    waiting:  { bg: '#fdf0d2', text: '#8a4b05', border: '#fdf0d2' },
+    good:     { bg: '#dcf3e5', text: '#17663f', border: '#dcf3e5' },
+    bad:      { bg: '#fde4e2', text: '#b42318', border: '#fde4e2' },
+    partial:  { bg: '#fdeee0', text: '#9a4a10', border: '#fdeee0' },
+    planned:  { bg: '#e0ecfb', text: '#1f5fae', border: '#e0ecfb' },
+    neutral:  { bg: '#eceeed', text: '#4b5560', border: '#eceeed' },
 };
 
 export const statusColors = {

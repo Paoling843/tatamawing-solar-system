@@ -4,6 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import { ChevronDownIcon } from '../components/Icons';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
+import { pageHero, pageHeroTitle } from '../styles/theme';
 
 export default function FaqPage() {
     const [faqs, setFaqs] = useState([]);
@@ -45,7 +46,9 @@ export default function FaqPage() {
 
     return (
         <CustomerLayout active="FAQs">
-            <h1 style={styles.pageTitle}>FAQs</h1>
+            <div style={pageHero}>
+                <h1 style={pageHeroTitle}>FAQs</h1>
+            </div>
 
             {error && <div style={styles.error}>{error}</div>}
 
@@ -122,13 +125,6 @@ export default function FaqPage() {
 }
 
 const styles = {
-    pageTitle: {
-        fontSize: '1.75rem',
-        fontWeight: '700',
-        color: '#111827',
-        marginBottom: '1.5rem',
-        marginTop: 0,
-    },
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',

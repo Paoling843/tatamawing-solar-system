@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { adminText, adminUi } from '../styles/adminTheme';
+import { adminText, adminTokens, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PlusIcon, EditIcon, TrashIcon, HelpIcon } from '../components/Icons';
 import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
-import { colors } from '../styles/theme';
+import { colors, sunButton } from '../styles/theme';
 
 // Same limits as FaqController
 const QUESTION_MAX = 255;
@@ -150,7 +150,7 @@ export default function AdminFaqPage() {
                     className="btn-primary"
                     style={styles.createBtn}
                 >
-                    <PlusIcon size={14} color="white" />
+                    <PlusIcon size={14} color={adminTokens.green} />
                     <span>Add New FAQ</span>
                 </button>
             </div>
@@ -361,28 +361,15 @@ export default function AdminFaqPage() {
 // Styles
 const styles = {
     pageHeader: {
+        ...adminUi.hero,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '1.5rem',
+        alignItems: 'center',
         gap: '0.75rem 1rem',
     },
     pageTitle: adminText.pageTitle,
     pageSubtitle: adminText.pageSubtitle,
-    createBtn: {
-        backgroundColor: '#0f3b2c',
-        color: 'white',
-        border: 'none',
-        padding: '0.75rem 1.25rem',
-        borderRadius: '10px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        whiteSpace: 'nowrap',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-    },
+    createBtn: sunButton,
     success: {
         backgroundColor: '#f0f7f4',
         color: '#0f3b2c',
@@ -405,7 +392,6 @@ const styles = {
         color: '#16211c',
         marginTop: 0,
         marginBottom: '1.5rem',
-        ...adminUi.titleMarker,
     },
     field: {
         marginBottom: '1rem',

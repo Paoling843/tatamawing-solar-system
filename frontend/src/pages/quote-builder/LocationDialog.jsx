@@ -1,22 +1,23 @@
 import { useEffect } from 'react';
 import BarangayInput from '../../components/BarangayInput';
 import {
-    HOME_MUNICIPALITY, HOME_PROVINCE, SITE_DESCRIPTION_MAX,
-    barangayError,
+    HOME_PROVINCE, SITE_DESCRIPTION_MAX, SORSOGON_TOWNS,
+    barangayError, municipalityError,
 } from '../../services/installLocation';
 import { C, NUM, SANS, s } from './engineStyles';
 
 // Shown when a logged-in customer presses "Request quotation" on Step 3:
 // where the system will be installed. The calculator itself never asks for
-// it, so guests can try the engine without giving their address. For now
-// it's always Bulan, Sorsogon; the customer types their barangay and picks
-// it from the suggestions. All state lives in QuotationFormPage; this only
-// shows it and reports changes.
-//   location   { barangay, purok, description }
-//   seen(key)  whether to show the barangay's message yet (left the field, or pressed Send)
+// it, so guests can try the engine without giving their address. The customer
+// picks their town in Sorsogon, then types their barangay and picks it from the
+// suggestions. All state lives in QuotationFormPage; this only shows it and
+// reports changes.
+//   location   { municipality, barangay, purok, description }
+//   seen(key)  whether to show a field's message yet (left the field, or pressed Send)
 //   error      message from a failed send, if any
 export default function LocationDialog({ location, seen, submitting, error, onChange, onTouch, onClose, onSubmit }) {
-    const message = seen('barangay') ? barangayError(location) : null;
+    const message = seen('barangay') && location.municipality ? barangayError(location) : null;
+    const townMessage = seen('municipality') ? municipalityError(location) : null;
 
     // Close on Escape, unless the request is already being sent. Escape in
     // the barangay box only closes its suggestion list.
@@ -58,14 +59,25 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
                 </div>
 
                 <div className="se-pad" style={styles.grid}>
-                    <Field label="Municipality">
-                        {/* Fixed for now: installations are in Bulan only */}
-                        <div style={styles.fixedValue}>{HOME_MUNICIPALITY}, {HOME_PROVINCE}</div>
+                    <Field label={`Town / city in ${HOME_PROVINCE}`} required htmlFor="loc-town" error={townMessage}>
+                        <select
+                            id="loc-town"
+                            value={location.municipality}
+                            onChange={(e) => onChange('municipality', e.target.value)}
+                            onBlur={() => onTouch('municipality')}
+                            aria-required="true"
+                            aria-invalid={Boolean(townMessage)}
+                            style={{ ...inputStyle(Boolean(townMessage)), cursor: 'pointer' }}
+                        >
+                            <option value="">Choose a town</option>
+                            {SORSOGON_TOWNS.map((town) => <option key={town} value={town}>{town}</option>)}
+                        </select>
                     </Field>
 
                     <Field label="Barangay" required htmlFor="loc-barangay" error={message}>
                         <BarangayInput
                             id="loc-barangay"
+                            municipality={location.municipality}
                             value={location.barangay}
                             inputStyle={inputStyle(Boolean(message))}
                             colors={{ text: C.body, muted: C.muted, border: C.border, active: C.mint }}
@@ -166,10 +178,6 @@ const styles = {
     grid: {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
         gap: '16px', padding: '22px 26px',
-    },
-    fixedValue: {
-        border: `1px solid ${C.borderSoft}`, background: C.softBg, borderRadius: '8px', padding: '11px 10px',
-        fontSize: '14px', color: C.body,
     },
     error: { ...s.alert, margin: '0 26px' },
     actions: {

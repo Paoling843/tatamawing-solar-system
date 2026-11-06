@@ -676,13 +676,13 @@ function SendGlyph() {
 }
 
 const styles = {
-    header: { display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '18px' },
+    header: { ...adminUi.hero, display: 'flex', flexDirection: 'column', gap: '6px' },
     title: adminText.pageTitle,
-    summary: { fontSize: '13px', color: T.muted },
+    summary: { fontSize: '15px', color: '#d3e2d9' },
 
     card: {
         display: 'grid',
-        height: 'calc(100vh - 210px)',
+        height: 'calc(100vh - 300px)',
         minHeight: '520px',
         background: '#fff',
         border: `1px solid ${T.border}`,
@@ -724,7 +724,7 @@ const styles = {
     threadCol: { display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 },
     threadHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: `1px solid ${T.line}` },
     threadWho: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
-    threadName: { fontSize: '15px', fontWeight: 600, ...adminUi.titleMarker },
+    threadName: { fontSize: '15px', fontWeight: 600 },
     threadSub: { fontSize: '12px', color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     backBtn: {
         border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', fontSize: '16px',

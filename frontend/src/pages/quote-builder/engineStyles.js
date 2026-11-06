@@ -15,10 +15,10 @@ export const C = {
     sub: '#4a5550',        // secondary notes
     faint: '#4f5a54',      // eyebrow labels
     dim: '#6c7570',        // disabled / "not used"
-    pageBg: '#f6f7f4',
+    pageBg: '#f4f6f2',
     fieldBg: '#fbfcfa',
     softBg: '#f3f5f1',
-    border: '#e6e8e2',
+    border: '#e3e8e2',
     borderSoft: '#eef0ec',
     rowBorder: '#f2f4f0',
     fieldBorder: '#bfc5bd',

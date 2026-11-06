@@ -133,7 +133,7 @@ export default function ExternalRequestStatusPage() {
 const styles = {
     page: {
         minHeight: '100vh',
-        background: '#f6f7f4',
+        background: '#f4f6f2',
         padding: 'clamp(20px, 6vw, 48px) clamp(12px, 4vw, 20px)',
         fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif",
         color: colors.textDark,
@@ -143,7 +143,7 @@ const styles = {
         margin: '0 auto',
         padding: 'clamp(18px, 5vw, 36px)',
         background: 'white',
-        border: '1px solid #e6e8e2',
+        border: '1px solid #e3e8e2',
         borderRadius: '14px',
         boxShadow: '0 12px 40px rgba(15,59,44,.08)',
     },

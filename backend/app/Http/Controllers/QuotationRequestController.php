@@ -9,7 +9,7 @@ use App\Models\QuotationRequest;
 use App\Services\SolarComputationService;
 use App\Services\AuditLogger;
 use App\Services\Notifier;
-use App\Support\BulanBarangays;
+use App\Support\SorsogonBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -92,13 +92,17 @@ class QuotationRequestController extends Controller
 
         // Extra checks that need to compare two fields with each other
         $validator->after(function ($validator) use ($request) {
-            // A Bulan barangay must be one of the 63 official ones
-            if (
-                BulanBarangays::isBulan($request->input('location.municipality'), $request->input('location.province'))
+            // A town in Sorsogon, and one of that town's official barangays
+            $town = SorsogonBarangays::canonicalTown($request->input('location.municipality'));
+            if (filled($request->input('location.municipality'))
+                && (! $town || ! SorsogonBarangays::isProvince($request->input('location.province')))) {
+                $validator->errors()->add('location.municipality', 'Choose a town in Sorsogon from the list.');
+            } elseif (
+                $town
                 && filled($request->input('location.barangay'))
-                && BulanBarangays::canonical($request->input('location.barangay')) === null
+                && SorsogonBarangays::canonical($town, $request->input('location.barangay')) === null
             ) {
-                $validator->errors()->add('location.barangay', 'Choose a barangay of Bulan from the list.');
+                $validator->errors()->add('location.barangay', "Choose a barangay of {$town} from the list.");
             }
 
             foreach ((array) $request->appliances as $i => $row) {
@@ -155,7 +159,9 @@ class QuotationRequestController extends Controller
             $bills,
         );
 
-        $quotationRequest = DB::transaction(function () use ($request, $customer, $engine, $result, $bills) {
+        $town = SorsogonBarangays::canonicalTown($request->input('location.municipality'));
+
+        $quotationRequest = DB::transaction(function () use ($request, $customer, $engine, $result, $bills, $town) {
             $quotationRequest = QuotationRequest::create([
                 'customer_id' => $customer->id,
                 // Every package offered by the engine is a hybrid system
@@ -166,12 +172,10 @@ class QuotationRequestController extends Controller
                 'status' => 'pending',
                 // Installation site; extra spaces removed so analytics groups them
                 'install_purok' => $this->cleanText($request->input('location.purok')),
-                // Bulan barangays are saved with their official spelling
-                'install_barangay' => BulanBarangays::isBulan($request->input('location.municipality'), $request->input('location.province'))
-                    ? BulanBarangays::canonical($request->input('location.barangay'))
-                    : $this->cleanText($request->input('location.barangay')),
-                'install_municipality' => $this->cleanText($request->input('location.municipality')),
-                'install_province' => $this->cleanText($request->input('location.province')),
+                // Saved with their official spelling
+                'install_barangay' => SorsogonBarangays::canonical($town, $request->input('location.barangay')),
+                'install_municipality' => $town,
+                'install_province' => SorsogonBarangays::PROVINCE,
                 // Line breaks are kept; only leading/trailing space is removed
                 'site_description' => trim((string) $request->input('site_description')) ?: null,
             ]);

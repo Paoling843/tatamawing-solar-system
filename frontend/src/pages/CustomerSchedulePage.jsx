@@ -4,7 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, typography, radii } from '../styles/theme';
+import { colors, radii, pageHero, pageHeroSubtitle, pageHeroTitle } from '../styles/theme';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, WrenchIcon } from '../components/Icons';
 
 // Colours and icon of the status box, per tone from getInstallStatus()
@@ -141,11 +141,14 @@ export default function CustomerSchedulePage() {
 
     return (
         <CustomerLayout active="Installation Schedule">
-            <div className="m-pad" style={styles.card}>
-                <h1 style={styles.pageTitle}>Installation Schedule</h1>
-                <p style={styles.pageSubtitle}>
+            <div style={pageHero}>
+                <h1 style={pageHeroTitle}>Installation Schedule</h1>
+                <p style={pageHeroSubtitle}>
                     View your upcoming and completed solar installations.
                 </p>
+            </div>
+
+            <div className="m-pad" style={styles.card}>
 
                 {/* Show error message if fetch failed */}
                 {error && <div style={styles.error}>{error}</div>}
@@ -328,19 +331,9 @@ export default function CustomerSchedulePage() {
 const styles = {
     card: {
         backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
+        borderRadius: '16px',
+        border: '1px solid #e3e8e2',
         padding: '1.5rem 2rem 2rem',
-    },
-    pageTitle: {
-        ...typography.h1,
-        marginBottom: '0.25rem',
-    },
-    pageSubtitle: {
-        ...typography.body,
-        color: colors.textMuted,
-        marginBottom: '1.5rem',
     },
     error: {
         backgroundColor: '#fef2f2',
@@ -386,13 +379,13 @@ const styles = {
     },
     th: {
         textAlign: 'left',
-        fontSize: '0.75rem',
+        fontSize: '12px',
         fontWeight: '600',
-        color: '#6b7280',
+        color: '#cfe0d6',
+        backgroundColor: '#0f3b2c',
         textTransform: 'uppercase',
-        letterSpacing: '0.03em',
-        padding: '0.75rem 0.5rem',
-        borderBottom: '1px solid #f3f4f6',
+        letterSpacing: '0.12em',
+        padding: '0.75rem',
     },
     tr: {
         borderBottom: '1px solid #f3f4f6',

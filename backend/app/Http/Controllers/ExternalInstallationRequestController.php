@@ -11,7 +11,7 @@ use App\Models\ExternalInstallationRequest;
 use App\Models\InstallationSchedule;
 use App\Services\AuditLogger;
 use App\Services\Notifier;
-use App\Support\BulanBarangays;
+use App\Support\SorsogonBarangays;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -23,22 +23,23 @@ class ExternalInstallationRequestController extends Controller
     {
         // Same location inputs as the quote builder; the barangay is saved
         // with its official spelling and `address` is built from the parts
-        $barangay = BulanBarangays::canonical($request->barangay);
+        $town = SorsogonBarangays::canonicalTown($request->municipality);
+        $barangay = SorsogonBarangays::canonical($town, $request->barangay);
         $purok = $request->purok ?: null;
 
         $file = $request->file('quotation_file');
 
         // The request and its file are saved together, or not at all
-        $requestRecord = DB::transaction(function () use ($request, $barangay, $purok, $file) {
+        $requestRecord = DB::transaction(function () use ($request, $town, $barangay, $purok, $file) {
             $record = ExternalInstallationRequest::create([
                 'name' => trim($request->name),
                 'email' => strtolower(trim($request->email)),
                 'phone' => preg_replace('/\s+/', '', trim($request->phone)),
-                'address' => collect([$purok, "Brgy. {$barangay}", BulanBarangays::MUNICIPALITY, BulanBarangays::PROVINCE])->filter()->implode(', '),
+                'address' => collect([$purok, "Brgy. {$barangay}", $town, SorsogonBarangays::PROVINCE])->filter()->implode(', '),
                 'install_purok' => $purok,
                 'install_barangay' => $barangay,
-                'install_municipality' => BulanBarangays::MUNICIPALITY,
-                'install_province' => BulanBarangays::PROVINCE,
+                'install_municipality' => $town,
+                'install_province' => SorsogonBarangays::PROVINCE,
                 'site_description' => trim((string) $request->site_description) ?: null,
                 'preferred_installation_date' => $request->preferred_installation_date,
                 'other_company_name' => trim($request->other_company_name),

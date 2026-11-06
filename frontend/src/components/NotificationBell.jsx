@@ -50,7 +50,8 @@ function timeAgo(date) {
     return new Date(date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
 
-export default function NotificationBell({ iconColor = adminTokens.muted }) {
+// buttonStyle: extra look for the bell button (the customer's round one)
+export default function NotificationBell({ iconColor = adminTokens.muted, buttonStyle }) {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState([]);
@@ -131,7 +132,7 @@ export default function NotificationBell({ iconColor = adminTokens.muted }) {
             <button
                 type="button"
                 onClick={toggle}
-                style={styles.bellBtn}
+                style={{ ...styles.bellBtn, ...buttonStyle }}
                 aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
                 aria-expanded={open}
                 aria-haspopup="dialog"

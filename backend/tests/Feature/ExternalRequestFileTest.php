@@ -30,6 +30,7 @@ class ExternalRequestFileTest extends TestCase
             'name' => 'Ana Cruz',
             'email' => 'ana.cruz@gmail.com',
             'phone' => '09171234567',
+            'municipality' => 'Bulan',
             'barangay' => 'Gate',
             'preferred_installation_date' => now()->addWeek()->toDateString(),
             'other_company_name' => 'Other Solar Co.',

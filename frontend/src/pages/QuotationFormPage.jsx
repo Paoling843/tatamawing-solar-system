@@ -5,7 +5,7 @@ import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { trackStep, trackRequested, getQuoteSessionId, endQuoteSession } from '../services/quoteTracker';
 import { loadDraft, saveDraft, clearDraft } from '../services/quoteDraft';
-import { EMPTY_LOCATION, isLocationComplete, locationPayload } from '../services/installLocation';
+import { EMPTY_LOCATION, changeTown, isLocationComplete, locationPayload } from '../services/installLocation';
 import {
     computeLoad, resolveSelection, buildQuote, computeSavings, isRowComplete, prevMonth, buildSubmitPayload,
     recommendPackageIndex, recommendBatteryIndex, panelsForInverterSize,
@@ -226,7 +226,9 @@ export default function QuotationFormPage({ embedded = false }) {
     };
 
     // ----- Installation location (LocationDialog) -----
-    const handleLocationChange = (key, value) => setLocation((prev) => ({ ...prev, [key]: value }));
+    const handleLocationChange = (key, value) => setLocation((prev) => (
+        key === 'municipality' ? changeTown(prev, value) : { ...prev, [key]: value }
+    ));
 
     const handleTouch = (id, key) => {
         setTouched((prev) => ({ ...prev, [`${id}:${key}`]: true }));

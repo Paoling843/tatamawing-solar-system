@@ -8,16 +8,19 @@ export default function Badge({ status, label }) {
 
     return (
         <span style={{
-            display: 'inline-block',
-            padding: '3px 10px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
             borderRadius: '999px',
-            fontSize: '12px',
-            fontWeight: 600,
+            fontSize: '13px',
+            fontWeight: 700,
             whiteSpace: 'nowrap',
             backgroundColor: bg,
             color: text,
             border: `1px solid ${border}`,
         }}>
+            <span aria-hidden="true" style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, backgroundColor: text }} />
             {label || (status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : '')}
         </span>
     );

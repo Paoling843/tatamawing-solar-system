@@ -6,7 +6,8 @@ import {
     HelpIcon, DownloadIcon,
     PlusIcon, MenuIcon,
 } from './Icons';
-import { colors } from '../styles/theme';
+import { colors, roundBell } from '../styles/theme';
+import { C } from '../pages/quote-builder/engineStyles';
 import SupportMessagePanel from './SupportMessagePanel';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
@@ -51,23 +52,22 @@ return (
 
         <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
             <button style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
-                <BrandLogo size={40} fontSize={15} textClassName="sidebar-label" />
+                <BrandLogo size={40} fontSize={17} textClassName="sidebar-label" light />
             </button>
 
             <nav style={styles.nav}>
                 {navItems.map((item) => (
                     <button
                         key={item.label}
+                        className="admin-nav-item"
                         onClick={() => handleNavigate(item.path)}
+                        aria-current={active === item.label ? 'page' : undefined}
                         style={{
                             ...styles.navItem,
                             ...(active === item.label ? styles.navItemActive : {}),
                         }}
                     >
-                        <span style={{
-                            ...styles.navIcon,
-                            color: active === item.label ? colors.primary : colors.textMuted,
-                        }}>
+                        <span style={styles.navIcon}>
                             {item.icon}
                         </span>
                         <span className="sidebar-label">{item.label}</span>
@@ -81,7 +81,7 @@ return (
                     className="btn-primary"
                     style={styles.newProjectBtn}
                 >
-                    <PlusIcon size={14} color="white" />
+                    <PlusIcon size={16} color={SUN_TEXT} />
                     <span className="sidebar-label">New Quotation</span>
                 </button>
             </div>
@@ -102,14 +102,14 @@ return (
                 <div style={styles.topBarRight}>
                     <SupportMessagePanel />
 
-                    <NotificationBell iconColor={colors.textMuted} />
+                    <NotificationBell iconColor={SUN_TEXT} buttonStyle={roundBell} />
 
                     {/* My Profile and Log out */}
                     <AccountMenu
                         user={user}
                         onProfile={() => navigate('/customer/profile')}
                         onLogout={() => setConfirmLogout(true)}
-                        avatarColors={{ bg: colors.primary, text: '#fff' }}
+                        avatarColors={{ bg: SUN_TEXT, text: C.yellow }}
                     />
                 </div>
             </div>
@@ -133,24 +133,27 @@ return (
 );
 }
 
+// Brand green: the sidebar's background, and the text on yellow
+const SUN_TEXT = '#0f3b2c';
+
 const styles = {
     wrapper: {
         display: 'flex',
         minHeight: '100vh',
-        backgroundColor: colors.bgPage,
+        backgroundColor: '#f4f6f2',
         width: '100%',
     },
     sidebar: {
         minHeight: '100vh',
-        backgroundColor: colors.bgCard,
-        borderRight: `1px solid ${colors.border}`,
+        backgroundColor: SUN_TEXT,
+        color: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
         left: 0,
         top: 0,
         bottom: 0,
-        padding: '1rem 0',
+        padding: '1.5rem 0',
     },
     sidebarLogo: {
         display: 'flex',
@@ -177,18 +180,17 @@ const styles = {
         borderRadius: '8px',
         border: 'none',
         backgroundColor: 'transparent',
-        color: colors.textMuted,
+        color: '#dce8e1',
         fontSize: '0.875rem',
+        fontFamily: 'inherit',
         cursor: 'pointer',
         textAlign: 'left',
         width: '100%',
     },
     navItemActive: {
-        backgroundColor: colors.primaryTint,
-        color: colors.primary,
-        fontWeight: '600',
-        borderLeft: `3px solid ${colors.primary}`,
-        paddingLeft: 'calc(0.75rem - 3px)',
+        backgroundColor: C.yellow,
+        color: SUN_TEXT,
+        fontWeight: '700',
     },
     navIcon: {
         display: 'flex',
@@ -199,20 +201,18 @@ const styles = {
     },
     sidebarBottom: {
         padding: '0 0.75rem',
-        borderTop: `1px solid ${colors.border}`,
-        paddingTop: '1rem',
         marginTop: '0.5rem',
     },
     newProjectBtn: {
         width: '100%',
-        padding: '0.75rem',
-        backgroundColor: colors.primary,
-        color: 'white',
+        padding: '0.9rem 0.75rem',
+        backgroundColor: C.yellow,
+        color: SUN_TEXT,
         border: 'none',
         borderRadius: '10px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        marginBottom: '0.5rem',
+        fontSize: '15px',
+        fontWeight: '700',
+        fontFamily: 'inherit',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -226,13 +226,13 @@ const styles = {
         minHeight: '100vh',
     },
     topBar: {
-        height: '56px',
+        height: '68px',
         backgroundColor: colors.bgCard,
-        borderBottom: `1px solid ${colors.border}`,
+        borderBottom: '1px solid #e3e8e2',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 1.5rem',
+        padding: '0 2rem',
         position: 'sticky',
         top: 0,
         zIndex: 50,
@@ -258,7 +258,7 @@ const styles = {
     },
     main: {
         flex: 1,
-        padding: '1.5rem',
+        padding: '1.75rem 2rem 2.5rem',
         overflowY: 'auto',
     },
 };

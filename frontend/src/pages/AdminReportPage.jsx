@@ -477,7 +477,7 @@ function ReviewQueueCard({ queue }) {
 function SectionTitle({ title, sub }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c', ...adminUi.titleMarker }}>{title}</h2>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c' }}>{title}</h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#4f5a54', lineHeight: 1.45, paddingLeft: '13px' }}>{sub}</p>
         </div>
     );
@@ -524,7 +524,7 @@ const styles = {
         display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1240px', color: '#16211c',
         fontVariantNumeric: 'tabular-nums',
     },
-    headerRow: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px' },
+    headerRow: { ...adminUi.hero, marginBottom: 0, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' },
     title: adminText.pageTitle,
     subtitle: { ...adminText.pageSubtitle, margin: 0 },
     rangeGroup: { display: 'flex', flexWrap: 'wrap', maxWidth: '100%', background: '#FFFFFF', border: '1px solid #dcdfd8', borderRadius: '10px', padding: '3px', gap: '2px' },
@@ -534,8 +534,8 @@ const styles = {
     },
     rangeBtnActive: { background: ACCENT, color: '#FFFFFF', fontWeight: 600 },
     primaryBtn: {
-        height: '44px', padding: '0 18px', borderRadius: '10px', border: 'none', background: ACCENT,
-        fontSize: '15px', fontWeight: 600, color: '#FFFFFF', cursor: 'pointer', fontFamily: 'inherit',
+        height: '44px', padding: '0 18px', borderRadius: '10px', border: 'none', background: '#f4c542',
+        fontSize: '15px', fontWeight: 700, color: '#0f3b2c', cursor: 'pointer', fontFamily: 'inherit',
     },
     secondaryBtn: {
         padding: '0 16px', borderRadius: '10px', border: '1px solid #dcdfd8', background: '#FFFFFF',
