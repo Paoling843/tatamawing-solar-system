@@ -1,3 +1,5 @@
+import { pageHero, pageHeroSubtitle, pageHeroTitle } from './theme';
+
 export const adminTokens = {
     green: '#0f3b2c',
     greenHover: '#0b2e22',
@@ -7,9 +9,9 @@ export const adminTokens = {
     body: '#293530',
     muted: '#5d6862',   // 5.8:1 on white
     faint: '#646e68',   // 5.3:1 on white — the lightest grey for text
-    page: '#f6f7f4',
+    page: '#f4f6f2',
     surface: '#ffffff',
-    border: '#e6e8e2',
+    border: '#e3e8e2',
     hairline: '#eef0ec',
     hairline2: '#f1f3ef',
     danger: '#c0392b',
@@ -17,21 +19,10 @@ export const adminTokens = {
     // One font for everything; numbers use tabular-nums so columns line up
 };
 
-// Shared text styles, so every admin page heading looks the same
+// Shared heading styles, for the green banner at the top of every admin page
 export const adminText = {
-    pageTitle: {
-        // Shrinks on phones so long page titles don't push the header wider than the screen
-        fontSize: 'clamp(22px, 6vw, 30px)',
-        fontWeight: 800,
-        letterSpacing: '-.03em',
-        color: adminTokens.ink,
-        margin: 0,
-    },
-    pageSubtitle: {
-        fontSize: '14px',
-        color: adminTokens.muted,
-        margin: '6px 0 0',
-    },
+    pageTitle: pageHeroTitle,
+    pageSubtitle: pageHeroSubtitle,
 };
 
 // Shared blocks used on several admin pages
@@ -46,12 +37,11 @@ export const adminUi = {
         fontSize: '14px',
     },
 
-    // Brand-green accents, matching the green sidebar. Spread into a page's
-    // own styles, e.g. tableHeader: { ...base, ...adminUi.tableHead }.
-    // Thin green line along the top of a main section card
-    cardAccent: { borderTop: `3px solid ${adminTokens.green}` },
-    // Table header rows: light green band with green labels (11:1 contrast)
-    tableHead: { backgroundColor: '#eef4f0', color: adminTokens.green, borderRadius: '8px' },
-    // Small green marker in front of a section title
-    titleMarker: { borderLeft: `3px solid ${adminTokens.green}`, paddingLeft: '10px' },
+    // Spread into a page's own styles, e.g. tableHeader: { ...base, ...adminUi.tableHead }.
+    // A main section card
+    cardAccent: { border: `1px solid ${adminTokens.border}`, borderRadius: '16px' },
+    // Table header rows: dark green band with light labels
+    tableHead: { backgroundColor: adminTokens.green, color: '#cfe0d6', borderRadius: '8px' },
+    // The green banner at the top of a page
+    hero: pageHero,
 };

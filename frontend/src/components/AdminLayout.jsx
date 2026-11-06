@@ -11,7 +11,8 @@ import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
 import AccountMenu from './AccountMenu';
 import { readSeenCounts, writeSeenCounts } from '../utils/adminSeen';
-import { adminTokens, adminText } from '../styles/adminTheme';
+import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import { roundBell } from '../styles/theme';
 
 // Sidebar on the brand green, with the brand yellow for the current page
 const SIDE = {
@@ -174,7 +175,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
 
                 <button style={styles.brandBtn} onClick={() => handleNavigate('/admin/dashboard')} aria-label="Go to dashboard">
-                    <BrandLogo size={40} fontSize={15} tag="Admin" textClassName="sidebar-label" light />
+                    <BrandLogo size={40} fontSize={17} tag="Admin" textClassName="sidebar-label" light />
                 </button>
 
                 <nav style={styles.nav}>
@@ -257,7 +258,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                     <div style={styles.topBarRight}>
                         <span className="m-hide" style={styles.today}>{today}</span>
 
-                        <NotificationBell iconColor={adminTokens.muted} />
+                        <NotificationBell iconColor={adminTokens.green} buttonStyle={roundBell} />
 
                         {actions}
 
@@ -453,7 +454,7 @@ const styles = {
         minHeight: '100vh',
     },
     topBar: {
-        minHeight: '56px',
+        minHeight: '68px',
         backgroundColor: adminTokens.surface,
         borderBottom: `1px solid ${adminTokens.border}`,
         display: 'flex',
@@ -519,9 +520,7 @@ const styles = {
         overflowY: 'auto',
         fontFamily: adminTokens.fontUI,
     },
-    pageHeading: {
-        marginBottom: '16px',
-    },
+    pageHeading: adminUi.hero,
     pageTitle: adminText.pageTitle,
     pageSubtitle: adminText.pageSubtitle,
 };

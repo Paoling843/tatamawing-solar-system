@@ -1294,6 +1294,7 @@ const styles = {
         lineHeight: 1,
     },
     titleRow: {
+        ...adminUi.hero,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1436,7 +1437,6 @@ const styles = {
         letterSpacing: '-0.01em',
         color: adminTokens.ink,
         margin: '0 0 1.125rem 0',
-        ...adminUi.titleMarker,
     },
     cardDesc: {
         margin: '0 0 1rem',

@@ -243,12 +243,12 @@ nav[aria-label="Breadcrumb"] a:hover {
 /* ---------- Customer "Chat with us" button (SupportMessagePanel) ---------- */
 /* Background lives here (not inline) so the hover colour can apply */
 .chat-with-us {
-    background: #1f4d3a;
+    background: #f4c542;
     transition: background 0.15s ease;
 }
 .chat-with-us:hover,
 .chat-with-us:focus-visible {
-    background: #163a2b;
+    background: #e9b92f;
 }
 @media (max-width: 640px) {
     .chat-with-us {
@@ -370,7 +370,7 @@ nav[aria-label="Breadcrumb"] a:hover {
 }
 .mq-row-toggle:hover .qd-view,
 .mq-row-toggle:focus-visible .qd-view {
-    background-color: #1a4a3a !important;
+    background-color: #0f3b2c !important;
     color: #fff !important;
 }
 .mq-row-toggle:hover .qd-view svg,

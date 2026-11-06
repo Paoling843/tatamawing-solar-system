@@ -473,13 +473,11 @@ const styles = {
     page: { maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '24px' },
 
     // Header banner
-    // Deep green with a faint warm light in the top-right corner
     hero: {
-        background: `radial-gradient(circle at 100% 0%, rgba(242,194,48,.13), transparent 42%), linear-gradient(135deg, #154533 0%, ${C.green} 55%, ${C.greenDark} 100%)`,
-        borderRadius: '16px',
+        background: '#0f3b2c',
+        borderRadius: '18px',
         overflow: 'hidden',
         color: '#fff',
-        boxShadow: '0 10px 30px rgba(12,44,32,.18)',
     },
     heroTop: { display: 'flex', alignItems: 'center', gap: '20px', padding: '28px 32px' },
     avatar: {

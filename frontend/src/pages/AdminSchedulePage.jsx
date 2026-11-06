@@ -20,7 +20,7 @@ import ScheduleModal from '../components/ScheduleModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
+import { colors, statusColors, smallGreenButton, sunButton, whiteButton } from '../styles/theme';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { formatPeso } from '../utils/quotationDisplay';
 import { formatPhone } from '../utils/phone';
@@ -434,7 +434,7 @@ export default function AdminSchedulePage() {
                     </p>
                 </div>
                 <button className="btn-primary" style={styles.newScheduleBtn} onClick={openCreateModal}>
-                    <PlusIcon size={14} color="white" />
+                    <PlusIcon size={14} color={adminTokens.green} />
                     <span>New Schedule</span>
                 </button>
             </div>
@@ -848,29 +848,16 @@ export default function AdminSchedulePage() {
 const styles = {
     modalError: { ...adminUi.errorBanner, margin: '0 1.25rem 0.75rem' },
     pageHeader: {
+        ...adminUi.hero,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         flexWrap: 'wrap',
         gap: '0.75rem',
     },
-    newScheduleBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        backgroundColor: adminTokens.green,
-        color: 'white',
-        border: 'none',
-        minHeight: '40px',
-        padding: '0.65rem 1.1rem',
-        borderRadius: '9px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        whiteSpace: 'nowrap',
-        boxShadow: '0 2px 6px rgba(15,59,44,.14)',
-    },
+    newScheduleBtn: sunButton,
     pageTitle: adminText.pageTitle,
-    pageSubtitle: { ...adminText.pageSubtitle, marginBottom: '1.5rem' },
+    pageSubtitle: adminText.pageSubtitle,
     success: {
         backgroundColor: colors.successTint,
         color: colors.success,
@@ -1150,8 +1137,6 @@ const styles = {
         textTransform: 'uppercase',
         color: adminTokens.green,
         marginBottom: '0.5rem',
-        ...adminUi.titleMarker,
-        paddingLeft: '8px',
     },
     selectedDateLabel: {
         fontSize: '1.05rem',

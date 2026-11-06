@@ -1,22 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { officialBarangay, suggestBarangays } from '../services/installLocation';
 
-// Bulan barangay box: type, and pick from suggestions that narrow as you
-// type. Used by the quote builder's location card and the external
+// Barangay box: type, and pick from the chosen town's barangays, which narrow
+// as you type. Used by the quote builder's location card and the external
 // installation request form, so both behave the same.
+//   municipality  the chosen town; the box is locked until there is one
 //   value      what's typed
 //   onChange   (text) — every keystroke, and the official name once picked
 //   onDone     () — the field was left or a suggestion picked (for "Required" messages)
 //   inputStyle the page's own input style (border turns red via `invalid` there)
 //   colors     { text, muted, border, active } for the suggestion list
 // Keyboard: ↓ / ↑ move through the suggestions, Enter picks, Esc closes.
-export default function BarangayInput({ id, value, onChange, onDone, inputStyle, colors }) {
+export default function BarangayInput({ id, municipality, value, onChange, onDone, inputStyle, colors }) {
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(0);
     const listId = useId();
     const listRef = useRef(null);
 
-    const matches = suggestBarangays(value);
+    const matches = suggestBarangays(municipality, value);
     const activeIndex = Math.min(active, Math.max(matches.length - 1, 0));
 
     // Keep the highlighted suggestion visible while using the arrow keys
@@ -51,7 +52,7 @@ export default function BarangayInput({ id, value, onChange, onDone, inputStyle,
     // turned into its official spelling
     const onBlur = () => {
         setOpen(false);
-        const official = officialBarangay(value);
+        const official = officialBarangay(municipality, value);
         if (official && official !== value) onChange(official);
         onDone?.();
     };
@@ -84,7 +85,8 @@ export default function BarangayInput({ id, value, onChange, onDone, inputStyle,
                 onFocus={() => setOpen(true)}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
-                placeholder="Start typing, e.g. Bical"
+                disabled={!municipality}
+                placeholder={municipality ? `Start typing, e.g. ${suggestBarangays(municipality, '')[0]}` : 'Choose a town first'}
                 autoComplete="off"
                 maxLength={120}
                 style={inputStyle}
@@ -94,7 +96,7 @@ export default function BarangayInput({ id, value, onChange, onDone, inputStyle,
                 <ul id={listId} role="listbox" ref={listRef} style={listStyle}>
                     {matches.length === 0 ? (
                         <li style={{ ...optionStyle, color: colors.muted, cursor: 'default' }}>
-                            No barangay in Bulan matches “{value.trim()}”
+                            No barangay in {municipality} matches “{value.trim()}”
                         </li>
                     ) : (
                         matches.map((name, i) => (

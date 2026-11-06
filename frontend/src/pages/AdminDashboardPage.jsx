@@ -373,26 +373,26 @@ export default function AdminDashboardPage() {
                             label="TOTAL REQUESTS"
                             value={totalCount.toLocaleString()}
                             note="Across Sorsogon"
-                            barColor={adminTokens.gold}
+                            tone="#1d6b4f"
                         />
                         <MetricCard
                             label="APPROVED PROJECTS"
                             value={approvedCount.toLocaleString()}
                             note="Ready for installation"
-                            barColor="#2f8f5b"
+                            tone="#17663f"
                         />
                         <MetricCard
                             label="PENDING REVIEW"
                             value={pendingCount.toLocaleString()}
                             note={`Oldest waiting ${oldestPendingDays}d`}
-                            barColor="#8a6a12"
+                            tone="#a15c07"
                         />
                         <MetricCard
                             label="CONTRACTED VALUE"
                             value={`₱${contractedValueM}`}
                             unit="M"
                             note={`Average quote ${formatCurrency(avgQuote)}`}
-                            barColor={adminTokens.green}
+                            solid
                         />
                     </div>
 
@@ -978,15 +978,16 @@ export default function AdminDashboardPage() {
     );
 }
 
-function MetricCard({ label, value, unit, note, barColor }) {
+function MetricCard({ label, value, unit, note, tone, solid }) {
+    const onGreen = solid ? { color: '#cfe0d6' } : {};
     return (
-        <div style={{ ...styles.metricCard, borderTop: `3px solid ${barColor}` }}>
-            <div style={styles.metricLabel}>{label}</div>
+        <div style={{ ...styles.metricCard, ...(solid ? { backgroundColor: adminTokens.green, borderColor: adminTokens.green } : {}) }}>
+            <div style={{ ...styles.metricLabel, ...onGreen }}>{label}</div>
             <div style={styles.metricValueRow}>
-                <span style={styles.metricValue}>{value}</span>
-                {unit && <span style={styles.metricUnit}>{unit}</span>}
+                <span style={{ ...styles.metricValue, color: solid ? '#ffffff' : tone }}>{value}</span>
+                {unit && <span style={{ ...styles.metricUnit, ...(solid ? { color: '#ffffff' } : {}) }}>{unit}</span>}
             </div>
-            <div style={styles.metricNote}>{note}</div>
+            <div style={{ ...styles.metricNote, ...onGreen }}>{note}</div>
         </div>
     );
 }
@@ -1037,23 +1038,21 @@ const styles = {
     metricCard: {
         backgroundColor: adminTokens.surface,
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '13px',
-        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
-        padding: '16px 18px',
+        borderRadius: '16px',
+        padding: '1.5rem',
+        minWidth: 0,
     },
     metricLabel: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: adminTokens.faint,
-        marginBottom: '10px',
+        fontSize: '12.5px',
+        fontWeight: 600,
+        letterSpacing: '.1em',
+        color: '#3d4d45',
+        marginBottom: '14px',
     },
     metricValueRow: { display: 'flex', alignItems: 'baseline', gap: '4px' },
-    metricValue: { fontSize: '30px', fontWeight: 800, color: adminTokens.ink, lineHeight: 1 },
+    metricValue: { fontSize: 'clamp(28px, 6vw, 38px)', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' },
     metricUnit: { fontSize: '14px', fontWeight: 600, color: adminTokens.muted },
-    metricNote: { fontSize: '12.5px', color: adminTokens.muted, marginTop: '8px' },
+    metricNote: { fontSize: '14px', color: '#5a6a62', marginTop: '14px' },
 
     twoColGrid: {
         display: 'grid',
@@ -1064,12 +1063,12 @@ const styles = {
     card: {
         backgroundColor: adminTokens.surface,
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '13px',
+        borderRadius: '16px',
         boxShadow: '0 1px 2px rgba(16,33,26,.04)',
         padding: '20px',
         ...adminUi.cardAccent,
     },
-    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0, ...adminUi.titleMarker },
+    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0 },
     cardSubtitle: { fontSize: '12.5px', color: adminTokens.muted, margin: '2px 0 0' },
 
     queueHeader: {
@@ -1248,31 +1247,32 @@ const styles = {
     },
     segmented: {
         display: 'flex',
-        gap: '2px',
-        backgroundColor: '#f2f4f0',
+        flexWrap: 'wrap',
+        gap: '4px',
+        backgroundColor: '#eef2ec',
         padding: '4px',
-        borderRadius: '10px',
+        borderRadius: '12px',
     },
     segmentBtn: {
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
-        padding: '6px 12px',
+        minHeight: '38px',
+        padding: '0 0.875rem',
         border: 'none',
-        borderRadius: '8px',
+        borderRadius: '9px',
         backgroundColor: 'transparent',
-        color: adminTokens.muted,
-        fontSize: '12.5px',
+        color: '#4a5a52',
+        fontSize: '14px',
         fontWeight: 600,
         cursor: 'pointer',
         fontFamily: adminTokens.fontUI,
     },
     segmentBtnActive: {
-        backgroundColor: '#fff',
-        color: adminTokens.ink,
-        boxShadow: '0 1px 3px rgba(16,33,26,.12)',
+        backgroundColor: adminTokens.green,
+        color: '#ffffff',
     },
-    segmentCount: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10.5px', color: adminTokens.faint },
+    segmentCount: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12px', opacity: 0.8 },
 
     error: adminUi.errorBanner,
 
@@ -1387,16 +1387,16 @@ const styles = {
         cursor: 'pointer',
         padding: 0,
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 500,
+        fontSize: '12px',
+        fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '.08em',
-        color: adminTokens.green,
+        letterSpacing: '.12em',
+        color: '#cfe0d6',
         display: 'flex',
         alignItems: 'center',
         gap: '4px',
     },
-    sortArrow: { color: adminTokens.green, fontSize: '10px' },
+    sortArrow: { color: adminTokens.gold, fontSize: '11px' },
     tableHeaderRow: {
         display: 'grid',
         gap: '12px',

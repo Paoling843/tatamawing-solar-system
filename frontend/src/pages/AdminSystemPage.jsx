@@ -10,7 +10,7 @@ import { ClockIcon, UserIcon, TrashIcon } from '../components/Icons';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors } from '../styles/theme';
+import { colors, sunButton } from '../styles/theme';
 
 // Users: every account (customers and admins), newest first, from
 // GET /api/admin/users, creating and deleting accounts, and a link to the audit log.
@@ -252,26 +252,16 @@ export default function AdminSystemPage() {
 
 const styles = {
     pageHeader: {
+        ...adminUi.hero,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: '1.25rem',
+        alignItems: 'center',
         flexWrap: 'wrap',
         gap: '0.75rem 1rem',
     },
     pageTitle: adminText.pageTitle,
     pageSubtitle: { ...adminText.pageSubtitle, maxWidth: '500px' },
-    createUserBtn: {
-        padding: '0.625rem 1.25rem',
-        backgroundColor: '#0f3b2c',
-        color: 'white',
-        border: 'none',
-        borderRadius: '999px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-        flexShrink: 0,
-    },
+    createUserBtn: sunButton,
     error: adminUi.errorBanner,
     success: {
         ...adminUi.errorBanner,
@@ -315,7 +305,6 @@ const styles = {
         fontWeight: '700',
         color: '#16211c',
         margin: '0 0 1rem 0',
-        ...adminUi.titleMarker,
     },
     usersTableHeader: {
         display: 'flex',
@@ -388,7 +377,6 @@ const styles = {
         fontWeight: '700',
         color: '#16211c',
         margin: 0,
-        ...adminUi.titleMarker,
     },
     auditIcon: {
         fontSize: '1rem',

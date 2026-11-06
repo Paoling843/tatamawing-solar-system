@@ -5,8 +5,8 @@ import { errorMessage, fieldErrors as readFieldErrors } from '../utils/errorMess
 import BarangayInput from '../components/BarangayInput';
 import { CalendarIcon, DocumentIcon, CheckCircleIcon } from '../components/Icons';
 import {
-    HOME_MUNICIPALITY, HOME_PROVINCE, SITE_DESCRIPTION_MAX,
-    barangayError, officialBarangay,
+    HOME_PROVINCE, SITE_DESCRIPTION_MAX, SORSOGON_TOWNS,
+    barangayError, changeTown, municipalityError, officialBarangay,
 } from '../services/installLocation';
 import { colors, typography, smallGreenButton } from '../styles/theme';
 
@@ -16,7 +16,8 @@ const EMPTY_FORM = {
     name: '',
     email: '',
     phone: '',
-    // Same location inputs as the quote builder (Bulan only for now)
+    // Same location inputs as the quote builder
+    municipality: '',
     barangay: '',
     purok: '',
     site_description: '',
@@ -36,7 +37,9 @@ export default function ExternalInstallationRequestPage() {
     const [submitting, setSubmitting] = useState(false);
     // Show the barangay's own message once the field was left or Submit pressed
     const [barangayTouched, setBarangayTouched] = useState(false);
-    const barangayMessage = fieldErrors.barangay || (barangayTouched ? barangayError(form) : null);
+    const barangayMessage = fieldErrors.barangay || (barangayTouched && form.municipality ? barangayError(form) : null);
+    const [townTouched, setTownTouched] = useState(false);
+    const townMessage = fieldErrors.municipality || (townTouched ? municipalityError(form) : null);
 
     const updateField = (field, value) => {
         setForm((previous) => ({ ...previous, [field]: value }));
@@ -47,6 +50,11 @@ export default function ExternalInstallationRequestPage() {
     const handleSubmit = async (event) => {
         event.preventDefault();
         setBarangayTouched(true);
+        setTownTouched(true);
+        if (municipalityError(form)) {
+            document.getElementById('ext-town')?.focus();
+            return;
+        }
         if (barangayError(form)) {
             document.getElementById('ext-barangay')?.focus();
             return;
@@ -62,7 +70,7 @@ export default function ExternalInstallationRequestPage() {
         const payload = new FormData();
         Object.entries({
             ...form,
-            barangay: officialBarangay(form.barangay),
+            barangay: officialBarangay(form.municipality, form.barangay),
             site_description: form.site_description.trim(),
             privacy_consent: form.privacy_consent ? '1' : '',
         })
@@ -77,6 +85,7 @@ export default function ExternalInstallationRequestPage() {
             setSuccess(response.data.request);
             setForm(EMPTY_FORM);
             setBarangayTouched(false);
+            setTownTouched(false);
         } catch (requestError) {
             setError(errorMessage(requestError, "We couldn't send your request. Please try again."));
             setFieldErrors(readFieldErrors(requestError));
@@ -136,13 +145,25 @@ export default function ExternalInstallationRequestPage() {
 
                     <div style={styles.sectionTitle}>Where will the system be installed?</div>
                     <div style={styles.grid}>
-                        <Field label="Municipality">
-                            {/* Fixed for now: installations are in Bulan only */}
-                            <div style={styles.fixedValue}>{HOME_MUNICIPALITY}, {HOME_PROVINCE}</div>
+                        <Field label={`Town / city in ${HOME_PROVINCE} *`} htmlFor="ext-town" error={townMessage}>
+                            <select
+                                id="ext-town"
+                                value={form.municipality}
+                                onChange={(event) => {
+                                    setForm((previous) => changeTown(previous, event.target.value));
+                                    setFieldErrors((previous) => ({ ...previous, municipality: null, barangay: null }));
+                                }}
+                                onBlur={() => setTownTouched(true)}
+                                style={{ ...styles.input, ...(townMessage ? styles.inputInvalid : {}) }}
+                            >
+                                <option value="">Choose a town</option>
+                                {SORSOGON_TOWNS.map((town) => <option key={town} value={town}>{town}</option>)}
+                            </select>
                         </Field>
                         <Field label="Barangay *" htmlFor="ext-barangay" error={barangayMessage}>
                             <BarangayInput
                                 id="ext-barangay"
+                                municipality={form.municipality}
                                 value={form.barangay}
                                 onChange={(value) => updateField('barangay', value)}
                                 onDone={() => setBarangayTouched(true)}
@@ -264,8 +285,8 @@ const styles = {
     },
     pageFooterLinks: { display: 'flex', gap: '18px', flexWrap: 'wrap' },
     pageFooterLink: { color: colors.primary, fontWeight: 600, textDecoration: 'none' },
-    page: { minHeight: '100vh', background: '#f6f7f4', padding: 'clamp(20px, 6vw, 48px) clamp(12px, 4vw, 20px)', fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif", color: colors.textDark },
-    card: { maxWidth: '780px', margin: '0 auto', padding: 'clamp(18px, 5vw, 36px)', background: 'white', border: '1px solid #e6e8e2', borderRadius: '14px', boxShadow: '0 12px 40px rgba(15,59,44,.08)' },
+    page: { minHeight: '100vh', background: '#f4f6f2', padding: 'clamp(20px, 6vw, 48px) clamp(12px, 4vw, 20px)', fontFamily: "'Source Sans 3', 'Segoe UI', Helvetica, Arial, sans-serif", color: colors.textDark },
+    card: { maxWidth: '780px', margin: '0 auto', padding: 'clamp(18px, 5vw, 36px)', background: 'white', border: '1px solid #e3e8e2', borderRadius: '14px', boxShadow: '0 12px 40px rgba(15,59,44,.08)' },
     eyebrow: { ...typography.label, marginTop: '32px', color: colors.primary },
     title: { ...typography.h1, margin: '10px 0 0' },
     subtitle: { ...typography.body, color: colors.textMuted, maxWidth: '620px', margin: '12px 0 28px' },
@@ -275,7 +296,6 @@ const styles = {
     label: { fontSize: '12px', fontWeight: 700, color: colors.textBody },
     input: { width: '100%', boxSizing: 'border-box', border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textDark, background: '#fff' },
     inputInvalid: { borderColor: colors.danger, background: colors.dangerTint },
-    fixedValue: { border: `1px solid ${colors.borderLight}`, background: colors.bgSubtle, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textBody },
     sectionTitle: { fontSize: '14px', fontWeight: 700, color: colors.textDark, marginTop: '6px', paddingTop: '18px', borderTop: `1px solid ${colors.borderLight}` },
     hint: { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '12px', color: colors.textMuted },
     textarea: { width: '100%', boxSizing: 'border-box', resize: 'vertical', border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '12px', fontSize: '14px', color: colors.textDark, fontFamily: 'inherit' },

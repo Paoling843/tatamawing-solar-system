@@ -180,10 +180,10 @@ export default function AdminAuditPage() {
 
 const styles = {
     pageHeader: {
+        ...adminUi.hero,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 24,
     },
     pageTitle: adminText.pageTitle,
     pageSubtitle: adminText.pageSubtitle,
@@ -215,7 +215,6 @@ const styles = {
         fontSize: 18,
         fontWeight: 700,
         color: '#16211c',
-        ...adminUi.titleMarker,
     },
     tableWrap: {
         display: 'flex',
