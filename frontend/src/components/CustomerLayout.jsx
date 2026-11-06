@@ -52,7 +52,7 @@ return (
 
         <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
             <button style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
-                <BrandLogo size={40} fontSize={17} textClassName="sidebar-label" light />
+                <BrandLogo size={40} fontSize={15} textClassName="sidebar-label" light />
             </button>
 
             <nav style={styles.nav}>
@@ -81,7 +81,7 @@ return (
                     className="btn-primary"
                     style={styles.newProjectBtn}
                 >
-                    <PlusIcon size={16} color={SUN_TEXT} />
+                    <PlusIcon size={14} color={SUN_TEXT} />
                     <span className="sidebar-label">New Quotation</span>
                 </button>
             </div>
@@ -190,7 +190,7 @@ const styles = {
     navItemActive: {
         backgroundColor: C.yellow,
         color: SUN_TEXT,
-        fontWeight: '700',
+        fontWeight: '600',
     },
     navIcon: {
         display: 'flex',
@@ -205,13 +205,13 @@ const styles = {
     },
     newProjectBtn: {
         width: '100%',
-        padding: '0.9rem 0.75rem',
+        padding: '0.75rem',
         backgroundColor: C.yellow,
         color: SUN_TEXT,
         border: 'none',
         borderRadius: '10px',
-        fontSize: '15px',
-        fontWeight: '700',
+        fontSize: '0.875rem',
+        fontWeight: '600',
         fontFamily: 'inherit',
         display: 'flex',
         alignItems: 'center',

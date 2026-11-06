@@ -64,14 +64,20 @@ export const pageHero = {
 export const pageHeroTitle = {
     margin: 0,
     // Shrinks on phones so long page titles don't push the banner wider than the screen
-    fontSize: 'clamp(26px, 6vw, 34px)',
+    fontSize: 'clamp(22px, 6vw, 30px)',
     fontWeight: 800,
     lineHeight: 1.2,
     color: '#ffffff',
 };
+// The customer pages' title size
+export const customerHeroTitle = {
+    ...pageHeroTitle,
+    fontSize: '1.75rem',
+    fontWeight: 700,
+};
 export const pageHeroSubtitle = {
-    margin: '8px 0 0',
-    fontSize: '16px',
+    margin: '6px 0 0',
+    fontSize: '14px',
     color: '#d3e2d9',
 };
 // Main button on the green banner
@@ -79,14 +85,14 @@ export const sunButton = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    minHeight: '44px',
-    padding: '0 1.25rem',
+    minHeight: '40px',
+    padding: '0 1.1rem',
     border: 'none',
     borderRadius: '10px',
     backgroundColor: '#f4c542',
     color: '#0f3b2c',
-    fontSize: '15px',
-    fontWeight: 700,
+    fontSize: '0.875rem',
+    fontWeight: 600,
     fontFamily: 'inherit',
     whiteSpace: 'nowrap',
     cursor: 'pointer',
