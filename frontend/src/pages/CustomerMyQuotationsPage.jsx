@@ -593,8 +593,8 @@ const styles = {
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
         gap: '20px',
     },
-    pageTitle: pageHeroTitle,
-    pageLead: pageHeroSubtitle,
+    pageTitle: { ...pageHeroTitle, fontSize: 'clamp(26px, 7vw, 32px)', fontWeight: 700, letterSpacing: '-0.02em' },
+    pageLead: { ...pageHeroSubtitle, fontSize: '15px' },
     filterTabs: {
         display: 'flex', flexWrap: 'wrap', gap: '4px', background: '#eef2ec',
         borderRadius: '12px', padding: '4px',
@@ -603,7 +603,7 @@ const styles = {
         border: 0, borderRadius: '9px', padding: '8px 14px', fontSize: '14px', cursor: 'pointer',
         display: 'flex', gap: '8px', alignItems: 'center', fontFamily: 'inherit',
         background: active ? '#0f3b2c' : 'transparent', color: active ? '#fff' : '#4a5a52',
-        fontWeight: 600,
+        fontWeight: active ? 600 : 500,
     }),
     tabCount: (active) => ({
         fontSize: '12px', padding: '1px 7px', borderRadius: '99px',

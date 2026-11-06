@@ -678,7 +678,7 @@ function SendGlyph() {
 const styles = {
     header: { ...adminUi.hero, display: 'flex', flexDirection: 'column', gap: '6px' },
     title: adminText.pageTitle,
-    summary: { fontSize: '15px', color: '#d3e2d9' },
+    summary: { fontSize: '13px', color: '#d3e2d9' },
 
     card: {
         display: 'grid',

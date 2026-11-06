@@ -4,7 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, radii, pageHero, pageHeroSubtitle, pageHeroTitle } from '../styles/theme';
+import { colors, radii, pageHero, pageHeroSubtitle, customerHeroTitle } from '../styles/theme';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, WrenchIcon } from '../components/Icons';
 
 // Colours and icon of the status box, per tone from getInstallStatus()
@@ -142,8 +142,8 @@ export default function CustomerSchedulePage() {
     return (
         <CustomerLayout active="Installation Schedule">
             <div style={pageHero}>
-                <h1 style={pageHeroTitle}>Installation Schedule</h1>
-                <p style={pageHeroSubtitle}>
+                <h1 style={customerHeroTitle}>Installation Schedule</h1>
+                <p style={{ ...pageHeroSubtitle, margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
                     View your upcoming and completed solar installations.
                 </p>
             </div>
@@ -379,12 +379,12 @@ const styles = {
     },
     th: {
         textAlign: 'left',
-        fontSize: '12px',
+        fontSize: '0.75rem',
         fontWeight: '600',
         color: '#cfe0d6',
         backgroundColor: '#0f3b2c',
         textTransform: 'uppercase',
-        letterSpacing: '0.12em',
+        letterSpacing: '0.03em',
         padding: '0.75rem',
     },
     tr: {

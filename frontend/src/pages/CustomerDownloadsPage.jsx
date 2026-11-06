@@ -4,7 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
-import { colors, pageHero, pageHeroTitle } from '../styles/theme';
+import { colors, pageHero, customerHeroTitle } from '../styles/theme';
 
 export default function CustomerDownloadsPage() {
     const navigate = useNavigate();
@@ -79,7 +79,7 @@ export default function CustomerDownloadsPage() {
         <CustomerLayout active="Downloads">
 
             <div style={pageHero}>
-                <h1 style={pageHeroTitle}>Downloads</h1>
+                <h1 style={customerHeroTitle}>Downloads</h1>
             </div>
 
             {error && <div style={styles.error}>{error}</div>}
@@ -184,12 +184,12 @@ const styles = {
     tableHeader: {
         display: 'flex',
         padding: '0.75rem 1.5rem',
-        fontSize: '12px',
+        fontSize: '0.7rem',
         color: '#cfe0d6',
         backgroundColor: '#0f3b2c',
         fontWeight: '600',
         textTransform: 'uppercase',
-        letterSpacing: '0.12em',
+        letterSpacing: '0.08em',
     },
     tableRow: {
         display: 'flex',

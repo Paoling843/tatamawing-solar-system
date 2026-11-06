@@ -535,7 +535,7 @@ const styles = {
     rangeBtnActive: { background: ACCENT, color: '#FFFFFF', fontWeight: 600 },
     primaryBtn: {
         height: '44px', padding: '0 18px', borderRadius: '10px', border: 'none', background: '#f4c542',
-        fontSize: '15px', fontWeight: 700, color: '#0f3b2c', cursor: 'pointer', fontFamily: 'inherit',
+        fontSize: '15px', fontWeight: 600, color: '#0f3b2c', cursor: 'pointer', fontFamily: 'inherit',
     },
     secondaryBtn: {
         padding: '0 16px', borderRadius: '10px', border: '1px solid #dcdfd8', background: '#FFFFFF',

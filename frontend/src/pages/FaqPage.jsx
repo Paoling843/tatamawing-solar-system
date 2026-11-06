@@ -4,7 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import { ChevronDownIcon } from '../components/Icons';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { pageHero, pageHeroTitle } from '../styles/theme';
+import { pageHero, customerHeroTitle } from '../styles/theme';
 
 export default function FaqPage() {
     const [faqs, setFaqs] = useState([]);
@@ -47,7 +47,7 @@ export default function FaqPage() {
     return (
         <CustomerLayout active="FAQs">
             <div style={pageHero}>
-                <h1 style={pageHeroTitle}>FAQs</h1>
+                <h1 style={customerHeroTitle}>FAQs</h1>
             </div>
 
             {error && <div style={styles.error}>{error}</div>}
