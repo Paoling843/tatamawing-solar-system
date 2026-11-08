@@ -5,7 +5,7 @@ import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { MessengerIcon } from './MessengerLinkCard';
-import logo from '../assets/logo2.jpg';
+import logo from '../assets/tatamawing-logo-transparent.png';
 
 // Customer's chat with TataMawing Support: a floating "Chat with us" button
 // (bottom-right) opens a panel that slides in from the right. Look from

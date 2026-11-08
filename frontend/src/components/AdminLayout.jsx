@@ -174,8 +174,8 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             />
             <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
 
-                <button style={styles.brandBtn} onClick={() => handleNavigate('/admin/dashboard')} aria-label="Go to dashboard">
-                    <BrandLogo size={40} fontSize={15} tag="Admin" textClassName="sidebar-label" light />
+                <button className="sidebar-brand" style={styles.brandBtn} onClick={() => handleNavigate('/admin/dashboard')} aria-label="Go to dashboard">
+                    <BrandLogo tag="Admin" textClassName="sidebar-label" light />
                 </button>
 
                 <nav style={styles.nav}>

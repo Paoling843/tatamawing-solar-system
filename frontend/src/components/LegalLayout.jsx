@@ -16,7 +16,7 @@ export default function LegalLayout({ title, updated, intro, children }) {
         <div style={styles.page}>
             <header style={styles.header}>
                 <Link to="/" style={styles.brand} aria-label="TataMawing Solar home">
-                    <BrandLogo size={36} fontSize={15} />
+                    <BrandLogo />
                 </Link>
                 <nav style={styles.nav}>
                     <Link to="/privacy" style={styles.navLink}>Privacy Policy</Link>

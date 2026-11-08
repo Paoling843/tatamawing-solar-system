@@ -102,6 +102,9 @@ export default function LandingFooter({ user, onStart }) {
                             </Link>
                         </li>
                         <li>
+                            <Link to="/faqs" className="se-footer-link" style={styles.link}>FAQs</Link>
+                        </li>
+                        <li>
                             {user ? (
                                 <Link to={dashboardPath} className="se-footer-link" style={styles.link}>My dashboard</Link>
                             ) : (

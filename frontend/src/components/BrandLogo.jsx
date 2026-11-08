@@ -1,46 +1,36 @@
-import logo from '../assets/logo2.jpg';
+import darkTextLogo from '../assets/tatamawing-logo-transparent.png';
+import whiteTextLogo from '../assets/tatamawing-logo-transparent-white-text.png';
 import { C } from '../pages/quote-builder/engineStyles';
 
-// The TataMawing Solar logo as it appears on the home page: the logo image
-// and "TataMawing Solar" with "Solar" in a lighter weight. Used by every
-// header and sidebar so the brand looks the same everywhere.
-//   size           logo height in px
-//   fontSize       wordmark size in px
-//   tag            small line under the name, e.g. "Admin"
-//   textClassName  e.g. "sidebar-label", so a collapsed sidebar hides the text
-//   light          white text, for dark green backgrounds (home page footer)
-export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName, light = false }) {
+// One height for every header and sidebar, so the logo is the same size
+// everywhere. It fits the 72px home page header and the 232px sidebar.
+const LOGO_HEIGHT = '52px';
+
+// The TataMawing Solar logo. The image already includes the business name.
+//   tag            small label next to the logo, e.g. "Admin"
+//   textClassName  e.g. "sidebar-label", so a collapsed sidebar hides the tag
+//   light          white-text logo, for dark green backgrounds
+export default function BrandLogo({ tag, textClassName, light = false }) {
     return (
         <span style={styles.wrap}>
-            {/* The logo is wide, so only its height is set */}
             <img
-                src={logo}
-                alt=""
+                src={light ? whiteTextLogo : darkTextLogo}
+                alt="TataMawing Solar"
                 className="brand-logo-image"
-                style={{ ...styles.image, height: `${size}px` }}
+                style={styles.image}
             />
-            <span className={textClassName} style={styles.text}>
-                <span style={{ ...styles.name, fontSize: `${fontSize}px`, color: light ? '#fff' : C.ink }}>
-                    TataMawing <span style={{ ...styles.solar, color: light ? C.onDarkMuted : C.muted }}>Solar</span>
+            {tag && (
+                <span className={textClassName} style={{ ...styles.tag, color: light ? C.onDarkMuted : C.muted }}>
+                    {tag}
                 </span>
-                {tag && <span style={{ ...styles.tag, color: light ? C.onDarkMuted : C.muted }}>{tag}</span>}
-            </span>
+            )}
         </span>
     );
 }
 
 const styles = {
     wrap: { display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 },
-    image: { display: 'block', flexShrink: 0, width: 'auto', borderRadius: '8px', objectFit: 'contain', backgroundColor: '#ffffff' },
-    text: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-    // Cut off with "…" rather than overlapping whatever sits next to it
-    name: {
-        fontWeight: 700, color: C.ink, letterSpacing: '-.015em', whiteSpace: 'nowrap', lineHeight: 1.2,
-        overflow: 'hidden', textOverflow: 'ellipsis',
-    },
-    solar: { color: C.muted, fontWeight: 600 },
-    tag: {
-        fontSize: '11.5px', fontWeight: 600, color: C.muted, letterSpacing: '.02em', marginTop: '2px',
-        whiteSpace: 'nowrap',
-    },
+    // The logo is wide, so only its height is set
+    image: { display: 'block', flexShrink: 0, height: LOGO_HEIGHT, width: 'auto' },
+    tag: { fontSize: '11.5px', fontWeight: 600, letterSpacing: '.02em', whiteSpace: 'nowrap' },
 };
