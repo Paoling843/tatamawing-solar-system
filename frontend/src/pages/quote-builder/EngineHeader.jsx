@@ -22,6 +22,12 @@ export default function EngineHeader({ screen, user, onLogoClick, onGetStarted }
             <div className="se-header-right" style={styles.right}>
                 {!onLanding && <EngineStepNav screen={screen} />}
 
+                {onLanding && (
+                    <Link to="/faqs" className="se-link" style={styles.dashboardLink}>
+                        FAQs
+                    </Link>
+                )}
+
                 {/* Guests on the landing page can log in to an existing account */}
                 {onLanding && !user && (
                     <Link to="/login" className="se-link" style={styles.dashboardLink}>

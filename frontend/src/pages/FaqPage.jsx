@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
+import FullPageMessage from '../components/FullPageMessage';
+import LoadingState from '../components/LoadingState';
 import { ChevronDownIcon } from '../components/Icons';
+import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { pageHero, customerHeroTitle } from '../styles/theme';
+import EngineHeader from './quote-builder/EngineHeader';
+import LandingFooter from './quote-builder/LandingFooter';
+import { C, s } from './quote-builder/engineStyles';
+import './quote-builder/engine.css';
 
+// FAQs (route: /faqs), open to everyone. Customers see it inside their
+// account layout; visitors see it with the home page's header and footer.
 export default function FaqPage() {
+    const { user, loading: authLoading } = useAuth();
+    const navigate = useNavigate();
     const [faqs, setFaqs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -35,6 +46,11 @@ export default function FaqPage() {
         Promise.resolve().then(fetchFaqs);
     }, [fetchFaqs]);
 
+    // Links here can be at the bottom of a long page (the home page footer)
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
     const handleClearSearch = () => {
         setSearchQuery('');
         fetchFaqs('');
@@ -44,18 +60,26 @@ export default function FaqPage() {
         setOpenFaqId(openFaqId === id ? null : id);
     };
 
-    return (
-        <CustomerLayout active="FAQs">
-            <div style={pageHero}>
-                <h1 style={customerHeroTitle}>FAQs</h1>
-            </div>
+    // A saved login is still being checked, so the right layout isn't known yet
+    if (authLoading) {
+        return (
+            <FullPageMessage>
+                <LoadingState label="Connecting to the server…" />
+            </FullPageMessage>
+        );
+    }
 
+    const isCustomer = user?.role === 'customer';
+    const answerStyle = isCustomer ? styles.answerText : { ...styles.answerText, color: C.muted };
+
+    const faqList = (
+        <>
             {error && <div style={styles.error}>{error}</div>}
 
             <div style={styles.faqContainer}>
                 {loading ? (
                     <div style={styles.loadingText}>Loading FAQs...</div>
-                ) : faqs.length === 0 ? (
+                ) : error ? null : faqs.length === 0 ? (
                     <div style={styles.emptyState}>
                         <p style={styles.emptyTitle}>No FAQs found</p>
                         {searchQuery && (
@@ -98,7 +122,7 @@ export default function FaqPage() {
 
                                 {isOpen && (
                                     <div style={styles.faqAnswer}>
-                                        <p style={styles.answerText}>
+                                        <p style={answerStyle}>
                                             {faq.answer}
                                         </p>
                                     </div>
@@ -108,6 +132,39 @@ export default function FaqPage() {
                     })
                 )}
             </div>
+        </>
+    );
+
+    if (!isCustomer) {
+        const getStarted = () => navigate('/quotation/new');
+
+        return (
+            <div className="se-root" style={s.page}>
+                <EngineHeader
+                    screen="landing"
+                    user={user}
+                    onLogoClick={() => navigate('/')}
+                    onGetStarted={getStarted}
+                />
+                <main className="se-page" style={styles.publicMain}>
+                    <h1 className="se-h1" style={s.h1}>Frequently asked questions</h1>
+                    <p style={{ ...s.lead, marginBottom: '28px' }}>
+                        Answers to common questions about going solar with TataMawing.
+                    </p>
+                    {faqList}
+                </main>
+                <LandingFooter user={user} onStart={getStarted} />
+            </div>
+        );
+    }
+
+    return (
+        <CustomerLayout active="FAQs">
+            <div style={pageHero}>
+                <h1 style={customerHeroTitle}>FAQs</h1>
+            </div>
+
+            {faqList}
 
             <div className="m-wrap" style={styles.footer}>
                 <div style={styles.footerLeft}>
@@ -125,6 +182,14 @@ export default function FaqPage() {
 }
 
 const styles = {
+    publicMain: {
+        width: '100%',
+        maxWidth: '860px',
+        margin: '0 auto',
+        padding: '48px 40px 72px',
+        boxSizing: 'border-box',
+        flex: 1,
+    },
     error: {
         backgroundColor: '#fef2f2',
         color: '#dc2626',

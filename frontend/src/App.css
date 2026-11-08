@@ -171,7 +171,8 @@ nav[aria-label="Breadcrumb"] a:hover {
 }
 /* The icon-only rail is narrower than the wide logo */
 @media (min-width: 641px) and (max-width: 1024px) {
-    .app-sidebar .brand-logo-image { width: 40px !important; }
+    .app-sidebar .sidebar-brand { padding-left: 8px !important; padding-right: 8px !important; }
+    .app-sidebar .brand-logo-image { width: 48px !important; height: auto !important; }
 }
 
 /* Mobile: off-canvas drawer behind a hamburger toggle */

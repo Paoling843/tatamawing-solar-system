@@ -51,8 +51,8 @@ return (
         />
 
         <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
-            <button style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
-                <BrandLogo size={40} fontSize={15} textClassName="sidebar-label" light />
+            <button className="sidebar-brand" style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
+                <BrandLogo light />
             </button>
 
             <nav style={styles.nav}>
