@@ -153,12 +153,16 @@ const styles = {
         left: 0,
         top: 0,
         bottom: 0,
-        padding: '1.5rem 0',
+        padding: '0 0 1.5rem',
     },
+    // Same height as the top bar, so the logo ends at the top bar's line
     sidebarLogo: {
         display: 'flex',
         alignItems: 'center',
-        padding: '0.25rem 0.75rem 1.25rem',
+        height: '68px',
+        flexShrink: 0,
+        padding: '0 0.75rem',
+        marginBottom: '1.25rem',
         border: 'none',
         background: 'transparent',
         cursor: 'pointer',
