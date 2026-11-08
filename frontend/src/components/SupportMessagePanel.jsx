@@ -5,7 +5,7 @@ import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { MessengerIcon } from './MessengerLinkCard';
-import logo from '../assets/logo.jpg';
+import logo from '../assets/logo2.jpg';
 
 // Customer's chat with TataMawing Support: a floating "Chat with us" button
 // (bottom-right) opens a panel that slides in from the right. Look from
@@ -482,7 +482,9 @@ const styles = {
         height: '100%',
         display: 'block',
         borderRadius: '50%',
-        objectFit: 'cover',
+        // Contain, not cover: the logo is wide and a circle would cut it off
+        objectFit: 'contain',
+        backgroundColor: '#ffffff',
     },
     onlineDot: {
         position: 'absolute',

@@ -59,7 +59,7 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
                 </div>
 
                 <div className="se-pad" style={styles.grid}>
-                    <Field label={`Town / city in ${HOME_PROVINCE}`} required htmlFor="loc-town" error={townMessage}>
+                    <Field label={`Municipality / city in ${HOME_PROVINCE}`} required htmlFor="loc-town" error={townMessage}>
                         <select
                             id="loc-town"
                             value={location.municipality}
@@ -69,7 +69,7 @@ export default function LocationDialog({ location, seen, submitting, error, onCh
                             aria-invalid={Boolean(townMessage)}
                             style={{ ...inputStyle(Boolean(townMessage)), cursor: 'pointer' }}
                         >
-                            <option value="">Choose a town</option>
+                            <option value="">Municipality</option>
                             {SORSOGON_TOWNS.map((town) => <option key={town} value={town}>{town}</option>)}
                         </select>
                     </Field>
