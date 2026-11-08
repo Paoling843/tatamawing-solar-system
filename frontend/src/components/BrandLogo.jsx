@@ -1,4 +1,4 @@
-import logo from '../assets/logo.jpg';
+import logo from '../assets/logo2.jpg';
 import { C } from '../pages/quote-builder/engineStyles';
 
 // The TataMawing Solar logo as it appears on the home page: the logo image
@@ -12,10 +12,12 @@ import { C } from '../pages/quote-builder/engineStyles';
 export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName, light = false }) {
     return (
         <span style={styles.wrap}>
+            {/* The logo is wide, so only its height is set */}
             <img
                 src={logo}
                 alt=""
-                style={{ ...styles.image, height: `${size}px`, width: `${size}px` }}
+                className="brand-logo-image"
+                style={{ ...styles.image, height: `${size}px` }}
             />
             <span className={textClassName} style={styles.text}>
                 <span style={{ ...styles.name, fontSize: `${fontSize}px`, color: light ? '#fff' : C.ink }}>
@@ -29,7 +31,7 @@ export default function BrandLogo({ size = 44, fontSize = 17, tag, textClassName
 
 const styles = {
     wrap: { display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 },
-    image: { display: 'block', flexShrink: 0, borderRadius: '8px', objectFit: 'cover' },
+    image: { display: 'block', flexShrink: 0, width: 'auto', borderRadius: '8px', objectFit: 'contain', backgroundColor: '#ffffff' },
     text: { display: 'flex', flexDirection: 'column', minWidth: 0 },
     // Cut off with "…" rather than overlapping whatever sits next to it
     name: {

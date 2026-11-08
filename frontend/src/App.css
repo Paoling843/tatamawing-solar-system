@@ -169,6 +169,10 @@ nav[aria-label="Breadcrumb"] a:hover {
     .app-main { margin-left: 64px; }
     .sidebar-label { display: none; }
 }
+/* The icon-only rail is narrower than the wide logo */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .app-sidebar .brand-logo-image { width: 40px !important; }
+}
 
 /* Mobile: off-canvas drawer behind a hamburger toggle */
 @media (max-width: 640px) {
