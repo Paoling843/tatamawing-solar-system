@@ -7,7 +7,6 @@ import { C, s } from './engineStyles';
 // STEP 3 — "Your estimated savings" card, from the Solar Savings Card design.
 //   Left:   monthly savings, and how much of the current bill solar covers
 //   Right:  ROI in years (the payback period), with a chart of total savings vs. the system cost
-//   Bottom: annual return (ROA), solar produced/used, bought from SORECO, sun hours
 // savings comes from computeSavings() in solarEngine.js; total is the quote total.
 export default function SavingsCard({ savings, total }) {
     // Energy solar covers: the daytime it powers plus the night the battery carries
@@ -62,7 +61,6 @@ export default function SavingsCard({ savings, total }) {
             </div>
 
             <div style={styles.stats}>
-                <Stat label="Annual return (ROA)" value={savings.roaPercent !== null ? `${roundOne(savings.roaPercent)}%` : '—'} />
                 <Stat label="Solar produced" value={formatWhole(savings.productionKwh)} unit="kWh/mo" />
                 <Stat label="Solar used" value={formatWhole(usedKwh)} unit="kWh/mo" />
                 <Stat label="Still from SORECO" value={formatWhole(savings.gridKwh)} unit="kWh/mo" />

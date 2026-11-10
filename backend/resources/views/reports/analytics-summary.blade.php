@@ -90,7 +90,6 @@
         <table>
             <tr><td>Average monthly savings</td><td class="num">{{ $data['savings']['avg_monthly_savings'] !== null ? 'PHP' . number_format($data['savings']['avg_monthly_savings'], 2) : '—' }}</td></tr>
             <tr><td>Average payback period</td><td class="num">{{ $data['savings']['avg_payback_years'] !== null ? $data['savings']['avg_payback_years'] . ' years' : '—' }}</td></tr>
-            <tr><td>Average annual return (ROA)</td><td class="num">{{ $data['savings']['avg_roa_percent'] !== null ? $data['savings']['avg_roa_percent'] . '%' : '—' }}</td></tr>
             <tr><td>Customers who entered their own rate (bill + kWh)</td><td class="num">{{ $data['savings']['own_rate_percent'] !== null ? $data['savings']['own_rate_percent'] . '%' : '—' }}</td></tr>
         </table>
 

@@ -283,10 +283,6 @@
             </tr>
             <tr>
                 <td>
-                    <div class="label">Return on Asset (ROA)</div>
-                    <div class="value">{{ $return['roa_percent'] !== null ? number_format($return['roa_percent'], 1) . '% per year' : '—' }}</div>
-                </td>
-                <td>
                     <div class="label">{{ $lifeYears }}-Year Savings</div>
                     <div class="value">PHP{{ number_format($return['lifetime_savings'], 2) }}</div>
                 </td>
@@ -301,13 +297,6 @@
                 </td>
             </tr>
         </table>
-        <div style="font-size: 10px; color: #5d6862;">
-            ROA is the share of the system price that comes back as savings each year.
-            The {{ $lifeYears }}-year figures assume the system keeps saving at today's rate for its expected life.
-            Savings are an estimate based on {{ \App\Services\SolarComputationService::PEAK_SUN_HOURS }} peak sun hours a day
-            and your appliance list: daytime use is powered first, the rest charges the battery for the night, and any
-            use the battery can't cover is bought from SORECO. Actual savings depend on weather, usage and your utility's rates.
-        </div>
         @endif
 
         {{-- Note --}}

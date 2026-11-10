@@ -463,7 +463,6 @@ class SolarComputationService
      * Savings and ROI:
      *   savings     = monthly bill − new bill, kept between ₱0 and the bill
      *   ROI (years) = total price ÷ monthly savings ÷ 12 months  (the payback period)
-     *   ROA         = annual savings ÷ total price × 100
      *   net gain    = savings over 25 years − total price
      *
      * rate = average amount ÷ kWh of the bills that have both, else SORECO's ₱13.

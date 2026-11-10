@@ -675,12 +675,6 @@ export default function AdminQuotationDetailPage() {
                                         </span>
                                     </div>
                                     <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>Annual ROA</span>
-                                        <span style={styles.resultValue}>
-                                            {ret.roaPercent !== null ? `${ret.roaPercent.toFixed(1)}%` : '—'}
-                                        </span>
-                                    </div>
-                                    <div style={styles.resultBox}>
                                         <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Savings</span>
                                         <span style={styles.resultValue}>{formatCurrency(ret.lifetimeSavings)}</span>
                                     </div>
