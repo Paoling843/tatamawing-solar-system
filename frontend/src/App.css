@@ -43,6 +43,17 @@
     box-shadow: 0 0 0 3px rgba(26, 74, 58, 0.15);
 }
 
+/* No up/down arrows on number fields anywhere (amounts use AmountInput) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 /* Supplier materials table: cells read as plain text, and show a box on
    hover so it's clear they can be edited (focus uses .input-field above) */
 .mat-cell:hover:not(:focus) {
