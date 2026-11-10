@@ -2,7 +2,7 @@
 // happened and what to do next. Every page uses this, so the same problem
 // reads the same everywhere and no technical text reaches the screen.
 
-export const NETWORK_MESSAGE = "Can't reach the server. Check your internet connection. If the site was idle, it can take up to a minute to wake up — then try again.";
+export const NETWORK_MESSAGE = "Please check your internet connection or try again in a few minutes.";
 export const SESSION_ENDED_MESSAGE = 'Your session has ended. Please log in again.';
 
 const STATUS_MESSAGES = {
