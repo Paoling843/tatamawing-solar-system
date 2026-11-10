@@ -7,6 +7,7 @@ import Badge from '../components/Badge';
 import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIcon, MailIcon } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import ProductPicker from '../components/ProductPicker';
+import AmountInput from '../components/AmountInput';
 import { BUSINESS_NAME } from './quote-builder/businessInfo';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
@@ -804,50 +805,39 @@ export default function AdminQuotationDetailPage() {
 
                                     <form onSubmit={handleApprove} style={styles.decisionForm}>
                                         <div style={styles.field}>
-                                            <label style={styles.label}>Adjusted Base Cost (₱)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <label htmlFor="approve-base-cost" style={styles.label}>Adjusted Base Cost</label>
+                                            <AmountInput
+                                                id="approve-base-cost"
                                                 value={approveForm.adjusted_cost}
-                                                onChange={(e) => setApproveForm({
-                                                    ...approveForm,
-                                                    adjusted_cost: e.target.value
-                                                })}
+                                                onChange={(adjusted_cost) => setApproveForm({ ...approveForm, adjusted_cost })}
                                                 className="input-field"
                                                 style={styles.decisionInput}
+                                                placeholder="0.00"
                                                 required
                                             />
                                         </div>
 
                                         <div style={styles.field}>
-                                            <label style={styles.label}>Labor Fee (₱)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <label htmlFor="approve-labor-fee" style={styles.label}>Labor Fee</label>
+                                            <AmountInput
+                                                id="approve-labor-fee"
                                                 value={approveForm.labor_fee}
-                                                onChange={(e) => setApproveForm({
-                                                    ...approveForm,
-                                                    labor_fee: e.target.value
-                                                })}
+                                                onChange={(labor_fee) => setApproveForm({ ...approveForm, labor_fee })}
                                                 className="input-field"
                                                 style={styles.decisionInput}
-                                                placeholder="e.g. 15000"
+                                                placeholder="15,000"
                                             />
                                         </div>
 
                                         <div style={styles.field}>
-                                            <label style={styles.label}>Transportation Fee (₱)</label>
-                                            <input
-                                                type="number"
-                                                min="0"
+                                            <label htmlFor="approve-transport-fee" style={styles.label}>Transportation Fee</label>
+                                            <AmountInput
+                                                id="approve-transport-fee"
                                                 value={approveForm.transportation_fee}
-                                                onChange={(e) => setApproveForm({
-                                                    ...approveForm,
-                                                    transportation_fee: e.target.value
-                                                })}
+                                                onChange={(transportation_fee) => setApproveForm({ ...approveForm, transportation_fee })}
                                                 className="input-field"
                                                 style={styles.decisionInput}
-                                                placeholder="e.g. 5000"
+                                                placeholder="5,000"
                                             />
                                         </div>
 
@@ -1011,11 +1001,15 @@ export default function AdminQuotationDetailPage() {
                                                         aria-label={`Specification ${index + 1}`}
                                                     />
                                                     <input
-                                                        type="number"
-                                                        min="1"
-                                                        max="999"
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        autoComplete="off"
+                                                        // 1–999, whole numbers only
+                                                        pattern="[1-9][0-9]{0,2}"
+                                                        title="Enter a quantity from 1 to 999"
+                                                        maxLength={3}
                                                         value={material.quantity}
-                                                        onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
+                                                        onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value.replace(/\D/g, ''))}
                                                         className="input-field"
                                                         style={styles.matQty}
                                                         aria-label={`Quantity ${index + 1}`}
