@@ -65,7 +65,6 @@ export default function PackageStep({
         { k: 'Inverter size', v: `${formatWhole(load.inverterSize)} W` },
         { k: 'Estimated total', v: peso(quote.total) },
         { k: 'Monthly savings', v: peso(savings.monthlySavings) },
-        { k: 'Annual ROA', v: savings.roaPercent !== null ? `${formatDecimal(Math.round(savings.roaPercent * 10) / 10)}%` : '—' },
     ];
 
     const checks = [

@@ -438,10 +438,6 @@ function WhatYouGet({ qr }) {
             {rows.map(([label, value], i) => (
                 <DataRow key={label} label={label} value={value} last={i === rows.length - 1} />
             ))}
-            <p style={styles.hint}>
-                kW = how much power the panels can produce. Ah = how much energy the battery can store for
-                night use or outages.
-            </p>
 
             {qr.quotation && (
                 <div style={styles.breakdown}>
@@ -543,16 +539,7 @@ function WorthIt({ info, paybackColor, paybackText }) {
                     value={net !== null ? signedPeso(net) : '—'}
                     color={net !== null && net < 0 ? C.bad : '#1c7a3e'}
                 />
-                <DataRow
-                    label="Annual return (ROA)"
-                    value={info.ret?.roaPercent != null ? `${number(info.ret.roaPercent, 1)}%` : '—'}
-                    last
-                />
             </div>
-            <p style={styles.hint}>
-                Net gain = {SYSTEM_LIFE_YEARS}-year savings minus the total price. A positive number means the
-                system earns back more than it costs.
-            </p>
         </section>
     );
 }

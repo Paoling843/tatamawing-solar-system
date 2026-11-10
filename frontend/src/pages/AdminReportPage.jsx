@@ -442,7 +442,6 @@ function SavingsCard({ savings }) {
     const rows = [
         ['Average monthly savings', savings.avg_monthly_savings === null ? '—' : `₱${Math.round(savings.avg_monthly_savings).toLocaleString('en-PH')}`],
         ['Average payback period', savings.avg_payback_years === null ? '—' : `${savings.avg_payback_years} years`],
-        ['Average annual return (ROA)', savings.avg_roa_percent === null ? '—' : `${savings.avg_roa_percent}%`],
         ['Entered their own rate (bill + kWh)', savings.own_rate_percent === null ? '—' : `${savings.own_rate_percent}%`],
     ];
 
