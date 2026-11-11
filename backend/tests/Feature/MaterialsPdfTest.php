@@ -56,9 +56,9 @@ class MaterialsPdfTest extends TestCase
             'needed_by' => now()->addWeek()->toDateString(),
             'notes' => 'Please deliver in the morning.',
             'items' => [
-                ['name' => 'Hybrid inverter', 'specification' => '8 kW, DEYE', 'quantity' => 1, 'unit' => 'unit'],
-                ['name' => 'Solar panel', 'specification' => 'Canadian 610 W bifacial', 'quantity' => 10, 'unit' => 'pcs'],
-                ['name' => 'PV cable', 'quantity' => 50, 'unit' => 'm'],
+                ['name' => 'Hybrid inverter', 'category' => 'Inverter', 'quantity' => 1, 'unit' => 'unit'],
+                ['name' => 'Solar panel', 'category' => 'Solar panel', 'quantity' => 10, 'unit' => 'pcs'],
+                ['name' => 'PV cable', 'category' => 'Wiring', 'quantity' => 50, 'unit' => 'm'],
             ],
         ], $overrides);
     }
@@ -119,6 +119,17 @@ class MaterialsPdfTest extends TestCase
         $this->actingAs($this->admin, 'sanctum')
             ->postJson("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload())
             ->assertStatus(422);
+    }
+
+    public function test_an_unknown_category_is_refused(): void
+    {
+        $quotation = $this->approvedQuotation();
+        $items = [['name' => 'Solar panel', 'category' => 'Snacks', 'quantity' => 1, 'unit' => 'pcs']];
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload(['items' => $items]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('items.0.category');
     }
 
     public function test_the_list_needs_at_least_one_material(): void

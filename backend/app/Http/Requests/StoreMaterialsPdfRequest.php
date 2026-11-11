@@ -24,7 +24,8 @@ class StoreMaterialsPdfRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.name' => ['required', 'string', 'max:120'],
-            'items.*.specification' => ['nullable', 'string', 'max:160'],
+            // Set by the page from the item's name (categoryOf in productCatalog.js)
+            'items.*.category' => ['nullable', 'string', 'in:Inverter,Solar panel,Battery,Mounting,Protection,Wiring,Other'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'items.*.unit' => ['nullable', 'string', 'max:20'],
         ];
@@ -54,7 +55,7 @@ class StoreMaterialsPdfRequest extends FormRequest
                 continue;
             }
 
-            foreach (['name', 'specification', 'unit'] as $field) {
+            foreach (['name', 'unit'] as $field) {
                 if (isset($item[$field])) {
                     $items[$index][$field] = trim((string) $item[$field]);
                 }

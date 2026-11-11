@@ -90,18 +90,18 @@
             <thead>
                 <tr>
                     <th style="width: 6%;">#</th>
-                    <th style="width: 32%;">Item</th>
-                    <th>Specification</th>
-                    <th style="width: 8%; text-align: right;">Qty</th>
-                    <th style="width: 10%;">Unit</th>
+                    <th style="width: 16%;">Category</th>
+                    <th>Item</th>
+                    <th style="width: 10%; text-align: right;">Qty</th>
+                    <th style="width: 14%;">Unit</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($items as $index => $item)
                 <tr>
                     <td class="muted">{{ $index + 1 }}</td>
+                    <td class="muted">{{ $item['category'] ?? '' ?: '—' }}</td>
                     <td><strong>{{ $item['name'] }}</strong></td>
-                    <td>{{ $item['specification'] ?? '' ?: '—' }}</td>
                     <td class="num">{{ $item['quantity'] }}</td>
                     <td>{{ $item['unit'] ?? '' ?: '—' }}</td>
                 </tr>
