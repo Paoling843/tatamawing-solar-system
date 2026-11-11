@@ -12,7 +12,8 @@ import { BUSINESS_NAME } from './quote-builder/businessInfo';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
-import { materialsFromComputation, materialRow } from '../utils/materials';
+import { materialsFromComputation, materialRow, supplierRows } from '../utils/materials';
+import { categoryOf } from '../services/productCatalog';
 import { colors, smallGreenButton } from '../styles/theme';
 import { formatPhone } from '../utils/phone';
 import { computeReturn, signedPeso, SYSTEM_LIFE_YEARS } from '../services/solarEngine';
@@ -171,12 +172,8 @@ export default function AdminQuotationDetailPage() {
 
     // The same list as the PDF, as a message to paste into Messenger
     const copyMaterialsMessage = async () => {
-        const lines = materials
-            .filter((m) => m.name.trim())
-            .map((m, i) => {
-                const details = m.specification.trim();
-                return `${i + 1}. ${m.name.trim()}${details ? ` (${details})` : ''} — ${m.quantity} ${m.unit.trim()}`.trimEnd();
-            });
+        const lines = supplierRows(materials)
+            .map((m, i) => `${i + 1}. [${m.category}] ${m.name.trim()} — ${m.quantity} ${m.unit.trim()}`.trimEnd());
         const deliverTo = materialsForm.deliver_to === 'site'
             ? quotation?.installation_address || 'Installation site'
             : businessAddress || BUSINESS_NAME;
@@ -217,7 +214,7 @@ export default function AdminQuotationDetailPage() {
                     ...materialsForm,
                     needed_by: materialsForm.needed_by || null,
                     notes: materialsForm.notes.trim() || null,
-                    items: materials.map(({ id: _id, ...row }) => ({ ...row, quantity: parseInt(row.quantity, 10) || 0 })),
+                    items: supplierRows(materials).map(({ id: _id, ...row }) => ({ ...row, quantity: parseInt(row.quantity, 10) || 0 })),
                 },
                 { responseType: 'blob' },
             );
@@ -966,11 +963,11 @@ export default function AdminQuotationDetailPage() {
 
                                     {/* Reads like the PDF: plain text until you hover or click a cell */}
                                     <div className="scroll-x">
-                                        <div style={{ minWidth: '580px' }}>
+                                        <div style={{ minWidth: '540px' }}>
                                             <div style={{ ...styles.matGrid, ...styles.matHeaderRow }}>
                                                 <span>#</span>
+                                                <span>Category</span>
                                                 <span>Item</span>
-                                                <span>Specification</span>
                                                 <span style={{ textAlign: 'center' }}>Qty</span>
                                                 <span>Unit</span>
                                                 <span />
@@ -979,6 +976,10 @@ export default function AdminQuotationDetailPage() {
                                             {materials.map((material, index) => (
                                                 <div key={material.id} style={{ ...styles.matGrid, ...styles.matRow }}>
                                                     <span style={styles.matIndex}>{index + 1}</span>
+                                                    {/* Set automatically from the item's name */}
+                                                    <span style={material.name.trim() ? styles.matCategory : styles.matCategoryEmpty}>
+                                                        {categoryOf(material.name) || '—'}
+                                                    </span>
                                                     <ProductPicker
                                                         value={material.name}
                                                         onChange={(text) => handleMaterialChange(material.id, 'name', text)}
@@ -990,15 +991,6 @@ export default function AdminQuotationDetailPage() {
                                                         maxLength={120}
                                                         aria-label={`Item ${index + 1}`}
                                                         required
-                                                    />
-                                                    <input
-                                                        value={material.specification}
-                                                        onChange={(e) => handleMaterialChange(material.id, 'specification', e.target.value)}
-                                                        className="input-field mat-cell"
-                                                        style={styles.matCell}
-                                                        placeholder="add details"
-                                                        maxLength={160}
-                                                        aria-label={`Specification ${index + 1}`}
                                                     />
                                                     <input
                                                         type="text"
@@ -1723,10 +1715,10 @@ const styles = {
         color: adminTokens.muted,
         paddingTop: '0.2rem',
     },
-    // # · Item · Specification · Qty · Unit · remove
+    // # · Category · Item · Qty · Unit · remove
     matGrid: {
         display: 'grid',
-        gridTemplateColumns: '28px minmax(160px, 2.4fr) minmax(160px, 3fr) 64px 72px 32px',
+        gridTemplateColumns: '28px 104px minmax(200px, 1fr) 64px 72px 32px',
         alignItems: 'center',
         columnGap: '0.5rem',
     },
@@ -1747,6 +1739,21 @@ const styles = {
         fontSize: '0.8125rem',
         color: adminTokens.muted,
         fontVariantNumeric: 'tabular-nums',
+    },
+    // Read-only: set from the item's name
+    matCategory: {
+        justifySelf: 'start',
+        padding: '0.2rem 0.55rem',
+        borderRadius: '999px',
+        backgroundColor: adminTokens.greenTint,
+        color: adminTokens.ink,
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+    },
+    matCategoryEmpty: {
+        fontSize: '0.8125rem',
+        color: adminTokens.muted,
     },
     // Looks like plain text until hovered or focused (see .mat-cell in App.css)
     matCell: {

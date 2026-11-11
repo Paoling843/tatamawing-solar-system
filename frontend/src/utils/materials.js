@@ -6,7 +6,18 @@
 // individual parts per package are still to come from the client, so the
 // admin adds those parts from the product list. Installation labour is a
 // service, not a material, so it's left out too.
-import { productByCode } from '../services/productCatalog';
+import { productByCode, categoryOf, CATEGORIES } from '../services/productCatalog';
+
+// The rows as the supplier sees them (PDF and Messenger message): named
+// rows only, each with its category, grouped by category in the order of
+// CATEGORIES. Rows in the same category keep the admin's order.
+export function supplierRows(materials) {
+    return materials
+        .filter((m) => m.name.trim())
+        .map((m, index) => ({ ...m, category: categoryOf(m.name), index }))
+        .sort((a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category) || a.index - b.index)
+        .map(({ index: _index, ...m }) => m);
+}
 
 let nextId = 1;
 
@@ -14,7 +25,6 @@ let nextId = 1;
 export const materialRow = (fields = {}) => ({
     id: nextId++,
     name: '',
-    specification: '',
     quantity: 1,
     unit: '',
     ...fields,
@@ -22,15 +32,17 @@ export const materialRow = (fields = {}) => ({
 
 // A row for a product from the price list, named exactly as on the list
 // (the supplier's own wording). The quote's product code only finds the
-// product; the supplier list leaves codes out. Falls back to our own name
-// when the code isn't on the list (e.g. quotations saved before a product
-// was added).
-const productRow = (code, quantity, fallback) => {
+// product; the supplier list leaves codes out. Falls back to our own name,
+// with its size in it, when the code isn't on the list (e.g. quotations
+// saved before a product was added).
+const productRow = (code, quantity, fallbackName) => {
     const product = productByCode(code);
     return materialRow(product
         ? { name: product.name, unit: product.unit, quantity }
-        : { ...fallback, quantity });
+        : { name: fallbackName, unit: 'each', quantity });
 };
+
+const named = (...parts) => parts.filter(Boolean).join(' ');
 
 export function materialsFromComputation(computation) {
     const items = computation?.line_items ?? [];
@@ -39,33 +51,21 @@ export function materialsFromComputation(computation) {
     items.forEach((item) => {
         switch (item.key) {
             case 'inverter':
-                rows.push(productRow(item.sku, item.qty, {
-                    name: 'Hybrid inverter',
-                    specification: [computation.package_kw && `${computation.package_kw} kW`, computation.inverter_brand]
-                        .filter(Boolean).join(', '),
-                    unit: 'each',
-                }));
+                rows.push(productRow(item.sku, item.qty, named(
+                    'Hybrid inverter',
+                    computation.package_kw && `${computation.package_kw} kW`,
+                    computation.inverter_brand,
+                )));
                 break;
             case 'panels':
-                rows.push(productRow(item.sku, item.qty, {
-                    name: 'Solar panel',
-                    specification: '610 W bifacial',
-                    unit: 'each',
-                }));
+                rows.push(productRow(item.sku, item.qty, 'Solar panel 610 W bifacial'));
                 break;
             case 'battery':
-                rows.push(productRow(item.sku, item.qty, {
-                    name: 'Battery',
-                    specification: `${computation.battery_ah ?? computation.battery_capacity_ah} Ah, 51.2 V`,
-                    unit: 'each',
-                }));
+                rows.push(productRow(item.sku, item.qty,
+                    `Battery 51.2 V ${computation.battery_ah ?? computation.battery_capacity_ah} Ah`));
                 break;
             case 'battery_extra':
-                rows.push(productRow(item.sku, item.qty, {
-                    name: 'Additional battery',
-                    specification: `${computation.extra_battery_ah} Ah, 51.2 V`,
-                    unit: 'each',
-                }));
+                rows.push(productRow(item.sku, item.qty, `Battery 51.2 V ${computation.extra_battery_ah} Ah`));
                 break;
             default:
                 // Mounting kit and safety devices (sets), installation

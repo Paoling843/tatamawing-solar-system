@@ -130,6 +130,38 @@ const BY_CODE = new Map(PRODUCTS.map((p) => [p.code.toLowerCase(), p]));
 // The product with this code (e.g. "tm-0044"), or undefined
 export const productByCode = (code) => BY_CODE.get(String(code ?? '').trim().toLowerCase());
 
+// ---------------------------------------------------------------------
+// Categories — the Category column of the supplier materials list
+// ---------------------------------------------------------------------
+// Read from the item's name, so it also works for names the admin types.
+// Listed in the order the supplier list is sorted by. The first rule that
+// matches wins, so "Cable Battery 25mm" is Wiring (not Battery) and
+// "Battery Terminal" is Wiring too.
+export const CATEGORIES = ['Inverter', 'Solar panel', 'Battery', 'Mounting', 'Protection', 'Wiring', 'Other'];
+
+const CATEGORY_RULES = [
+    ['Wiring', /\b(cable|wire|terminal|mc4|connector|hdpe|conduit)\b/],
+    ['Inverter', /\binverter\b/],
+    ['Solar panel', /\b(solar )?panels?\b/],
+    ['Battery', /\bbattery\b/],
+    ['Mounting', /\b(rails?|clamp|l foot|foot|splice|sealant|bracket)\b/],
+    ['Protection', /\b(breaker|mccb|spd|ats|protection|grounding rod|combiner|ingelec)\b/],
+];
+
+// "Rail Connector" is a mounting part, not wiring; "Grounding Rod 3m with
+// clamp" is protection, not a mounting clamp
+const CATEGORY_EXCEPTIONS = [
+    ['Mounting', /\brail connector\b/],
+    ['Protection', /\bgrounding rod\b/],
+];
+
+export function categoryOf(name) {
+    const n = String(name ?? '').toLowerCase().trim();
+    if (!n) return '';
+    const match = [...CATEGORY_EXCEPTIONS, ...CATEGORY_RULES].find(([, re]) => re.test(n));
+    return match ? match[0] : 'Other';
+}
+
 // The words a product can be found by. Numbers stuck to units count on their
 // own too, so "32amp" is found by "32" and "Hybrid10kw" by "10kw".
 const searchWords = (product) => {
