@@ -70,7 +70,7 @@ class BulanSorsogonSeeder extends Seeder
             return;
         }
 
-        $this->engine = new SolarComputationService();
+        $this->engine = app(SolarComputationService::class);
         $this->admin = $this->ensureAdmin();
 
         $count = count(self::CUSTOMERS);

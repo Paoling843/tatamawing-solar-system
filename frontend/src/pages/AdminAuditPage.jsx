@@ -38,6 +38,7 @@ const ACTION_GROUP = {
     faq_created: 'content',
     faq_updated: 'content',
     inbox_settings_updated: 'content',
+    prices_updated: 'content',
 };
 
 // Actions added later still get a sensible colour from their name
@@ -57,6 +58,7 @@ const ACTION_LABEL = {
     installation_schedule_updated: 'Schedule updated',
     installation_schedule_status_updated: 'Schedule status changed',
     inbox_settings_updated: 'Inbox settings changed',
+    prices_updated: 'Prices changed',
     user_deleted: 'Account deleted',
     user_created: 'Account created',
     quotation_cancelled: 'Quotation cancelled',

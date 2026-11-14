@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use App\Services\SolarComputationService;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreQuotationRequest extends FormRequest
+class QuotePreviewRequest extends FormRequest
 {
     public function authorize(): bool
     {
