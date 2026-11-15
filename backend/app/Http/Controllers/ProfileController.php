@@ -57,16 +57,36 @@ class ProfileController extends Controller
                     default => 'other',
                 },
                 'at' => $log->created_at,
+                // The admin profile shows these apart: a short verb badge, then the record
+                'action' => $this->actionWord($log->action),
+                'target' => $log->target_label,
             ]);
 
         return [
             'stats' => [
-                ['label' => 'Quotes approved', 'value' => $adminId ? Quotation::where('approved_by_admin_id', $adminId)->count() : 0],
+                ['label' => 'Quotations approved', 'value' => $adminId ? Quotation::where('approved_by_admin_id', $adminId)->count() : 0],
                 ['label' => 'Installations scheduled', 'value' => InstallationSchedule::count()],
                 ['label' => 'Installations completed', 'value' => InstallationSchedule::where('status', 'completed')->count()],
             ],
             'activity' => $activity,
         ];
+    }
+
+    /** "quotation_approved" → "Approved", "installation_schedule_created" → "Scheduled" */
+    private function actionWord(string $action): string
+    {
+        return match (true) {
+            str_contains($action, 'schedule_status') => 'Status set',
+            str_contains($action, 'schedule_created') => 'Scheduled',
+            str_contains($action, 'schedule_updated') => 'Rescheduled',
+            str_ends_with($action, 'approved') => 'Approved',
+            str_ends_with($action, 'confirmed') => 'Confirmed',
+            str_ends_with($action, 'rejected') => 'Rejected',
+            str_ends_with($action, 'cancelled') => 'Cancelled',
+            str_ends_with($action, 'deleted') => 'Deleted',
+            str_ends_with($action, 'created') => 'Created',
+            default => 'Updated',
+        };
     }
 
     private function customerSummary(User $user): array

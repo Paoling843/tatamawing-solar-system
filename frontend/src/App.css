@@ -259,12 +259,12 @@ nav[aria-label="Breadcrumb"] a:hover {
 /* ---------- Customer "Chat with us" button (SupportMessagePanel) ---------- */
 /* Background lives here (not inline) so the hover colour can apply */
 .chat-with-us {
-    background: #f4c542;
+    background: #F2C14E;
     transition: background 0.15s ease;
 }
 .chat-with-us:hover,
 .chat-with-us:focus-visible {
-    background: #e9b92f;
+    background: #F5CD6A;
 }
 @media (max-width: 640px) {
     .chat-with-us {
@@ -463,7 +463,7 @@ nav[aria-label="Breadcrumb"] a:hover {
     .cal-layout { grid-template-columns: minmax(0, 1fr) !important; }
 }
 @media (max-width: 640px) {
-    .cal-card { padding: 0.75rem !important; }
+    .cal-card .cal-grid .cal-cell { border-left: none !important; }
     .cal-grid { gap: 2px !important; }
     .cal-cell { min-height: 44px !important; padding: 3px !important; }
     .cal-chips, .cal-more { display: none !important; }
@@ -491,3 +491,167 @@ nav[aria-label="Breadcrumb"] a:hover {
     .inbox-thread { height: 75vh; min-height: 420px; }
     .inbox-bubble { max-width: 85% !important; }
 }
+
+/* Admin Overview: the decision queue beside a narrow "Upcoming installations"
+   column; below 1100px the two stack so the queue keeps its full width */
+@media (max-width: 1100px) {
+    .ov-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+/* Loading placeholder rows */
+@keyframes ov-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.ov-pulse { animation: ov-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ov-pulse { animation: none; } }
+
+/* Overview: rows in "Upcoming installations" light up on hover and keyboard focus */
+.upcoming-row { background: transparent; transition: background-color 120ms ease, box-shadow 120ms ease; }
+.upcoming-row:hover { background: #EEF6F1; box-shadow: inset 3px 0 0 #0F3D2E; }
+.upcoming-row:active { background: #E3F1E8; }
+.upcoming-row:focus-visible { outline: 2px solid #0F3D2E; outline-offset: -2px; background: #EEF6F1; }
+@media (prefers-reduced-motion: reduce) { .upcoming-row { transition: none; } }
+
+/* ---- Admin button states ----
+   Each button is sorted by its look in hooks/useButtonHover.js (data-hover).
+   The buttons are styled inline, so these need !important to win.
+     hover     a shade lighter (or a light fill), never moves
+     pressed   a shade darker and nudged down 1px
+     keyboard  an amber ring (2px gap + 2px #F2C14E), only when moving with Tab,
+               so a mouse hover never looks like a selection
+     disabled  faded out */
+[data-hover] {
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease,
+        color 120ms ease, transform 80ms ease;
+}
+
+/* Primary: dark green */
+[data-hover="solid"]:hover:not(:disabled) { background-color: #1A5A43 !important; }
+[data-hover="solid"]:active:not(:disabled) { background-color: #0A2A20 !important; }
+
+/* Gold */
+[data-hover="gold"]:hover:not(:disabled) { background-color: #F5CD6A !important; }
+[data-hover="gold"]:active:not(:disabled) { background-color: #E3AE34 !important; }
+
+/* Secondary: white with a grey border */
+[data-hover="outline"]:hover:not(:disabled) {
+    background-color: #F0F0EC !important;
+    border-color: #B9BCB5 !important;
+}
+[data-hover="outline"]:active:not(:disabled) {
+    background-color: #E6E7E2 !important;
+    border-color: #B9BCB5 !important;
+}
+
+/* Danger: red text */
+[data-hover="danger"]:hover:not(:disabled) {
+    background-color: #FCE4E1 !important;
+    border-color: #E8A39B !important;
+}
+[data-hover="danger"]:active:not(:disabled) {
+    background-color: #F8D0CA !important;
+    border-color: #E8A39B !important;
+}
+
+/* Hovering never moves a button (older .btn-primary styles lifted it 1px) */
+[data-hover]:hover:not(:active) { transform: none !important; }
+
+/* Pressing nudges the button down 1px (shadows and transforms take no space,
+   so nothing around it moves) */
+[data-hover="solid"]:active:not(:disabled),
+[data-hover="gold"]:active:not(:disabled),
+[data-hover="outline"]:active:not(:disabled),
+[data-hover="danger"]:active:not(:disabled) { transform: translateY(1px) !important; }
+
+/* Clear, on the green banner or sidebar: a faint white fill */
+[data-hover="on-dark"]:hover:not(:disabled):not([aria-pressed="true"]) { background-color: rgba(255, 255, 255, 0.12) !important; }
+[data-hover="on-dark"]:active:not(:disabled):not([aria-pressed="true"]) { background-color: rgba(255, 255, 255, 0.2) !important; }
+/* Just an icon, or an unselected option in a group: a grey patch */
+[data-hover="icon"]:hover:not(:disabled) { background-color: rgba(15, 61, 46, 0.08) !important; }
+[data-hover="icon"]:active:not(:disabled) { background-color: rgba(15, 61, 46, 0.14) !important; }
+/* Just words: underlined */
+[data-hover="text"]:hover:not(:disabled) { text-decoration: underline !important; text-underline-offset: 3px; }
+/* List rows and calendar days: a light grey fill (the selected one keeps its colour) */
+[data-hover="row"]:hover:not(:disabled):not([aria-pressed="true"]):not([aria-current]):not([aria-selected="true"]) {
+    background-color: #F4F5F2 !important;
+}
+
+/* Keyboard focus: the amber ring, for every kind */
+[data-hover]:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #F2C14E !important;
+}
+
+/* Disabled */
+[data-hover="solid"]:disabled {
+    background-color: #C9D5CF !important;
+    color: #5F6A65 !important;
+    cursor: not-allowed !important;
+}
+[data-hover="outline"]:disabled,
+[data-hover="danger"]:disabled {
+    background-color: #FFFFFF !important;
+    border-color: #E3E3DE !important;
+    color: #A3AAA6 !important;
+    cursor: not-allowed !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-hover] { transition: none; }
+    [data-hover]:active { transform: none !important; }
+}
+
+
+/* ---- Customer buttons (from the "Customer · Overview" mockup) ----
+   Kept in classes (not inline styles) so hover, press and keyboard focus work */
+.c-btn {
+    height: 36px; padding: 0 12px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    text-decoration: none; box-sizing: border-box;
+    transition: background-color .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.c-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #F2C14E; }
+.c-btn:active:not(:disabled) { transform: translateY(1px); }
+.c-btn-primary { border: none; background: #0F3D2E; color: #FFFFFF; }
+.c-btn-primary:hover { background: #1A5A43; color: #FFFFFF; }
+.c-btn-primary:active { background: #0A2A20; }
+.c-btn-secondary { border: 1px solid #D6D6D0; background: #FFFFFF; color: #1B2420; }
+.c-btn-secondary:hover { background: #F3F4F1; border-color: #B9BEB9; color: #1B2420; }
+.c-btn-secondary:active { background: #E6E7E2; }
+.c-btn-gold { border: none; background: #F2C14E; color: #14261F; font-weight: 700; }
+.c-btn-gold:hover { background: #F5CD6A; color: #14261F; }
+.c-btn-gold:active { background: #E3AE34; }
+.c-btn-danger { border: 1px solid #E8C4BF; background: #FFFFFF; color: #B42318; }
+.c-btn-danger:hover { background: #FBE4E1; border-color: #D9897F; color: #B42318; }
+.c-btn-danger:active { background: #F8D0CA; }
+/* My quotations: the row that opens a quotation */
+.c-card-toggle { transition: background-color .12s ease; }
+.c-card-toggle:hover { background: #FAFAF8; }
+.c-card-toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #F2C14E; }
+/* The filter tiles along the bottom of the green banner */
+.c-tile { transition: background-color .12s ease; }
+.c-tile:hover:not([aria-pressed="true"]) { background: rgba(255, 255, 255, 0.06) !important; }
+.c-tile:focus-visible { outline: none; box-shadow: inset 0 0 0 2px #F2C14E !important; }
+.c-btn[aria-expanded="true"] { background: #F3F4F1; }
+/* Status filter: segmented control in a bordered box */
+.c-seg { height: 30px; padding: 0 10px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px;
+    cursor: pointer; background: transparent; color: #3A4440; font-weight: 500; transition: background-color .12s ease; }
+.c-seg:hover { background: #F0F0EC; }
+.c-seg[aria-pressed="true"] { background: #0F3D2E; color: #FFFFFF; font-weight: 700; }
+.c-seg:focus-visible { outline: none; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #F2C14E; }
+/* Clickable table rows */
+.c-row { cursor: pointer; transition: background-color .12s ease; }
+.c-row:hover { background: #F7F8F5; }
+@media (prefers-reduced-motion: reduce) {
+    .c-btn, .c-seg, .c-row { transition: none; }
+    .c-btn:active { transform: none; }
+}
+/* Customer overview: the sort menu opens to the right when its button wraps to the left */
+@media (max-width: 640px) { .c-sort-menu { left: 0 !important; right: auto !important; } }
+
+/* Calculator: "Compute recommendation" looks unavailable until Step 1 is
+   complete, but stays pressable so it can point out what is missing */
+.c-btn-primary[aria-disabled="true"],
+.c-btn-primary:disabled { background: #C9D3CE; color: #4F5A55; }
+.c-btn-primary:disabled { cursor: not-allowed; }
+.c-btn:disabled { transform: none !important; }
+.c-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+/* Calculator on the home page and the guest page: less room on phones */
+@media (max-width: 760px) { .se-calc-pad { padding: 20px 16px 40px !important; } }

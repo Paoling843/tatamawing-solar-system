@@ -3,21 +3,23 @@ import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from '../components/CustomerLayout';
 import FullPageMessage from '../components/FullPageMessage';
 import LoadingState from '../components/LoadingState';
-import { ChevronDownIcon } from '../components/Icons';
 import { useAuth } from '../context/auth-context';
+import { useMessagePanel } from '../context/message-panel-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { pageHero, customerHeroTitle } from '../styles/theme';
 import EngineHeader from './quote-builder/EngineHeader';
 import LandingFooter from './quote-builder/LandingFooter';
-import { C, s } from './quote-builder/engineStyles';
+import { s } from './quote-builder/engineStyles';
 import './quote-builder/engine.css';
 
 // FAQs (route: /faqs), open to everyone. Customers see it inside their
 // account layout; visitors see it with the home page's header and footer.
+// The question list follows the "Customer · FAQs" mockup in both.
 export default function FaqPage() {
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+    // The chat panel (customers only; visitors have no chat)
+    const messagePanel = useMessagePanel();
     const [faqs, setFaqs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -33,6 +35,8 @@ export default function FaqPage() {
                 : '/faqs';
             const res = await api.get(url);
             setFaqs(res.data);
+            // The first question opens straight away, as in the mockup
+            setOpenFaqId((current) => current ?? res.data[0]?.id ?? null);
         } catch (err) {
             setError(errorMessage(err, "We couldn't load the FAQs. Please try again."));
         } finally {
@@ -70,68 +74,56 @@ export default function FaqPage() {
     }
 
     const isCustomer = user?.role === 'customer';
-    const answerStyle = isCustomer ? styles.answerText : { ...styles.answerText, color: C.muted };
 
     const faqList = (
         <>
-            {error && <div style={styles.error}>{error}</div>}
+            {error && <div role="alert" style={styles.error}>{error}</div>}
 
-            <div style={styles.faqContainer}>
+            <section style={styles.faqCard}>
                 {loading ? (
-                    <div style={styles.loadingText}>Loading FAQs...</div>
+                    <LoadingState label="Loading FAQs..." />
                 ) : error ? null : faqs.length === 0 ? (
                     <div style={styles.emptyState}>
                         <p style={styles.emptyTitle}>No FAQs found</p>
                         {searchQuery && (
-                            <button
-                                style={styles.clearBtn}
-                                onClick={handleClearSearch}
-                            >
+                            <button type="button" className="c-btn c-btn-primary" onClick={handleClearSearch}>
                                 Clear search
                             </button>
                         )}
                     </div>
                 ) : (
-                    faqs.map((faq) => {
+                    faqs.map((faq, i) => {
                         const isOpen = openFaqId === faq.id;
+                        const answerId = `faq-${faq.id}-answer`;
 
                         return (
-                            <div key={faq.id} style={styles.faqItem}>
-                                <button
-                                    onClick={() => toggleFaq(faq.id)}
-                                    style={styles.faqQuestion}
-                                >
-                                    <span style={styles.questionText}>
-                                        {faq.question}
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            ...styles.chevron,
-                                            transform: isOpen
-                                                ? 'rotate(180deg)'
-                                                : 'rotate(0deg)',
-                                        }}
+                            <div key={faq.id} style={i ? styles.faqDivider : undefined}>
+                                <h2 style={{ margin: 0 }}>
+                                    <button
+                                        type="button"
+                                        className="c-card-toggle"
+                                        onClick={() => toggleFaq(faq.id)}
+                                        aria-expanded={isOpen}
+                                        aria-controls={answerId}
+                                        style={styles.faqQuestion}
                                     >
-                                        <ChevronDownIcon
-                                            size={16}
-                                            color="#6b7280"
-                                        />
-                                    </span>
-                                </button>
+                                        {faq.question}
+                                        <svg
+                                            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3A4440" strokeWidth="2"
+                                            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                                            style={{ flex: 'none', transition: 'transform .15s', transform: `rotate(${isOpen ? 180 : 0}deg)` }}
+                                        >
+                                            <path d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                </h2>
 
-                                {isOpen && (
-                                    <div style={styles.faqAnswer}>
-                                        <p style={answerStyle}>
-                                            {faq.answer}
-                                        </p>
-                                    </div>
-                                )}
+                                {isOpen && <p id={answerId} style={styles.answerText}>{faq.answer}</p>}
                             </div>
                         );
                     })
                 )}
-            </div>
+            </section>
         </>
     );
 
@@ -160,22 +152,30 @@ export default function FaqPage() {
 
     return (
         <CustomerLayout active="FAQs">
-            <div style={pageHero}>
-                <h1 style={customerHeroTitle}>FAQs</h1>
-            </div>
+            <div style={styles.page}>
+                <section aria-label="Summary" style={styles.hero}>
+                    <h1 style={styles.heroTitle}>FAQs</h1>
+                    <p style={styles.heroSub}>Answers to common questions about going solar</p>
+                </section>
 
-            {faqList}
+                {faqList}
 
-            <div className="m-wrap" style={styles.footer}>
-                <div style={styles.footerLeft}>
-                    <span style={styles.footerText}>
-                        © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
+                {/* Opens the chat panel */}
+                <div style={styles.askBox}>
+                    <span>
+                        <strong>Can't find your answer?</strong>{' '}
+                        <span style={{ color: '#5F6A65' }}>Send us a message and we'll reply in the chat.</span>
                     </span>
-                    <div style={styles.footerLinks}>
-                        <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
-                        <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
-                    </div>
+                    <button type="button" className="c-btn c-btn-secondary" onClick={() => messagePanel?.openPanel?.()}>
+                        Ask a question
+                    </button>
                 </div>
+
+                <footer style={styles.footer}>
+                    <span style={{ flex: 1 }}>© {new Date().getFullYear()} TataMawing Solar. All rights reserved.</span>
+                    <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
+                    <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
+                </footer>
             </div>
         </CustomerLayout>
     );
@@ -190,111 +190,29 @@ const styles = {
         boxSizing: 'border-box',
         flex: 1,
     },
+    page: { display: 'flex', flexDirection: 'column', gap: '20px', color: '#1B2420' },
+    hero: { background: '#0F3D2E', color: '#FFFFFF', borderRadius: '8px', padding: '22px 24px 20px' },
+    heroTitle: { margin: 0, fontSize: '26px', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 },
+    heroSub: { margin: '2px 0 0', fontSize: '14px', color: '#C3D3CB' },
     error: {
-        backgroundColor: '#fef2f2',
-        color: '#dc2626',
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
+        padding: '10px 14px', borderRadius: '6px', border: '1px solid #F0D0CB',
+        background: '#FBEAE7', color: '#A4302A', fontSize: '14px', marginBottom: '12px',
     },
-    faqContainer: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        marginBottom: '1.5rem',
-    },
-    loadingText: {
-        textAlign: 'center',
-        color: '#6b7280',
-        padding: '3rem',
-        fontSize: '0.875rem',
-    },
-    emptyState: {
-        textAlign: 'center',
-        padding: '3rem',
-        backgroundColor: 'white',
-        borderRadius: '12px',
-    },
-    emptyTitle: {
-        color: '#6b7280',
-        marginBottom: '1rem',
-    },
-    clearBtn: {
-        padding: '0.5rem 1rem',
-        backgroundColor: '#1a4a3a',
-        color: 'white',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '0.875rem',
-    },
-    faqItem: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #f3f4f6',
-        overflow: 'hidden',
-    },
+    // All the questions in one card, split by thin lines
+    faqCard: { background: '#FFFFFF', border: '1px solid #E3E3DE', borderRadius: '6px', overflow: 'hidden' },
+    faqDivider: { borderTop: '1px solid #EFEFEA' },
     faqQuestion: {
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1.25rem 1.5rem',
-        backgroundColor: 'transparent',
-        border: 'none',
-        cursor: 'pointer',
-        textAlign: 'left',
-        gap: '1rem',
+        width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px',
+        minHeight: '56px', padding: '14px 20px', border: 'none', background: 'transparent', textAlign: 'left',
+        cursor: 'pointer', fontSize: '16px', fontWeight: 700, color: '#1B2420', fontFamily: 'inherit', lineHeight: 1.4,
     },
-    questionText: {
-        fontSize: '1rem',
-        fontWeight: '600',
-        color: '#111827',
-        lineHeight: '1.4',
+    answerText: { margin: 0, padding: '0 20px 18px', color: '#3A4440', maxWidth: '820px', fontSize: '15px', lineHeight: 1.6 },
+    emptyState: { textAlign: 'center', padding: '40px 20px' },
+    emptyTitle: { color: '#5F6A65', margin: '0 0 14px' },
+    askBox: {
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+        padding: '16px 20px', border: '1px dashed #D6D6D0', borderRadius: '6px',
     },
-    chevron: {
-        flexShrink: 0,
-        transition: 'transform 0.2s ease',
-        display: 'flex',
-        alignItems: 'center',
-    },
-    faqAnswer: {
-        padding: '0 1.5rem 1.25rem 1.5rem',
-        borderTop: '1px solid #f3f4f6',
-    },
-    answerText: {
-        fontSize: '0.875rem',
-        color: '#16a34a',
-        lineHeight: '1.6',
-        margin: '1rem 0 0 0',
-    },
-    footer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: '1px solid #e5e7eb',
-        marginTop: '1rem',
-    },
-    footerLeft: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    footerText: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-    },
-    footerLinks: {
-        display: 'flex',
-        gap: '1rem',
-    },
-    footerLink: {
-        fontSize: '0.75rem',
-        color: '#9ca3af',
-        cursor: 'pointer',
-        textDecoration: 'none',
-    },
+    footer: { display: 'flex', flexWrap: 'wrap', gap: '8px 20px', padding: '16px 0 0', fontSize: '13px', color: '#5F6A65' },
+    footerLink: { color: '#5F6A65' },
 };

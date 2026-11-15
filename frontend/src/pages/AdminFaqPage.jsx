@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AdminLayout from '../components/AdminLayout';
-import { adminText, adminTokens, adminUi } from '../styles/adminTheme';
+import AdminHero from '../components/AdminHero';
+import { adminTokens, adminUi } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Pagination from '../components/Pagination';
+import usePagination from '../hooks/usePagination';
 import { PlusIcon, EditIcon, TrashIcon, HelpIcon } from '../components/Icons';
 import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
-import { colors, sunButton } from '../styles/theme';
+import { colors } from '../styles/theme';
 
 // Same limits as FaqController
 const QUESTION_MAX = 255;
@@ -18,6 +21,15 @@ export default function AdminFaqPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    // Search box: matches the question and its keywords
+    const [query, setQuery] = useState('');
+    const q = query.trim().toLowerCase();
+    const shownFaqs = q
+        ? faqs.filter((faq) => `${faq.question} ${faq.keywords || ''}`.toLowerCase().includes(q))
+        : faqs;
+    // A new search starts from page 1
+    const pager = usePagination(shownFaqs, 8, q);
+    const faqListRef = useRef(null);
     const [showForm, setShowForm] = useState(false);
     const [editingFaq, setEditingFaq] = useState(null);
     const [confirmingFaq, setConfirmingFaq] = useState(null);
@@ -133,27 +145,24 @@ export default function AdminFaqPage() {
     };
 
     return (
-        <AdminLayout active="FAQ Management">
+        <AdminLayout active="FAQ management">
 
             {/* Page header with create button */}
-            <div className="m-wrap" style={styles.pageHeader}>
-                <div>
-                    <h1 style={styles.pageTitle}>FAQ Management</h1>
-                    <p style={styles.pageSubtitle}>
-                        Manage frequently asked questions visible to customers.
-                    </p>
-                </div>
-
-                {/* Create new FAQ button */}
-                <button
-                    onClick={handleOpenCreate}
-                    className="btn-primary"
-                    style={styles.createBtn}
-                >
-                    <PlusIcon size={14} color={adminTokens.green} />
-                    <span>Add New FAQ</span>
-                </button>
-            </div>
+            <AdminHero
+                eyebrow="Shown to customers"
+                title="FAQ management"
+                subtitle="Questions and answers customers see on the site"
+                actions={
+                    <button
+                        onClick={handleOpenCreate}
+                        className="btn-primary"
+                        style={styles.createBtn}
+                    >
+                        <PlusIcon size={16} color="currentColor" />
+                        <span>Add FAQ</span>
+                    </button>
+                }
+            />
 
             {/* Success message */}
             {success && <div style={styles.success}>{success}</div>}
@@ -287,10 +296,31 @@ export default function AdminFaqPage() {
                     onAction={handleOpenCreate}
                 />
             ) : (
-                // One card per FAQ
-                <div style={styles.faqList}>
-                    {faqs.map((faq) => (
-                        <div key={faq.id} className="m-pad m-wrap" style={styles.faqCard}>
+                // One card holding a numbered list
+                <section ref={faqListRef} style={styles.faqList}>
+                    <div style={styles.listHeader}>
+                        <h2 style={styles.listTitle}>
+                            Questions <span style={styles.listCount}>· {q ? `${shownFaqs.length} of ${faqs.length}` : `${faqs.length} shown`}</span>
+                        </h2>
+                        <label style={styles.searchBox}>
+                            <SearchIcon />
+                            <span style={adminUi.srOnly}>Search questions</span>
+                            <input
+                                type="search"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search questions or keywords"
+                                style={adminUi.searchInput}
+                            />
+                        </label>
+                    </div>
+                    {shownFaqs.length === 0 && (
+                        <p style={styles.noMatch}>No questions match your search.</p>
+                    )}
+                    <ol style={styles.faqOl}>
+                    {pager.pageItems.map((faq, i) => (
+                        <li key={faq.id} className="m-wrap" style={styles.faqCard}>
+                            <span aria-hidden="true" style={styles.faqNumber}>{pager.from + i}</span>
 
                             {/* FAQ content */}
                             <div style={styles.faqContent}>
@@ -306,9 +336,9 @@ export default function AdminFaqPage() {
                                 {faq.keywords && (
                                     <div style={styles.keywordsRow}>
                                         <span style={styles.keywordsLabel}>
-                                            Keywords:
+                                            Keywords
                                         </span>
-                                        {faq.keywords.split(' ').map((kw, i) => (
+                                        {faq.keywords.split(/[\s,]+/).filter(Boolean).map((kw, i) => (
                                             <span key={i} style={styles.keywordTag}>
                                                 {kw}
                                             </span>
@@ -323,6 +353,7 @@ export default function AdminFaqPage() {
                                 <button
                                     onClick={() => handleOpenEdit(faq)}
                                     className="btn-secondary"
+                                    aria-label={`Edit: ${faq.question}`}
                                     style={styles.editBtn}
                                 >
                                     <EditIcon size={14} />
@@ -333,15 +364,19 @@ export default function AdminFaqPage() {
                                 <button
                                     onClick={() => handleDeleteClick(faq)}
                                     className="btn-danger"
+                                    aria-label={`Delete: ${faq.question}`}
                                     style={styles.deleteBtn}
                                 >
                                     <TrashIcon size={14} />
                                     <span>Delete</span>
                                 </button>
                             </div>
-                        </div>
+                        </li>
                     ))}
-                </div>
+                    </ol>
+
+                    <Pagination {...pager} noun="FAQs" onChange={pager.setPage} scrollTarget={faqListRef} style={styles.pager} />
+                </section>
             )}
 
             <ConfirmDialog
@@ -360,31 +395,21 @@ export default function AdminFaqPage() {
 
 // Styles
 const styles = {
-    pageHeader: {
-        ...adminUi.hero,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '0.75rem 1rem',
-    },
-    pageTitle: adminText.pageTitle,
-    pageSubtitle: adminText.pageSubtitle,
-    createBtn: sunButton,
+    createBtn: adminUi.goldBtn,
     success: {
         backgroundColor: '#f0f7f4',
         color: '#0f3b2c',
         padding: '0.75rem',
-        borderRadius: '8px',
+        borderRadius: '6px',
         marginBottom: '1rem',
         fontSize: '0.875rem',
     },
     error: adminUi.errorBanner,
     formCard: {
         backgroundColor: 'white',
-        borderRadius: '16px',
+        borderRadius: '6px',
         padding: '1.5rem',
-        marginBottom: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        marginBottom: '20px',
         border: '2px solid #0f3b2c',
     },
     formTitle: {
@@ -411,7 +436,7 @@ const styles = {
         width: '100%',
         padding: '0.625rem',
         border: '1px solid #dcdfd8',
-        borderRadius: '8px',
+        borderRadius: '6px',
         fontSize: '1rem',
         boxSizing: 'border-box',
     },
@@ -449,7 +474,7 @@ const styles = {
         color: '#293530',
         border: '1px solid #dcdfd8',
         padding: '0.625rem 1.25rem',
-        borderRadius: '8px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '0.875rem',
     },
@@ -458,24 +483,43 @@ const styles = {
         color: 'white',
         border: 'none',
         padding: '0.625rem 1.25rem',
-        borderRadius: '8px',
+        borderRadius: '6px',
         fontSize: '0.875rem',
         fontWeight: '600',
     },
-    faqList: {
+    faqList: { ...adminUi.card },
+    listHeader: {
         display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '14px 20px',
+        borderBottom: `1px solid ${adminTokens.line}`,
     },
+    listTitle: { margin: 0, fontSize: '16px', fontWeight: 700, color: adminTokens.ink },
+    listCount: { fontWeight: 500, color: adminTokens.muted },
+    faqOl: { listStyle: 'none', margin: 0, padding: 0 },
     faqCard: {
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
         display: 'flex',
-        gap: '1rem',
+        gap: '16px',
         alignItems: 'flex-start',
+        padding: '18px 20px',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
+    },
+    faqNumber: {
+        flex: 'none',
+        width: '28px',
+        height: '28px',
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#E3F1E8',
+        color: adminTokens.green,
+        fontSize: '13px',
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontVariantNumeric: 'tabular-nums',
     },
     faqContent: {
         // Takes the row on desktop; on phones the buttons drop below it
@@ -483,66 +527,86 @@ const styles = {
         minWidth: 0,
     },
     faqQuestion: {
-        fontSize: '1rem',
-        fontWeight: '700',
-        color: '#16211c',
-        marginTop: 0,
-        marginBottom: '0.5rem',
+        fontSize: '16px',
+        fontWeight: 700,
+        color: adminTokens.ink,
+        margin: 0,
     },
     faqAnswer: {
-        color: '#293530',
-        fontSize: '0.875rem',
-        lineHeight: '1.5',
-        margin: '0 0 0.75rem 0',
+        color: '#3A4440',
+        fontSize: '14px',
+        lineHeight: 1.5,
+        margin: '6px 0 10px',
+        maxWidth: '860px',
     },
     keywordsRow: {
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: '0.5rem',
+        gap: '6px',
     },
     keywordsLabel: {
-        fontSize: '0.75rem',
-        color: '#5d6862',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: adminTokens.muted,
+        marginRight: '2px',
     },
     keywordTag: {
-        backgroundColor: '#f0f7f4',
-        color: '#0f3b2c',
-        border: '1px solid #dbe7e1',
-        padding: '0.2rem 0.6rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
+        backgroundColor: '#FBEBC4',
+        color: '#6B4500',
+        padding: '1px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 600,
     },
     faqActions: {
         display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
+        gap: '4px',
         flexShrink: 0,
     },
     editBtn: {
-        backgroundColor: '#f0f7f4',
-        color: '#0f3b2c',
-        border: '1px solid #dbe7e1',
-        padding: '0.5rem 1rem',
-        borderRadius: '8px',
+        backgroundColor: '#FFFFFF',
+        color: adminTokens.ink,
+        border: '1px solid #D6D6D0',
+        height: '34px',
+        padding: '0 10px',
+        borderRadius: adminTokens.radius,
         cursor: 'pointer',
-        fontSize: '0.8rem',
+        fontSize: '13px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
         whiteSpace: 'nowrap',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.4rem',
+        gap: '6px',
     },
     deleteBtn: {
-        backgroundColor: '#fbeae7',
-        color: '#a4302a',
-        border: '1px solid #fca5a5',
-        padding: '0.5rem 1rem',
-        borderRadius: '8px',
+        backgroundColor: 'transparent',
+        color: '#B42318',
+        border: '1px solid transparent',
+        height: '34px',
+        padding: '0 10px',
+        borderRadius: adminTokens.radius,
         cursor: 'pointer',
-        fontSize: '0.8rem',
+        fontSize: '13px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
         whiteSpace: 'nowrap',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.4rem',
+        gap: '6px',
     },
+    pager: { padding: '12px 20px 16px' },
+    searchBox: { ...adminUi.searchBox, flex: '0 1 300px' },
+    noMatch: { margin: 0, padding: '28px 20px', textAlign: 'center', color: adminTokens.muted },
 };
+
+// Magnifying glass for the search box
+function SearchIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+        </svg>
+    );
+}

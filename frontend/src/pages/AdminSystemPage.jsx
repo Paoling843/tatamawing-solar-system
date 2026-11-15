@@ -1,16 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { adminText, adminUi, adminTokens } from '../styles/adminTheme';
+import AdminHero from '../components/AdminHero';
+import { adminUi, adminTokens } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CreateUserModal from '../components/CreateUserModal';
-import { ClockIcon, UserIcon, TrashIcon } from '../components/Icons';
+import Pagination from '../components/Pagination';
+import usePagination from '../hooks/usePagination';
+import { PlusIcon, ShieldIcon, UserIcon, TrashIcon } from '../components/Icons';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, sunButton } from '../styles/theme';
+import { colors } from '../styles/theme';
 
 // Users: every account (customers and admins), newest first, from
 // GET /api/admin/users, creating and deleting accounts, and a link to the audit log.
@@ -26,6 +29,8 @@ export default function AdminSystemPage() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [creating, setCreating] = useState(false);
+    const pager = usePagination(users, 10);
+    const usersCardRef = useRef(null);
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -51,6 +56,7 @@ export default function AdminSystemPage() {
         setCreating(false);
         setError('');
         setUsers((list) => [user, ...list]);
+        pager.setPage(1);
         setSuccess(`Account created for ${user.name}. Share their password with them; they can change it in My Profile.`);
     };
 
@@ -88,9 +94,9 @@ export default function AdminSystemPage() {
 
     const getRoleStyle = (role) => {
         if (role === 'admin') {
-            return { backgroundColor: '#dbeafe', color: '#1d4ed8' };
+            return { backgroundColor: '#E3F1E8', color: '#1F6B45' };
         }
-        return { backgroundColor: '#eef0ec', color: '#5d6862' };
+        return { backgroundColor: '#E6EFF9', color: '#1F4E80' };
     };
 
     const getRoleLabel = (role) => {
@@ -110,33 +116,32 @@ export default function AdminSystemPage() {
     return (
         <AdminLayout active="Users">
 
-            <div style={styles.pageHeader}>
-                <div>
-                    <h1 style={styles.pageTitle}>Users</h1>
-                    <p style={styles.pageSubtitle}>
-                        Everyone with an account, newest first, and the record of admin actions.
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    className="btn-primary"
-                    style={styles.createUserBtn}
-                    onClick={() => {
-                        setSuccess('');
-                        setCreating(true);
-                    }}
-                >
-                    + Create New User
-                </button>
-            </div>
+            <AdminHero
+                eyebrow="Manage"
+                title="Users"
+                subtitle="Everyone with an account, newest first"
+                actions={
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        style={styles.createUserBtn}
+                        onClick={() => {
+                            setSuccess('');
+                            setCreating(true);
+                        }}
+                    >
+                        <PlusIcon size={16} color="currentColor" />
+                        Create user
+                    </button>
+                }
+            />
 
             {error && <div role="alert" style={styles.error}>{error}</div>}
             {success && <div role="status" style={styles.success}>{success}</div>}
 
             <div className="content-grid-sidebar" style={styles.contentGrid}>
 
-                <div className="m-pad" style={styles.usersCard}>
+                <div ref={usersCardRef} style={styles.usersCard}>
                     <h2 style={styles.sectionTitle}>All users</h2>
 
                     {loading ? (
@@ -149,65 +154,83 @@ export default function AdminSystemPage() {
                         />
                     ) : (
                         <div>
-                            <div className="m-hide" style={styles.usersTableHeader}>
-                                <span style={{ flex: 3 }}>User</span>
-                                <span style={{ flex: 1.2 }}>Role</span>
-                                <span style={{ flex: 1.1 }}>Requests</span>
-                                <span style={{ flex: 1.3 }}>Joined</span>
-                                <span style={{ flex: '0 0 84px' }} aria-label="Actions" />
+                            <div className="scroll-x">
+                                <table style={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" style={{ ...styles.th, paddingLeft: '20px' }}>User</th>
+                                            <th scope="col" style={styles.th}>Role</th>
+                                            <th scope="col" style={{ ...styles.th, textAlign: 'right' }}>Requests</th>
+                                            <th scope="col" style={styles.th}>Joined</th>
+                                            <th scope="col" style={{ ...styles.th, paddingRight: '20px' }}>
+                                                <span style={styles.srOnly}>Actions</span>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pager.pageItems.map((user) => (
+                                            <tr key={user.id}>
+                                                <td style={{ ...styles.td, paddingLeft: '20px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                                        <div style={{
+                                                            ...styles.userAvatar,
+                                                            ...(user.role === 'admin' ? styles.userAvatarAdmin : {}),
+                                                        }}>
+                                                            {getInitials(user.name)}
+                                                        </div>
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <p style={styles.userName}>{user.name}</p>
+                                                            <p style={styles.userEmail}>{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                <td style={styles.td}>
+                                                    <span style={{ ...styles.roleBadge, ...getRoleStyle(user.role) }}>
+                                                        {getRoleLabel(user.role)}
+                                                    </span>
+                                                </td>
+
+                                                <td style={{
+                                                    ...styles.td,
+                                                    textAlign: 'right',
+                                                    fontWeight: 600,
+                                                    color: user.quotation_requests_count ? adminTokens.ink : adminTokens.faint,
+                                                }}>
+                                                    {user.quotation_requests_count == null
+                                                        ? '—'
+                                                        : `${user.quotation_requests_count} ${user.quotation_requests_count === 1 ? 'request' : 'requests'}`}
+                                                </td>
+
+                                                <td style={{ ...styles.td, color: '#3A4440', whiteSpace: 'nowrap' }}>
+                                                    {formatJoined(user.created_at)}
+                                                </td>
+
+                                                <td style={{ ...styles.td, paddingRight: '20px', textAlign: 'right' }}>
+                                                    {user.id === me?.id ? (
+                                                        <span style={styles.youLabel}>You</span>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => askDelete(user)}
+                                                            style={styles.deleteBtn}
+                                                            aria-label={`Delete ${user.name}'s account`}
+                                                        >
+                                                            <TrashIcon size={14} color="currentColor" />
+                                                            <span>Delete</span>
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
 
-                            {users.map((user) => (
-                                <div key={user.id} className="m-wrap" style={styles.userRow}>
-                                    <div style={{ flex: '3 1 220px', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                                        <div style={{
-                                            ...styles.userAvatar,
-                                            backgroundColor: user.role === 'admin' ? '#1d4ed8' : '#5d6862',
-                                        }}>
-                                            {getInitials(user.name)}
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <p style={styles.userName}>{user.name}</p>
-                                            <p style={styles.userEmail}>{user.email}</p>
-                                        </div>
-                                    </div>
-
-                                    <span style={{ flex: '1.2 1 90px' }}>
-                                        <span style={{ ...styles.roleBadge, ...getRoleStyle(user.role) }}>
-                                            {getRoleLabel(user.role)}
-                                        </span>
-                                    </span>
-
-                                    <span style={{ flex: '1.1 1 90px', fontSize: '0.8rem', color: '#5d6862' }}>
-                                        {user.quotation_requests_count == null
-                                            ? '—'
-                                            : `${user.quotation_requests_count} ${user.quotation_requests_count === 1 ? 'request' : 'requests'}`}
-                                    </span>
-
-                                    <span style={{ flex: '1.3 1 110px', fontSize: '0.8rem', color: '#5d6862' }}>
-                                        {formatJoined(user.created_at)}
-                                    </span>
-
-                                    <span style={{ flex: '0 0 84px', display: 'flex', justifyContent: 'flex-end' }}>
-                                        {user.id === me?.id ? (
-                                            <span style={styles.youLabel}>You</span>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => askDelete(user)}
-                                                style={styles.deleteBtn}
-                                                aria-label={`Delete ${user.name}'s account`}
-                                            >
-                                                <TrashIcon size={14} color="currentColor" />
-                                                <span>Delete</span>
-                                            </button>
-                                        )}
-                                    </span>
-                                </div>
-                            ))}
+                            <Pagination {...pager} noun="users" onChange={pager.setPage} scrollTarget={usersCardRef} style={styles.pager} />
 
                             <div style={styles.listFooter}>
-                                Showing {users.length} {users.length === 1 ? 'user' : 'users'}
+                                {users.length} {users.length === 1 ? 'user' : 'users'} in total
                                 {' · '}{customerCount} {customerCount === 1 ? 'customer' : 'customers'}, {users.length - customerCount} {users.length - customerCount === 1 ? 'admin' : 'admins'}
                             </div>
                         </div>
@@ -216,14 +239,13 @@ export default function AdminSystemPage() {
 
                 <div style={styles.auditCard}>
                     <div style={styles.auditCardHeader}>
-                        <h3 style={styles.auditTitle}>Audit log</h3>
                         <span style={styles.auditIcon}>
-                            <ClockIcon size={16} color="currentColor" />
+                            <ShieldIcon size={17} color="currentColor" />
                         </span>
+                        <h2 style={styles.auditTitle}>Audit log</h2>
                     </div>
                     <p style={styles.auditDesc}>
-                        Every approval, rejection, schedule change and setting change made by an admin is
-                        recorded with who did it and when.
+                        Approvals, rejections, schedule changes and setting changes, with who made them and when.
                     </p>
                     <button
                         className="btn-secondary"
@@ -251,17 +273,7 @@ export default function AdminSystemPage() {
 }
 
 const styles = {
-    pageHeader: {
-        ...adminUi.hero,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem 1rem',
-    },
-    pageTitle: adminText.pageTitle,
-    pageSubtitle: { ...adminText.pageSubtitle, maxWidth: '500px' },
-    createUserBtn: sunButton,
+    createUserBtn: adminUi.goldBtn,
     error: adminUi.errorBanner,
     success: {
         ...adminUi.errorBanner,
@@ -272,130 +284,126 @@ const styles = {
     deleteBtn: {
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '5px',
-        padding: '6px 10px',
-        border: '1px solid #f0d0cb',
-        borderRadius: '8px',
-        backgroundColor: '#ffffff',
-        color: adminTokens.danger,
-        fontSize: '0.8rem',
-        fontWeight: '600',
+        gap: '6px',
+        height: '32px',
+        padding: '0 10px',
+        border: '1px solid transparent',
+        borderRadius: adminTokens.radius,
+        backgroundColor: 'transparent',
+        color: '#B42318',
+        fontSize: '13px',
+        fontWeight: 600,
         fontFamily: 'inherit',
         cursor: 'pointer',
         whiteSpace: 'nowrap',
     },
-    youLabel: { fontSize: '0.75rem', fontWeight: '600', color: '#5d6862' },
+    youLabel: { fontSize: '13px', fontWeight: 600, color: adminTokens.muted },
     contentGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 280px',
-        gap: '1.25rem',
+        gap: '20px',
         alignItems: 'start',
     },
-    usersCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
-        minWidth: 0,
-        ...adminUi.cardAccent,
-    },
+    usersCard: { ...adminUi.card, minWidth: 0 },
     sectionTitle: {
-        fontSize: '1rem',
-        fontWeight: '700',
-        color: '#16211c',
-        margin: '0 0 1rem 0',
+        fontSize: '16px',
+        fontWeight: 700,
+        color: adminTokens.ink,
+        margin: 0,
+        padding: '16px 20px',
     },
-    usersTableHeader: {
-        display: 'flex',
-        padding: '0.5rem 0.625rem',
-        fontSize: '0.75rem',
-        fontWeight: '600',
-        marginBottom: '0.25rem',
+    table: { width: '100%', minWidth: '680px', borderCollapse: 'collapse', fontSize: '14px' },
+    th: {
         ...adminUi.tableHead,
+        textAlign: 'left',
+        padding: '9px 12px',
+        borderTop: `1px solid ${adminTokens.line}`,
+        borderBottom: `1px solid ${adminTokens.line}`,
     },
-    userRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        // Same side padding as the header band so the columns line up
-        padding: '0.875rem 0.625rem',
-        borderBottom: '1px solid #f3f4f1',
-        fontSize: '0.875rem',
-    },
+    td: { padding: '12px', borderBottom: `1px solid ${adminTokens.rowLine}`, verticalAlign: 'middle' },
+    srOnly: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)' },
     userAvatar: {
         width: '36px',
         height: '36px',
         borderRadius: '50%',
-        color: 'white',
+        backgroundColor: '#E3F1E8',
+        color: adminTokens.green,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '0.75rem',
-        fontWeight: '700',
+        fontSize: '12px',
+        fontWeight: 700,
         flexShrink: 0,
     },
+    userAvatarAdmin: { backgroundColor: '#FBEBC4', color: '#6B4500' },
     userName: {
-        fontSize: '0.875rem',
-        fontWeight: '500',
-        color: '#16211c',
-        margin: '0 0 0.125rem 0',
+        fontSize: '14px',
+        fontWeight: 600,
+        color: adminTokens.ink,
+        margin: 0,
     },
     userEmail: {
-        fontSize: '0.75rem',
-        color: '#5d6862',
+        fontSize: '13px',
+        color: adminTokens.muted,
         margin: 0,
         overflowWrap: 'anywhere',
     },
     roleBadge: {
-        padding: '0.2rem 0.75rem',
+        padding: '2px 8px',
         borderRadius: '4px',
-        fontSize: '0.75rem',
-        fontWeight: '500',
+        fontSize: '12px',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
     },
+    pager: { padding: '12px 20px 0' },
     listFooter: {
-        marginTop: '1rem',
-        fontSize: '0.8rem',
-        color: '#5d6862',
+        padding: '12px 20px 14px',
+        fontSize: '13px',
+        color: adminTokens.muted,
     },
     auditCard: {
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '1.25rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
-        ...adminUi.cardAccent,
+        ...adminUi.card,
+        padding: '18px 20px',
     },
     auditCardHeader: {
         display: 'flex',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '0.5rem',
+        gap: '10px',
+        marginBottom: '12px',
     },
     auditTitle: {
-        fontSize: '0.9rem',
-        fontWeight: '700',
-        color: '#16211c',
+        fontSize: '16px',
+        fontWeight: 700,
+        color: adminTokens.ink,
         margin: 0,
     },
     auditIcon: {
-        fontSize: '1rem',
-        color: '#5d6862',
+        width: '32px',
+        height: '32px',
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#FBEBC4',
+        color: '#7A4F00',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 'none',
     },
     auditDesc: {
-        fontSize: '0.8rem',
-        lineHeight: 1.55,
-        color: '#5d6862',
-        margin: '0 0 0.75rem 0',
+        fontSize: '14px',
+        lineHeight: 1.45,
+        color: adminTokens.muted,
+        margin: '0 0 12px 0',
     },
     viewAuditBtn: {
         width: '100%',
-        padding: '0.625rem',
+        height: '38px',
         backgroundColor: 'white',
-        color: '#293530',
-        border: '1px solid #e6e8e2',
-        borderRadius: '8px',
-        fontSize: '0.8rem',
+        color: adminTokens.ink,
+        border: '1px solid #D6D6D0',
+        borderRadius: adminTokens.radius,
+        fontSize: '14px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
         cursor: 'pointer',
     },
 };

@@ -455,7 +455,7 @@ function TechOption({ name, meta, selected, onClick }) {
             onClick={onClick}
             aria-pressed={selected}
             style={{
-                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '12px',
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '6px',
                 cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
                 ...(selected
                     ? { background: '#f2f8f4', border: `2px solid ${ACCENT}` }
@@ -492,7 +492,7 @@ function Chevron({ dir, color }) {
 
 function dayStyle(c) {
     const base = {
-        height: '46px', borderRadius: '10px', fontFamily: 'inherit', fontSize: '15px', display: 'flex',
+        height: '46px', borderRadius: '6px', fontFamily: 'inherit', fontSize: '15px', display: 'flex',
         flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', padding: 0,
         boxSizing: 'border-box', minWidth: 0,
     };
@@ -513,7 +513,7 @@ const styles = {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
     },
     dialog: {
-        width: '100%', maxWidth: '940px', maxHeight: 'calc(100vh - 32px)', background: '#fff', borderRadius: '18px',
+        width: '100%', maxWidth: '940px', maxHeight: 'calc(100vh - 32px)', background: '#fff', borderRadius: '6px',
         overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
         color: '#111827', fontVariantNumeric: 'tabular-nums', margin: 0,
     },
@@ -524,19 +524,19 @@ const styles = {
     title: { margin: 0, fontSize: '22px', fontWeight: 600, letterSpacing: '-0.01em', color: '#111827' },
     badge: { fontWeight: 600, color: ACCENT, background: colors.primaryTint, padding: '3px 10px', borderRadius: '999px' },
     closeBtn: {
-        width: '40px', height: '40px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff',
+        width: '40px', height: '40px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
     },
     // The middle scrolls; header and footer stay in view
     body: { flex: 1, minHeight: 0, overflowY: 'auto' },
     error: {
         margin: '16px 24px 0', background: colors.dangerTint, color: colors.danger, border: '1px solid #fecaca',
-        borderRadius: '10px', padding: '10px 14px', fontSize: '14px',
+        borderRadius: '6px', padding: '10px 14px', fontSize: '14px',
     },
     columns: { display: 'flex', flexWrap: 'wrap', gap: '1px', background: '#e5e7eb' },
     column: { background: '#fff', padding: '22px clamp(16px, 5vw, 24px)', display: 'flex', flexDirection: 'column', minWidth: 0 },
     navBtn: {
-        width: '36px', height: '36px', borderRadius: '8px', border: 'none', background: 'transparent',
+        width: '36px', height: '36px', borderRadius: '6px', border: 'none', background: 'transparent',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     },
     weekdays: {
@@ -544,19 +544,19 @@ const styles = {
         fontSize: '12px', fontWeight: 600, color: '#6b7280', textAlign: 'center',
     },
     dayGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '6px' },
-    dayInfo: { background: '#f6f7f6', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#374151', minHeight: '22px' },
+    dayInfo: { background: '#f6f7f6', borderRadius: '6px', padding: '12px 14px', fontSize: '14px', color: '#374151', minHeight: '22px' },
     timeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: '8px' },
     timeBtn: {
-        height: '44px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        height: '44px', borderRadius: '6px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         background: '#fff', color: '#111827', border: '1px solid #d1d5db',
     },
     techList: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto', padding: '2px' },
     addTechBtn: {
-        height: '42px', borderRadius: '12px', border: '1px dashed #c4c9cf', background: '#fafaf9', color: ACCENT,
+        height: '42px', borderRadius: '6px', border: '1px dashed #c4c9cf', background: '#fafaf9', color: ACCENT,
         fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
     },
     input: {
-        fontFamily: 'inherit', fontSize: '14px', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '10px',
+        fontFamily: 'inherit', fontSize: '14px', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px',
         color: '#111827', width: '100%', boxSizing: 'border-box', background: '#fff',
     },
     footer: {
@@ -564,8 +564,8 @@ const styles = {
         justifyContent: 'space-between', alignItems: 'center', gap: '12px 16px', flexWrap: 'wrap', flexShrink: 0,
     },
     cancelBtn: {
-        height: '44px', padding: '0 20px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#fff',
+        height: '44px', padding: '0 20px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff',
         fontSize: '15px', fontWeight: 600, color: '#111827', cursor: 'pointer', fontFamily: 'inherit',
     },
-    confirmBtn: { height: '44px', padding: '0 22px', borderRadius: '10px', border: 'none', fontSize: '15px', fontWeight: 600, fontFamily: 'inherit' },
+    confirmBtn: { height: '44px', padding: '0 22px', borderRadius: '6px', border: 'none', fontSize: '15px', fontWeight: 600, fontFamily: 'inherit' },
 };

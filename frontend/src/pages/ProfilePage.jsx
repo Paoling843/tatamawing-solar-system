@@ -5,8 +5,8 @@ import CustomerLayout from '../components/CustomerLayout';
 import AdminLayout from '../components/AdminLayout';
 import api from '../api/axios';
 import { errorMessage, fieldErrors } from '../utils/errorMessage';
-import { CalendarIcon, MailIcon } from '../components/Icons';
-import { smallGreenButton } from '../styles/theme';
+import { CheckIcon, EditIcon, EyeIcon, EyeOffIcon, LockIcon } from '../components/Icons';
+import { adminTokens, adminUi } from '../styles/adminTheme';
 import { formatPhone } from '../utils/phone';
 
 // My Profile (routes /customer/profile and /admin/profile), opened from the
@@ -18,33 +18,6 @@ import { formatPhone } from '../utils/phone';
 //   Recent       the admin's own audit-log entries, or a customer's latest
 //   activity     notifications (same endpoint)
 //   Password     collapsed row; "Change password" opens the form
-
-const C = {
-    green: '#123d2d',
-    greenDark: '#0c2c20',
-    gold: '#f2c230',
-    ink: '#16201b',
-    body: '#3b463f',
-    muted: '#5f6a63',
-    faint: '#6b7a71',
-    onDark: '#9fc0b0',
-    border: '#e2e0d7',
-    line: '#ecebe4',
-    rowLine: '#f0efe9',
-    soft: '#faf9f5',
-    error: '#b42318',
-};
-
-// Dot colour for an activity item
-const TONE = {
-    approved: '#1f8a5b',
-    completed: '#1f8a5b',
-    scheduled: '#2f6fb5',
-    in_progress: '#2f6fb5',
-    pending: C.gold,
-    rejected: '#c0392b',
-    delayed: '#c0392b',
-};
 
 // "+639171234567" → "917 123 4567"
 const localMobile = (contactNumber) => {
@@ -70,7 +43,6 @@ const when = (value) => {
 export default function ProfilePage() {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
-    const Layout = isAdmin ? AdminLayout : CustomerLayout;
 
     // Header counts and recent activity; the page still works without them
     const [summary, setSummary] = useState(null);
@@ -87,78 +59,106 @@ export default function ProfilePage() {
         ? new Date(user.created_at).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
         : null;
     const stats = summary?.stats ?? (isAdmin
-        ? [{ label: 'Quotes approved' }, { label: 'Installations scheduled' }, { label: 'Installations completed' }]
+        ? [{ label: 'Quotations approved' }, { label: 'Installations scheduled' }, { label: 'Installations completed' }]
         : [{ label: 'Quotation requests' }, { label: 'Approved quotations' }, { label: 'Installations' }]);
 
+    return <ProfileView isAdmin={isAdmin} user={user} since={since} stats={stats} summary={summary} summaryError={summaryError} />;
+}
+
+// ---------------------------------------------------------------------
+// The profile (admins and customers): green banner with the three counts,
+// then account settings on the left and recent activity on the right.
+// Look from the admin "My profile" mockup.
+// ---------------------------------------------------------------------
+const STAT_DOTS = ['#A8D5C2', '#8EC1EE', adminTokens.gold];
+
+// Badge colours for an activity item, by its tone
+const ACTIVITY_TONE = {
+    approved: { dot: '#2E8B5E', bg: '#E3F1E8', fg: '#1F6B45', word: 'Approved' },
+    completed: { dot: '#2E8B5E', bg: '#E3F1E8', fg: '#1F6B45', word: 'Completed' },
+    rejected: { dot: '#C8372B', bg: '#FBE4E1', fg: '#A3261B', word: 'Rejected' },
+    delayed: { dot: '#C8372B', bg: '#FBE4E1', fg: '#A3261B', word: 'Delayed' },
+    scheduled: { dot: '#3F7CC0', bg: '#E6EFF9', fg: '#1F4E80', word: 'Scheduled' },
+    in_progress: { dot: '#3F7CC0', bg: '#E6EFF9', fg: '#1F4E80', word: 'In progress' },
+    pending: { dot: '#D49A23', bg: '#FBEBC4', fg: '#6B4500', word: 'Pending' },
+    other: { dot: '#6B7570', bg: '#EEEFEC', fg: '#3A4440', word: 'Update' },
+};
+
+function ProfileView({ isAdmin, user, since, stats, summary, summaryError }) {
+    const Layout = isAdmin ? AdminLayout : CustomerLayout;
+
     return (
-        <Layout active="My Profile">
-            <div style={styles.page}>
-                {/* ---- Header banner ---- */}
-                <section style={styles.hero}>
-                    <div className="profile-hero-top" style={styles.heroTop}>
-                        <span style={styles.avatar} aria-hidden="true">{initialsOf(user?.name)}</span>
-                        <div style={styles.heroText}>
-                            <div style={styles.nameRow}>
-                                <h1 style={styles.name}>{user?.name}</h1>
-                                <span style={styles.rolePill}>{isAdmin ? 'Administrator' : 'Customer'}</span>
+        <Layout active={isAdmin ? 'My profile' : 'My Profile'}>
+            <div style={A.page}>
+                <section aria-label="Profile summary" style={A.hero}>
+                    <div style={A.heroTop}>
+                        <span style={A.avatar} aria-hidden="true">{initialsOf(user?.name)}</span>
+                        <div style={{ flex: 1, minWidth: '220px' }}>
+                            <div style={A.nameRow}>
+                                <h1 style={A.name}>{user?.name}</h1>
+                                <span style={A.rolePill}>{isAdmin ? 'Administrator' : 'Customer'}</span>
                             </div>
-                            <div style={styles.meta}>
-                                <span style={styles.metaItem}>
-                                    <MailIcon size={15} color={C.onDark} />
-                                    <span style={{ overflowWrap: 'anywhere' }}>{user?.email}</span>
-                                </span>
-                                {since && (
-                                    <span style={styles.metaItem}>
-                                        <CalendarIcon size={15} color={C.onDark} />
-                                        Member since {since}
-                                    </span>
-                                )}
-                            </div>
+                            <p style={A.meta}>
+                                <span style={{ overflowWrap: 'anywhere' }}>{user?.email}</span>
+                                {since && <span>Member since {since}</span>}
+                            </p>
                         </div>
                     </div>
-                    <dl className="profile-hero-stats" style={styles.stats}>
-                        {stats.map((stat) => (
-                            <div key={stat.label} className="profile-stat" style={styles.stat}>
-                                <dt style={styles.statLabel}>{stat.label}</dt>
-                                <dd style={styles.statValue}>{stat.value ?? '—'}</dd>
+                    <dl style={A.stats}>
+                        {stats.map((stat, i) => (
+                            <div key={stat.label} style={{ ...A.stat, ...(i > 0 ? A.statDivider : {}) }}>
+                                <dt style={A.statLabel}>
+                                    <span aria-hidden="true" style={{ ...A.statDot, background: STAT_DOTS[i] }} />
+                                    {stat.label}
+                                </dt>
+                                <dd style={A.statValue}>{stat.value ?? '—'}</dd>
                             </div>
                         ))}
                     </dl>
                 </section>
 
-                <DetailsCard isAdmin={isAdmin} />
-
-                {/* ---- Recent activity ---- */}
-                <section style={styles.card}>
-                    <div style={{ ...styles.cardHead, alignItems: 'center' }}>
-                        <span style={styles.cardTitle}>Recent activity</span>
-                        <Link to={isAdmin ? '/admin/audit-logs' : '/customer/my-quotations'} className="btn-primary" style={smallGreenButton}>
-                            {isAdmin ? 'Audit log →' : 'My quotations →'}
-                        </Link>
+                <div style={A.columns}>
+                    <div style={A.leftCol}>
+                        <DetailsCard isAdmin={isAdmin} />
+                        <PasswordCard />
                     </div>
-                    <div style={{ padding: '8px 24px 14px' }}>
+
+                    <section style={{ ...A.card, flex: '999 1 520px', minWidth: 0 }}>
+                        <div style={{ ...A.cardHead, borderBottom: `1px solid ${adminTokens.line}`, alignItems: 'center' }}>
+                            <div>
+                                <h2 style={A.cardTitle}>Your recent activity</h2>
+                                <p style={A.cardSub}>{isAdmin ? 'Latest actions you made' : 'Latest updates on your quotations and installation'}</p>
+                            </div>
+                            <Link to={isAdmin ? '/admin/audit-logs' : '/customer/my-quotations'} style={A.textLink}>
+                                {isAdmin ? 'Full audit log →' : 'My quotations →'}
+                            </Link>
+                        </div>
                         {summaryError ? (
-                            <p style={styles.emptyNote}>{summaryError}</p>
+                            <p style={A.note}>{summaryError}</p>
                         ) : !summary ? (
-                            <p style={styles.emptyNote}>Loading…</p>
+                            <p style={A.note}>Loading…</p>
                         ) : summary.activity.length === 0 ? (
-                            <p style={styles.emptyNote}>No activity yet.</p>
+                            <p style={A.note}>No activity yet.</p>
                         ) : (
-                            summary.activity.map((item, index) => (
-                                <div
-                                    key={`${item.at}-${index}`}
-                                    style={{ ...styles.activityRow, borderBottom: index === summary.activity.length - 1 ? 'none' : styles.activityRow.borderBottom }}
-                                >
-                                    <span style={{ ...styles.dot, background: TONE[item.tone] || '#b9c0bb' }} />
-                                    <span style={{ flex: 1, minWidth: 0 }}>{item.label}</span>
-                                    <span style={styles.activityTime}>{when(item.at)}</span>
-                                </div>
-                            ))
+                            <ol style={A.activityList}>
+                                {summary.activity.map((item, index) => {
+                                    const tone = ACTIVITY_TONE[item.tone] || ACTIVITY_TONE.other;
+                                    return (
+                                        <li key={`${item.at}-${index}`} style={A.activityRow}>
+                                            <span style={{ ...A.badge, background: tone.bg, color: tone.fg }}>
+                                                <span aria-hidden="true" style={{ ...A.badgeDot, background: tone.dot }} />
+                                                {/* Admins get the action word from the server; customers, the tone's */}
+                                                {item.action || tone.word}
+                                            </span>
+                                            <span style={A.activityTarget} title={item.label}>{item.target || item.label}</span>
+                                            <span style={A.activityDate}>{when(item.at)}</span>
+                                        </li>
+                                    );
+                                })}
+                            </ol>
                         )}
-                    </div>
-                </section>
-
-                <PasswordCard />
+                    </section>
+                </div>
             </div>
         </Layout>
     );
@@ -224,109 +224,99 @@ function DetailsCard({ isAdmin }) {
         }
     };
 
-    const rows = [
-        {
-            label: 'Full name',
-            view: user?.name,
-            input: (
-                <input
-                    className="input-field"
-                    value={form.name}
-                    onChange={(e) => set('name', e.target.value)}
-                    autoComplete="name"
-                    maxLength={160}
-                    aria-label="Full name"
-                    aria-invalid={Boolean(errors.name)}
-                    style={styles.input(Boolean(errors.name))}
-                />
-            ),
-            error: errors.name,
-        },
-        {
-            label: 'Email',
-            view: user?.email,
-            // The login and where reset links go, so it's never an input
-            input: (
-                <span style={styles.lockedValue}>
-                    <span style={{ overflowWrap: 'anywhere' }}>{user?.email}</span>
-                    <span style={styles.lockNote}>
-                        {isAdmin ? "Can't be changed" : "Can't be changed here. Message us to change it."}
-                    </span>
-                </span>
-            ),
-        },
-        ...(isAdmin ? [] : [{
-            label: 'Mobile number',
-            view: formatPhone(user?.customer?.contact_number) || '—',
-            input: (
-                <div style={{ display: 'flex', gap: '8px', minWidth: 0 }}>
-                    <span aria-hidden="true" style={styles.countryCode}>+63</span>
-                    <input
-                        className="input-field"
-                        type="tel"
-                        inputMode="numeric"
-                        autoComplete="tel-national"
-                        placeholder="917 123 4567"
-                        aria-label="Mobile number, after +63"
-                        value={form.mobile}
-                        onChange={(e) => set('mobile', e.target.value.replace(/[^\d\s-]/g, ''))}
-                        aria-invalid={Boolean(errors.contact_number)}
-                        style={styles.input(Boolean(errors.contact_number))}
-                    />
-                </div>
-            ),
-            error: errors.contact_number,
-        }]),
+    // What's shown when not editing; customers also have their mobile number
+    const info = [
+        ['Full name', user?.name],
+        ['Email', user?.email],
+        isAdmin ? ['Role', 'Administrator'] : ['Mobile number', formatPhone(user?.customer?.contact_number) || '—'],
     ];
 
     return (
-        <section style={styles.card}>
-            <div style={styles.cardHead}>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={styles.cardTitle}>Personal information</span>
-                    <span style={styles.cardSub}>
+        <section style={A.card}>
+            <div style={A.cardHead}>
+                <div>
+                    <h2 style={A.cardTitle}>Personal information</h2>
+                    <p style={A.cardSub}>
                         {isAdmin
-                            ? 'Your name appears on the quotations you approve and in the audit log.'
+                            ? 'Your name shows on quotations you approve and in the audit log.'
                             : 'Your name and mobile number are used on your quotations and installation schedule.'}
-                    </span>
+                    </p>
                 </div>
                 {!editing && (
-                    <button type="button" className="btn-secondary" onClick={startEdit} style={styles.secondaryBtn}>
+                    <button type="button" onClick={startEdit} style={A.smallBtn}>
+                        <EditIcon size={14} color="currentColor" />
                         Edit
                     </button>
                 )}
             </div>
 
-            <div>
-                {rows.map((row) => (
-                    <div key={row.label} className="profile-row" style={styles.row}>
-                        <span style={styles.rowLabel}>{row.label}</span>
-                        <div style={{ minWidth: 0 }}>
-                            {editing ? row.input : <span style={styles.rowValue}>{row.view}</span>}
-                            {editing && row.error && <p role="alert" style={styles.fieldError}>{row.error}</p>}
+            {!editing ? (
+                <>
+                    <dl style={A.infoList}>
+                        {info.map(([label, value], i) => (
+                            <div key={label} style={{ ...A.infoRow, ...(i === info.length - 1 ? { borderBottom: 'none' } : {}) }}>
+                                <dt style={{ color: adminTokens.muted }}>{label}</dt>
+                                <dd style={A.infoValue}>{value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                    {success && <p role="status" style={A.successBand}>{success}</p>}
+                </>
+            ) : (
+                <form onSubmit={(e) => { e.preventDefault(); save(); }} style={{ margin: 0, borderTop: `1px solid ${adminTokens.line}` }}>
+                    <div style={A.formBody}>
+                        <label style={A.field}>
+                            <span style={{ fontWeight: 600 }}>Full name</span>
+                            <input
+                                value={form.name}
+                                onChange={(e) => set('name', e.target.value)}
+                                autoComplete="name"
+                                maxLength={160}
+                                aria-invalid={Boolean(errors.name)}
+                                style={A.input(Boolean(errors.name))}
+                            />
+                            {errors.name && <span role="alert" style={A.fieldError}>{errors.name}</span>}
+                        </label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontWeight: 600 }}>Email</span>
+                            {/* The login and where reset links go, so it's never an input */}
+                            <div style={A.locked}>
+                                <span style={{ color: adminTokens.ink, overflowWrap: 'anywhere' }}>{user?.email}</span>
+                                <span style={A.lockNote}>
+                                    <LockIcon size={12} color="currentColor" />
+                                    {isAdmin ? "Can't be changed" : "Can't be changed here. Message us to change it."}
+                                </span>
+                            </div>
                         </div>
+                        {!isAdmin && (
+                            <label style={A.field}>
+                                <span style={{ fontWeight: 600 }}>Mobile number</span>
+                                <span style={{ display: 'flex', gap: '8px', minWidth: 0 }}>
+                                    <span aria-hidden="true" style={A.countryCode}>+63</span>
+                                    <input
+                                        type="tel"
+                                        inputMode="numeric"
+                                        autoComplete="tel-national"
+                                        placeholder="917 123 4567"
+                                        aria-label="Mobile number, after +63"
+                                        value={form.mobile}
+                                        onChange={(e) => set('mobile', e.target.value.replace(/[^\d\s-]/g, ''))}
+                                        aria-invalid={Boolean(errors.contact_number)}
+                                        style={A.input(Boolean(errors.contact_number))}
+                                    />
+                                </span>
+                                {errors.contact_number && <span role="alert" style={A.fieldError}>{errors.contact_number}</span>}
+                            </label>
+                        )}
+                        {formError && <div role="alert" style={A.errorBox}>{formError}</div>}
                     </div>
-                ))}
-            </div>
-
-            {formError && <div role="alert" style={styles.errorBox}>{formError}</div>}
-            {success && !editing && <div role="status" style={styles.successBox}>{success}</div>}
-
-            {editing && (
-                <div style={styles.cardFoot}>
-                    <button type="button" className="btn-secondary" onClick={cancelEdit} disabled={busy} style={styles.secondaryBtn}>
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        className="btn-primary"
-                        onClick={save}
-                        disabled={busy}
-                        style={{ ...styles.primaryBtn, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}
-                    >
-                        {busy ? 'Saving…' : 'Save changes'}
-                    </button>
-                </div>
+                    <div style={A.formFoot}>
+                        <button type="button" onClick={cancelEdit} disabled={busy} style={A.secondaryBtn}>Cancel</button>
+                        <button type="submit" disabled={busy} style={{ ...A.primaryBtn, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}>
+                            {busy ? 'Saving…' : 'Save changes'}
+                        </button>
+                    </div>
+                </form>
             )}
         </section>
     );
@@ -336,6 +326,13 @@ function DetailsCard({ isAdmin }) {
 // Password: a row with "Change password"; the form opens below it
 // ---------------------------------------------------------------------
 const EMPTY_PASSWORDS = { current_password: '', password: '', password_confirmation: '' };
+
+// Shown under "New password" on the admin card, ticked off as the admin types
+const PASSWORD_RULES = [
+    ['At least 8 characters', (pw) => pw.length >= 8],
+    ['A letter', (pw) => /[A-Za-z]/.test(pw)],
+    ['A number', (pw) => /\d/.test(pw)],
+];
 
 function PasswordCard() {
     const [open, setOpen] = useState(false);
@@ -385,268 +382,203 @@ function PasswordCard() {
     };
 
     const type = show ? 'text' : 'password';
-    const fields = [
-        ['current_password', 'Current password', 'current-password'],
-        ['password', 'New password', 'new-password'],
-        ['password_confirmation', 'Confirm new password', 'new-password'],
-    ];
+    const mismatch = form.password_confirmation.length > 0 && form.password_confirmation !== form.password;
+        const input = (name, autoComplete, extra = {}) => (
+            <input
+                id={`pw-${name}`}
+                type={type}
+                autoComplete={autoComplete}
+                maxLength={72}
+                value={form[name]}
+                onChange={(e) => set(name, e.target.value)}
+                aria-invalid={Boolean(errors[name])}
+                style={A.input(Boolean(errors[name]) || extra.invalid)}
+                {...(extra.describedBy ? { 'aria-describedby': extra.describedBy } : {})}
+            />
+        );
 
-    return (
-        <section style={styles.card}>
-            <div style={{ ...styles.cardHead, alignItems: 'center', borderBottom: open ? styles.cardHead.borderBottom : 'none' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={styles.cardTitle}>Password</span>
-                    <span style={styles.cardSub}>Use at least 8 characters, with letters and numbers.</span>
-                </div>
-                {!open ? (
-                    <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => { setSuccess(''); setOpen(true); }}
-                        style={styles.secondaryBtn}
-                    >
-                        Change password
-                    </button>
-                ) : (
-                    <button type="button" onClick={() => setShow((prev) => !prev)} style={styles.linkBtn}>
-                        {show ? 'Hide passwords' : 'Show passwords'}
-                    </button>
-                )}
-            </div>
-
-            {success && !open && <div role="status" style={{ ...styles.successBox, margin: '0 24px 18px' }}>{success}</div>}
-
-            {open && (
-                <>
-                    {fields.map(([name, label, autoComplete]) => (
-                        <div key={name} className="profile-row" style={styles.row}>
-                            <label htmlFor={`pw-${name}`} style={styles.rowLabel}>{label}</label>
-                            <div style={{ minWidth: 0 }}>
-                                <input
-                                    id={`pw-${name}`}
-                                    className="input-field"
-                                    type={type}
-                                    autoComplete={autoComplete}
-                                    maxLength={72}
-                                    value={form[name]}
-                                    onChange={(e) => set(name, e.target.value)}
-                                    aria-invalid={Boolean(errors[name])}
-                                    style={styles.input(Boolean(errors[name]))}
-                                />
-                                {errors[name] && <p role="alert" style={styles.fieldError}>{errors[name]}</p>}
-                            </div>
+        return (
+            <section style={A.card}>
+                <div style={{ ...A.cardHead, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <span style={A.lockTile} aria-hidden="true"><LockIcon size={16} color="currentColor" /></span>
+                        <div>
+                            <h2 style={A.cardTitle}>Password</h2>
+                            <p style={A.cardSub}>Use at least 8 characters, with letters and numbers.</p>
                         </div>
-                    ))}
-                    <label style={styles.checkRow}>
-                        <input
-                            type="checkbox"
-                            checked={signOutOthers}
-                            onChange={(e) => setSignOutOthers(e.target.checked)}
-                            style={{ accentColor: C.green, width: '16px', height: '16px', margin: 0 }}
-                        />
-                        Sign me out on my other devices
-                    </label>
-
-                    {formError && <div role="alert" style={styles.errorBox}>{formError}</div>}
-
-                    <div style={styles.cardFoot}>
-                        <button type="button" className="btn-secondary" onClick={close} disabled={busy} style={styles.secondaryBtn}>
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={save}
-                            disabled={busy}
-                            style={{ ...styles.primaryBtn, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}
-                        >
-                            {busy ? 'Changing…' : 'Change password'}
-                        </button>
                     </div>
-                </>
-            )}
-        </section>
-    );
+                    {!open ? (
+                        <button type="button" onClick={() => { setSuccess(''); setOpen(true); }} style={{ ...A.smallBtn, height: '36px', padding: '0 14px', fontSize: '14px' }}>
+                            Change password
+                        </button>
+                    ) : (
+                        <button type="button" aria-pressed={show} onClick={() => setShow((prev) => !prev)} style={A.showBtn}>
+                            {show ? <EyeOffIcon size={16} color="currentColor" /> : <EyeIcon size={16} color="currentColor" />}
+                            {show ? 'Hide passwords' : 'Show passwords'}
+                        </button>
+                    )}
+                </div>
+
+                {success && !open && <p role="status" style={A.successBand}>{success}</p>}
+
+                {open && (
+                    <form onSubmit={(e) => { e.preventDefault(); save(); }} style={{ margin: 0, borderTop: `1px solid ${adminTokens.line}` }}>
+                        <div style={A.formBody}>
+                            <label htmlFor="pw-current_password" style={A.field}>
+                                <span style={{ fontWeight: 600 }}>Current password</span>
+                                {input('current_password', 'current-password')}
+                                {errors.current_password && <span role="alert" style={A.fieldError}>{errors.current_password}</span>}
+                            </label>
+                            <label htmlFor="pw-password" style={A.field}>
+                                <span style={{ fontWeight: 600 }}>New password</span>
+                                {input('password', 'new-password', { describedBy: 'pw-rules' })}
+                                {errors.password && <span role="alert" style={A.fieldError}>{errors.password}</span>}
+                            </label>
+                            <ul id="pw-rules" style={A.rules}>
+                                {PASSWORD_RULES.map(([label, test]) => {
+                                    const ok = test(form.password);
+                                    return (
+                                        <li key={label} style={{ ...A.rule, color: ok ? '#1F6B45' : adminTokens.muted }}>
+                                            {ok ? <CheckIcon size={14} color="currentColor" /> : <span aria-hidden="true" style={A.ruleDot} />}
+                                            {label}
+                                            <span style={adminUi.srOnly}>{ok ? ' (done)' : ' (not yet)'}</span>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                            <label htmlFor="pw-password_confirmation" style={A.field}>
+                                <span style={{ fontWeight: 600 }}>Confirm new password</span>
+                                {input('password_confirmation', 'new-password', { invalid: mismatch })}
+                                {(errors.password_confirmation || mismatch) && (
+                                    <span role="alert" style={A.fieldError}>{errors.password_confirmation || "Passwords don't match."}</span>
+                                )}
+                            </label>
+                            <label style={A.checkRow}>
+                                <input
+                                    type="checkbox"
+                                    checked={signOutOthers}
+                                    onChange={(e) => setSignOutOthers(e.target.checked)}
+                                    style={{ width: '18px', height: '18px', margin: 0, accentColor: adminTokens.green }}
+                                />
+                                <span>Sign me out on my other devices</span>
+                            </label>
+                            {formError && <div role="alert" style={A.errorBox}>{formError}</div>}
+                        </div>
+                        <div style={A.formFoot}>
+                            <button type="button" onClick={close} disabled={busy} style={A.secondaryBtn}>Cancel</button>
+                            <button type="submit" disabled={busy} style={{ ...A.primaryBtn, opacity: busy ? 0.7 : 1, cursor: busy ? 'wait' : 'pointer' }}>
+                                {busy ? 'Changing…' : 'Change password'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </section>
+        );
 }
 
-const styles = {
-    page: { maxWidth: '1100px', display: 'flex', flexDirection: 'column', gap: '24px' },
+// The profile's look (from the admin "My profile" mockup; customers use it too)
+const A = {
+    page: { display: 'flex', flexDirection: 'column', gap: '20px', fontSize: '14px', lineHeight: 1.45, color: adminTokens.ink },
 
-    // Header banner
-    hero: {
-        background: '#0f3b2c',
-        borderRadius: '18px',
-        overflow: 'hidden',
-        color: '#fff',
-    },
-    heroTop: { display: 'flex', alignItems: 'center', gap: '20px', padding: '28px 32px' },
+    hero: { background: adminTokens.green, color: '#FFFFFF', borderRadius: adminTokens.heroRadius },
+    heroTop: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px 20px', padding: '22px 24px' },
     avatar: {
-        width: '72px',
-        height: '72px',
-        borderRadius: '50%',
-        background: C.gold,
-        color: C.ink,
-        boxShadow: '0 0 0 4px rgba(255,255,255,.12)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: 700,
-        fontSize: '26px',
-        letterSpacing: '.02em',
-        flexShrink: 0,
+        width: '64px', height: '64px', borderRadius: '50%', background: adminTokens.gold, color: adminTokens.onGold,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', fontWeight: 700, flex: 'none',
     },
-    heroText: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 },
-    nameRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 12px' },
-    name: { margin: 0, fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.2, overflowWrap: 'anywhere' },
-    rolePill: {
-        fontWeight: 600,
-        padding: '3px 10px',
-        borderRadius: '999px',
-        border: '1px solid rgba(242,194,48,.45)',
-        background: 'rgba(242,194,48,.12)',
-        color: C.gold,
-        fontSize: '12px',
-        letterSpacing: '.03em',
-        textTransform: 'uppercase',
-    },
-    meta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 20px', color: C.onDark, fontSize: '14px' },
-    metaItem: { display: 'inline-flex', alignItems: 'center', gap: '7px', minWidth: 0 },
-
-    // Counts: a darker strip along the bottom, split by thin lines
+    nameRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' },
+    name: { margin: 0, fontSize: '26px', fontWeight: 700, letterSpacing: '-0.01em', overflowWrap: 'anywhere' },
+    rolePill: { fontSize: '12px', fontWeight: 700, color: adminTokens.onGold, background: adminTokens.gold, borderRadius: '4px', padding: '2px 8px' },
+    meta: { margin: '4px 0 0', color: adminTokens.stripText, display: 'flex', flexWrap: 'wrap', gap: '4px 16px' },
     stats: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        margin: 0,
-        background: 'rgba(0,0,0,.14)',
-        borderTop: '1px solid rgba(255,255,255,.08)',
+        margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        borderTop: '1px solid rgba(255,255,255,0.14)', background: adminTokens.strip,
+        borderRadius: `0 0 ${adminTokens.heroRadius} ${adminTokens.heroRadius}`, overflow: 'hidden',
     },
-    stat: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '16px 32px', minWidth: 0 },
-    statLabel: { fontSize: '12px', fontWeight: 600, color: C.onDark, textTransform: 'uppercase', letterSpacing: '.05em' },
-    statValue: { margin: 0, fontSize: '24px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+    // marginLeft -1px hides the divider of whichever cell starts a wrapped row
+    stat: { padding: '14px 24px', marginLeft: '-1px' },
+    statDivider: { borderLeft: '1px solid rgba(255,255,255,0.12)' },
+    statLabel: { display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: adminTokens.stripText },
+    statDot: { width: '8px', height: '8px', borderRadius: '50%', flex: 'none' },
+    statValue: { margin: '2px 0 0', fontSize: '24px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
 
-    // Cards
-    card: { background: '#fff', border: `1px solid ${C.border}`, borderRadius: '14px' },
-    cardHead: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: '12px',
-        padding: '20px 24px',
-        borderBottom: `1px solid ${C.line}`,
+    columns: { display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' },
+    leftCol: { flex: '1 1 360px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' },
+
+    card: { background: '#FFFFFF', border: `1px solid ${adminTokens.line}`, borderRadius: adminTokens.radius },
+    cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', padding: '16px 20px' },
+    cardTitle: { margin: 0, fontSize: '16px', fontWeight: 700, color: adminTokens.ink },
+    cardSub: { margin: '2px 0 0', fontSize: '13px', color: adminTokens.muted },
+    textLink: { fontWeight: 600, textDecoration: 'none', color: adminTokens.green, whiteSpace: 'nowrap' },
+    note: { margin: 0, padding: '16px 20px', color: adminTokens.muted },
+
+    infoList: { margin: 0, borderTop: `1px solid ${adminTokens.line}` },
+    infoRow: {
+        display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr)', gap: '12px', padding: '12px 20px',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
     },
-    cardTitle: { fontSize: '18px', fontWeight: 700, color: C.ink },
-    cardSub: { fontSize: '14px', color: C.muted },
-    cardFoot: {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        flexWrap: 'wrap',
-        gap: '8px',
-        padding: '14px 24px',
-        background: C.soft,
-        borderRadius: '0 0 14px 14px',
+    infoValue: { margin: 0, fontWeight: 600, color: adminTokens.ink, overflowWrap: 'anywhere' },
+    successBand: {
+        margin: 0, padding: '10px 20px', borderTop: `1px solid ${adminTokens.rowLine}`, background: '#E3F1E8',
+        color: '#1F6B45', fontWeight: 600, borderRadius: `0 0 ${adminTokens.radius} ${adminTokens.radius}`,
     },
 
-    // Label | value rows (columns set by .profile-row in App.css)
-    row: {
-        display: 'grid',
-        gap: '6px 16px',
-        alignItems: 'center',
-        padding: '14px 24px',
-        borderBottom: `1px solid ${C.rowLine}`,
-    },
-    rowLabel: { color: C.faint, fontSize: '14px' },
-    rowValue: { fontWeight: 600, color: C.ink, overflowWrap: 'anywhere' },
+    formBody: { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' },
+    field: { display: 'flex', flexDirection: 'column', gap: '6px' },
     input: (invalid) => ({
-        width: '100%',
-        minWidth: 0,
-        boxSizing: 'border-box',
-        padding: '9px 12px',
-        border: `1px solid ${invalid ? C.error : C.border}`,
-        borderRadius: '8px',
-        background: C.soft,
-        fontSize: '15px',
-        fontFamily: 'inherit',
-        color: C.ink,
+        height: '40px', padding: '0 12px', boxSizing: 'border-box', width: '100%', minWidth: 0,
+        border: `1px solid ${invalid ? '#C8372B' : adminTokens.control}`, borderRadius: adminTokens.radius,
+        font: 'inherit', fontSize: '15px', color: adminTokens.ink, background: '#FFFFFF',
     }),
+    fieldError: { fontSize: '13px', color: adminTokens.danger },
+    locked: {
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 10px', minHeight: '40px', padding: '0 12px',
+        border: `1px solid ${adminTokens.rowLine}`, borderRadius: adminTokens.radius, background: '#F7F7F4', color: adminTokens.muted,
+    },
     countryCode: {
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 12px',
-        border: `1px solid ${C.border}`,
-        borderRadius: '8px',
-        background: '#f1f0ea',
-        fontWeight: 600,
-        color: C.body,
-        flexShrink: 0,
+        display: 'flex', alignItems: 'center', padding: '0 12px', border: `1px solid ${adminTokens.control}`,
+        borderRadius: adminTokens.radius, background: '#F7F7F4', fontWeight: 600, color: adminTokens.body, flex: 'none',
     },
-    lockedValue: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 12px', fontWeight: 600, color: C.ink },
-    lockNote: { fontSize: '13px', fontWeight: 400, color: C.faint },
-    fieldError: { margin: '6px 0 0', fontSize: '13px', color: C.error },
-    checkRow: {
-        display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 24px', fontSize: '14px', color: C.body, cursor: 'pointer',
+    lockNote: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px' },
+    lockTile: {
+        width: '32px', height: '32px', borderRadius: adminTokens.radius, background: '#FBEBC4', color: '#7A4F00',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
+    },
+    rules: { listStyle: 'none', margin: '-6px 0 0', padding: 0, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '13px' },
+    rule: { display: 'flex', alignItems: 'center', gap: '6px' },
+    ruleDot: { width: '5px', height: '5px', margin: '0 4px', borderRadius: '50%', background: 'currentColor' },
+    checkRow: { display: 'flex', alignItems: 'center', gap: '10px', minHeight: '32px', cursor: 'pointer' },
+    errorBox: { ...adminUi.errorBanner, margin: 0 },
+    formFoot: {
+        display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '8px', padding: '12px 20px',
+        borderTop: `1px solid ${adminTokens.rowLine}`, background: adminTokens.headBg,
+        borderRadius: `0 0 ${adminTokens.radius} ${adminTokens.radius}`,
     },
 
-    // Activity
+    smallBtn: {
+        height: '34px', padding: '0 12px', borderRadius: adminTokens.radius, border: `1px solid ${adminTokens.control}`,
+        background: '#FFFFFF', color: adminTokens.ink, fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flex: 'none', whiteSpace: 'nowrap',
+    },
+    showBtn: {
+        height: '34px', padding: '0 10px', border: 'none', background: 'transparent', color: adminTokens.green,
+        fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+    },
+    secondaryBtn: { ...adminUi.whiteBtn, height: '38px' },
+    primaryBtn: { ...adminUi.primaryBtn, height: '38px' },
+
+    activityList: { listStyle: 'none', margin: 0, padding: 0 },
     activityRow: {
-        display: 'flex', alignItems: 'center', gap: '14px', padding: '10px 0', borderBottom: `1px solid ${C.rowLine}`, color: C.ink,
+        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderBottom: `1px solid ${adminTokens.rowLine}`,
     },
-    dot: { width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0 },
-    activityTime: { fontVariantNumeric: 'tabular-nums', fontSize: '12px', color: '#8a958e', whiteSpace: 'nowrap' },
-    emptyNote: { margin: '10px 0', fontSize: '14px', color: C.muted },
-
-    // Buttons and banners
-    secondaryBtn: {
-        whiteSpace: 'nowrap',
-        border: `1px solid ${C.border}`,
-        background: '#fff',
-        color: C.ink,
-        padding: '8px 14px',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: 600,
-        fontFamily: 'inherit',
-        cursor: 'pointer',
+    badge: {
+        flex: 'none', minWidth: '96px', boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', gap: '6px',
+        fontSize: '12px', fontWeight: 700, borderRadius: '4px', padding: '2px 8px', whiteSpace: 'nowrap',
     },
-    primaryBtn: {
-        whiteSpace: 'nowrap',
-        border: 0,
-        background: C.green,
-        color: '#fff',
-        padding: '9px 18px',
-        borderRadius: '8px',
-        fontSize: '14px',
-        fontWeight: 700,
-        fontFamily: 'inherit',
+    badgeDot: { width: '6px', height: '6px', borderRadius: '50%', flex: 'none' },
+    activityTarget: {
+        flex: 1, minWidth: 0, fontWeight: 600, color: adminTokens.green,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     },
-    linkBtn: {
-        border: 'none',
-        background: 'none',
-        padding: '6px 4px',
-        color: '#174a37',
-        fontSize: '14px',
-        fontWeight: 600,
-        textDecoration: 'underline',
-        fontFamily: 'inherit',
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-    },
-    errorBox: {
-        margin: '14px 24px',
-        padding: '10px 12px',
-        borderRadius: '8px',
-        border: '1px solid #f0d0cb',
-        background: '#fbeae7',
-        color: '#a4302a',
-        fontSize: '14px',
-    },
-    successBox: {
-        margin: '14px 24px',
-        padding: '10px 12px',
-        borderRadius: '8px',
-        border: '1px solid #cfe0d7',
-        background: '#e8efea',
-        color: C.green,
-        fontSize: '14px',
-        fontWeight: 600,
-    },
+    activityDate: { fontSize: '13px', color: adminTokens.subtle, whiteSpace: 'nowrap' },
 };

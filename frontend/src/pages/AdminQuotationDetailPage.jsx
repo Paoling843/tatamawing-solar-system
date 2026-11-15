@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import { adminStatus, adminTokens, adminText, adminUi, statusLabel } from '../styles/adminTheme';
 import LoadingState from '../components/LoadingState';
-import Badge from '../components/Badge';
-import { CheckIcon, XIcon, BoltIcon, SunIcon, PlugIcon, BatteryIcon, CalendarIcon, MailIcon } from '../components/Icons';
+import Badge from '../components/StatusPill';
+import { CheckIcon, XIcon, CalendarIcon, DownloadIcon, MailIcon } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import ProductPicker from '../components/ProductPicker';
 import AmountInput from '../components/AmountInput';
@@ -326,9 +326,8 @@ export default function AdminQuotationDetailPage() {
 
     const installSchedule = quotation?.quotation?.installation_schedule;
     const isApproved = quotation?.status === 'approved';
-    const cycleComplete = Boolean(installSchedule);
 
-    // The four milestones in the header stepper, each resolved from the data
+    // The three milestones in the banner's progress strip, each resolved from the data
     const steps = [
         { label: 'Submitted', state: 'done' },
         {
@@ -352,445 +351,282 @@ export default function AdminQuotationDetailPage() {
         },
     ];
 
-    const stepDotStyle = (state) => {
-        if (state === 'done') return styles.stepDotDone;
-        if (state === 'rejected') return styles.stepDotRejected;
-        if (state === 'current') return styles.stepDotCurrent;
-        return styles.stepDotTodo;
+
+    const quoteRef = formatQuotationRef(quotation.id, quotation.created_at);
+    const customerName = quotation?.customer?.user?.name;
+    const customerEmail = quotation?.customer?.user?.email;
+    const siteAddress = quotation?.installation_address || quotation?.customer?.install_location;
+    const computation = quotation?.solar_computation;
+    const approvedQuote = quotation?.quotation;
+
+    // A date under each step of the progress strip, when there is one
+    const scheduleDay = installSchedule?.scheduled_date
+        ? new Date(`${String(installSchedule.scheduled_date).slice(0, 10)}T00:00:00`)
+        : null;
+    const stepDates = [
+        quotation?.submission_date ? formatDate(quotation.submission_date) : '',
+        approvedQuote?.approval_date && steps[1].state === 'done'
+            ? formatDate(approvedQuote.approval_date)
+            : steps[1].state === 'current' ? 'Waiting for a decision' : '',
+        scheduleDay
+            ? `${formatDate(scheduleDay)}${installSchedule.scheduled_time ? ` · ${formatTime(installSchedule.scheduled_time)}` : ''}`
+            : steps[2].state === 'current' ? 'Not scheduled yet' : '',
+    ];
+    const stepLabels = [steps[0].label, steps[1].label, installSchedule ? 'Installation scheduled' : steps[2].label];
+
+    // Appliance totals for the last table row
+    const applianceItems = quotation?.appliance_items ?? [];
+    const totalWatts = applianceItems.reduce((sum, item) => sum + item.wattage * item.quantity, 0);
+    const totalWh = applianceItems.reduce((sum, item) => sum + item.wattage * item.quantity * item.usage_hours_per_day, 0);
+
+    // "Recommended system" cells; the inverter sizing ones only exist on newer quotations
+    const sizing = [
+        ['Daily energy use', `${formatNumber(computation?.total_load_watts)} Wh`],
+        computation?.total_load_w != null && ['Total load', `${formatNumber(computation.total_load_w)} W`],
+        computation?.inverter_size_w != null && ['Inverter size', `${formatNumber(computation.inverter_size_w)} W`, 'Total load + 2,000 W buffer'],
+        ['Inverter', computation?.inverter_specification || '—'],
+        ['Panels', `${computation?.panel_count ? `${computation.panel_count} panels · ` : ''}${computation?.panel_capacity_kw ?? '—'} kW`],
+        parseFloat(computation?.battery_capacity_ah) > 0 && [
+            'Battery',
+            // A big night load gets a bank: 2 × 314 Ah, or 314 Ah + a smaller one
+            `${computation.battery_qty > 1 ? `${computation.battery_qty} × ` : ''}${parseFloat(computation.battery_capacity_ah).toLocaleString()} Ah${computation.extra_battery_ah ? ` + ${computation.extra_battery_ah} Ah` : ''}`,
+        ],
+    ].filter(Boolean);
+
+    // Savings — quotations made before this feature don't have them.
+    // Once approved, payback uses the approved total instead of the engine's price.
+    const savings = computation?.monthly_savings != null ? (() => {
+        const total = approvedQuote?.total_amount ?? computation.estimated_cost;
+        const annual = parseFloat(computation.annual_savings);
+        const ret = computeReturn(annual, parseFloat(total));
+        return {
+            rate: `${formatCurrency(computation.electricity_rate)}/kWh`,
+            fromBill: computation.rate_source === 'bill',
+            netGain: signedPeso(ret.netGain),
+            rows: [
+                ['Monthly savings', formatCurrency(computation.monthly_savings)],
+                ['Yearly savings', formatCurrency(computation.annual_savings)],
+                ['New monthly bill', computation.new_monthly_bill != null ? formatCurrency(computation.new_monthly_bill) : '—', '#1F6B45'],
+                ['Payback period', annual > 0 ? `${(parseFloat(total) / annual).toFixed(1)} years` : '—'],
+                [`${SYSTEM_LIFE_YEARS}-year savings`, formatCurrency(ret.lifetimeSavings)],
+            ],
+        };
+    })() : null;
+
+    const darkPill = adminStatus[quotation?.status]?.darkDot || '#B9C4BE';
+
+    // The gold "Materials PDF" button opens the form below and brings it into view
+    const startMaterials = () => {
+        openMaterials();
+        setTimeout(() => document.getElementById('materials')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     };
 
     return (
-        <AdminLayout
-            active="Quotations"
-            crumb={quotation && [formatQuotationRef(quotation.id, quotation.created_at), quotation.customer?.user?.name]
-                .filter(Boolean).join(' · ')}
-        >
-            <div style={styles.shell}>
+        <AdminLayout active="Quotations" crumb={quoteRef}>
+            <div style={D.page}>
+                <button type="button" onClick={() => navigate('/admin/quotations')} style={D.backLink}>
+                    <span aria-hidden="true">←</span>
+                    All quotations
+                </button>
 
-                {/* ---- Sticky header: breadcrumb, title, stepper ---- */}
-                <div className="m-pad" style={styles.shellHeader}>
-                    <button type="button" className="btn-primary" onClick={() => navigate('/admin/quotations')} style={styles.backBtn}>
-                        <span style={styles.backArrow}>←</span>
-                        <span>Back to Quotations</span>
-                    </button>
-
-                    <div style={styles.titleRow}>
-                        <div style={styles.titleGroup}>
-                            <h1 style={styles.pageTitle}>
-                                Quotation Request {quotation && formatQuotationRef(quotation.id, quotation.created_at)}
-                            </h1>
-                            <Badge status={quotation?.status} />
+                {/* ---- Banner: who, status, actions, then the progress strip ---- */}
+                <section aria-label="Quotation summary" style={D.hero}>
+                    <div style={D.heroTop}>
+                        <div style={{ minWidth: 0 }}>
+                            <span style={adminText.eyebrow}>Quotation {quoteRef}</span>
+                            <div style={D.heroNameRow}>
+                                <h1 style={D.heroName}>{customerName || 'Customer'}</h1>
+                                <span style={{ ...D.heroPill, background: darkPill }}>{statusLabel(quotation?.status)}</span>
+                            </div>
+                            {siteAddress && <p style={D.heroAddress}>{siteAddress}</p>}
                         </div>
-
-                        <a
-                            href={`mailto:${quotation?.customer?.user?.email || ''}`}
-                            style={styles.contactBtn}
-                        >
-                            <MailIcon size={15} color={adminTokens.body} />
-                            <span>Contact customer</span>
-                        </a>
+                        <div style={D.heroActions}>
+                            {customerEmail && (
+                                <a href={`mailto:${customerEmail}`} style={D.heroOutlineBtn}>
+                                    <MailIcon size={16} color="currentColor" />
+                                    Contact customer
+                                </a>
+                            )}
+                            {isApproved && approvedQuote && (
+                                <button type="button" onClick={startMaterials} style={adminUi.goldBtn}>
+                                    <DownloadIcon size={16} color="currentColor" />
+                                    Materials PDF
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    {cycleComplete ? (
-                        <div style={styles.completeBadge}>
-                            <span style={styles.completeBadgeIcon}>
-                                <CheckIcon size={18} color={colors.success} />
-                            </span>
-                            <span style={styles.completeBadgeText}>Complete!</span>
-                        </div>
-                    ) : (
-                    <div style={styles.stepper}>
+                    <ol aria-label="Progress" style={D.progress}>
                         {steps.map((step, index) => (
-                            <Fragment key={step.label}>
-                                {index > 0 && (
-                                    <div style={{
-                                        ...styles.stepConnector,
-                                        backgroundColor: step.state === 'done' || step.state === 'rejected'
-                                            ? adminTokens.green
-                                            : adminTokens.border,
-                                    }} />
-                                )}
-                                <div style={styles.step}>
-                                    <div style={{ ...styles.stepDot, ...stepDotStyle(step.state) }}>
-                                        {step.state === 'done' ? (
-                                            <CheckIcon size={15} color="white" />
-                                        ) : step.state === 'rejected' ? (
-                                            <XIcon size={15} color="white" />
-                                        ) : (
-                                            index + 1
-                                        )}
-                                    </div>
-                                    <span style={{
-                                        ...styles.stepLabel,
-                                        ...(step.state === 'todo' ? styles.stepLabelTodo : {}),
-                                        ...(step.state === 'current' ? styles.stepLabelCurrent : {}),
-                                    }}>
-                                        {step.label}
+                            <li key={step.label + index} style={D.progressStep}>
+                                <span
+                                    style={{
+                                        ...D.progressDot,
+                                        ...(step.state === 'done' ? D.progressDone : {}),
+                                        ...(step.state === 'rejected' ? D.progressRejected : {}),
+                                        ...(step.state === 'current' ? D.progressCurrent : {}),
+                                    }}
+                                >
+                                    {step.state === 'done' ? <CheckIcon size={14} color="currentColor" />
+                                        : step.state === 'rejected' ? <XIcon size={14} color="currentColor" />
+                                            : index + 1}
+                                </span>
+                                <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
+                                    <span style={{ fontWeight: 600, color: step.state === 'todo' ? adminTokens.stripText : '#FFFFFF' }}>
+                                        {stepLabels[index]}
+                                        <span style={adminUi.srOnly}>
+                                            {step.state === 'done' ? ' (done)' : step.state === 'current' ? ' (next)' : step.state === 'rejected' ? ' (stopped)' : ''}
+                                        </span>
                                     </span>
-                                </div>
-                            </Fragment>
+                                    {stepDates[index] && <span style={{ fontSize: '13px', color: adminTokens.stripText }}>{stepDates[index]}</span>}
+                                </span>
+                                {index < steps.length - 1 && <span aria-hidden="true" style={D.progressLine} />}
+                            </li>
                         ))}
+                    </ol>
+                </section>
+
+                {actionSuccess && (
+                    <div role="status" style={D.success}>
+                        <CheckIcon size={16} color="currentColor" />
+                        <span>{actionSuccess}</span>
                     </div>
-                    )}
-                </div>
+                )}
+                {error && <div role="alert" style={adminUi.errorBanner}>{error}</div>}
 
-                {/* ---- Body: section nav beside the cards ---- */}
-                <div className="m-pad" style={styles.shellContent}>
-
-                    {actionSuccess && (
-                        <div style={styles.success}>
-                            <CheckIcon size={16} color={adminTokens.green} />
-                            <span>{actionSuccess}</span>
-                        </div>
-                    )}
-
-                    {error && <div style={styles.error}>{error}</div>}
-
-                    {/* ---- Customer information ---- */}
-                    <section id="customer" className="m-pad" style={styles.card}>
-                        <h3 style={styles.cardTitle}>Customer Information</h3>
-                        <div className="responsive-grid-2" style={styles.infoGrid}>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>Name</span>
-                                <span style={styles.infoValue}>
-                                    {quotation?.customer?.user?.name}
-                                </span>
+                <div style={D.columns}>
+                    {/* ---- Left: the numbers ---- */}
+                    <div style={D.leftCol}>
+                        <section id="appliances" style={D.card}>
+                            <CardHead title="Appliances" sub="What the customer wants to run on solar" />
+                            <div className="scroll-x">
+                                <table style={D.table}>
+                                    <thead>
+                                        <tr style={adminUi.tableHead}>
+                                            <th scope="col" style={{ ...D.th, paddingLeft: '20px' }}>Appliance</th>
+                                            <th scope="col" style={{ ...D.th, textAlign: 'right' }}>Watts</th>
+                                            <th scope="col" style={{ ...D.th, textAlign: 'right' }}>Qty</th>
+                                            <th scope="col" style={{ ...D.th, textAlign: 'right' }}>Hours/day</th>
+                                            <th scope="col" style={{ ...D.th, textAlign: 'right', paddingRight: '20px' }}>Wh per day</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {applianceItems.map((item) => (
+                                            <tr key={item.id}>
+                                                <td style={{ ...D.td, paddingLeft: '20px' }}>{item.appliance_name}</td>
+                                                <td style={D.tdNum}>{formatNumber(item.wattage)} W</td>
+                                                <td style={D.tdNum}>{item.quantity}</td>
+                                                <td style={D.tdNum}>{item.usage_hours_per_day}</td>
+                                                <td style={{ ...D.tdNum, paddingRight: '20px' }}>
+                                                    {(item.wattage * item.quantity * item.usage_hours_per_day).toLocaleString()}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {applianceItems.length > 0 && (
+                                            <tr style={{ background: '#F3F8F5' }}>
+                                                <th scope="row" style={{ ...D.td, paddingLeft: '20px', textAlign: 'left', fontWeight: 700, borderBottom: 'none' }}>Total</th>
+                                                <td style={{ ...D.tdNum, fontWeight: 700, borderBottom: 'none' }}>{totalWatts.toLocaleString()} W</td>
+                                                <td colSpan={2} style={{ borderBottom: 'none' }} />
+                                                <td style={{ ...D.tdNum, fontWeight: 700, paddingRight: '20px', borderBottom: 'none' }}>{totalWh.toLocaleString()} Wh</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
+                        </section>
 
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>Email</span>
-                                <span style={styles.infoValue}>
-                                    {quotation?.customer?.user?.email}
-                                </span>
-                            </div>
-
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>Contact Number</span>
-                                <span style={styles.infoValue}>
-                                    {formatPhone(quotation?.customer?.contact_number) || '—'}
-                                </span>
-                            </div>
-
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>Installation Location</span>
-                                <span style={styles.infoValue}>
-                                    {quotation?.installation_address || quotation?.customer?.install_location}
-                                </span>
-                            </div>
-
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>System Type</span>
-                                <span style={styles.infoValue}>
-                                    {quotation?.solar_system_type?.charAt(0).toUpperCase() +
-                                     quotation?.solar_system_type?.slice(1)}
-                                </span>
-                            </div>
-
-                            {savingsBill != null && (
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>{billLabel}</span>
-                                    <span style={styles.infoValueFigure}>
-                                        {formatCurrency(savingsBill)}
-                                    </span>
-                                </div>
-                            )}
-
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoLabel}>Date Submitted</span>
-                                <span style={styles.infoValue}>
-                                    {formatDate(quotation?.submission_date)}
-                                </span>
-                            </div>
-
-                            {/* The customer's own description of the house / site */}
-                            {quotation?.site_description && (
-                                <div style={{ ...styles.infoItem, gridColumn: '1 / -1' }}>
-                                    <span style={styles.infoLabel}>About the site</span>
-                                    <span style={{ ...styles.infoValue, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                                        {quotation.site_description}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    {/* ---- Appliance list ---- */}
-                    <section id="appliances" className="m-pad" style={styles.card}>
-                        <h3 style={styles.cardTitle}>Appliance List</h3>
-
-                        <div className="table-scroll">
-                            <div style={styles.tableHeader}>
-                                <span style={{ flex: 3 }}>Appliance</span>
-                                <span style={{ flex: 2 }}>Wattage</span>
-                                <span style={{ flex: 1 }}>Qty</span>
-                                <span style={{ flex: 2 }}>Hours/Day</span>
-                                <span style={{ flex: 2 }}>Daily Usage</span>
-                            </div>
-
-                            {quotation?.appliance_items?.map((item) => (
-                                <div key={item.id} style={styles.tableRow}>
-                                    <span style={{ flex: 3 }}>{item.appliance_name}</span>
-                                    <span style={{ ...styles.figure, flex: 2 }}>{item.wattage}W</span>
-                                    <span style={{ ...styles.figure, flex: 1 }}>×{item.quantity}</span>
-                                    <span style={{ ...styles.figure, flex: 2 }}>{item.usage_hours_per_day}h</span>
-                                    <span style={{ ...styles.figure, flex: 2 }}>
-                                        {(item.wattage * item.quantity * item.usage_hours_per_day
-                                        ).toLocaleString()} Wh
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* ---- Computed solar requirements ---- */}
-                    <section id="requirements" className="m-pad" style={styles.card}>
-                        <h3 style={styles.cardTitle}>Computed Solar Requirements</h3>
-                        <div className="responsive-grid-2 m-two" style={styles.resultGrid}>
-                            {/* total_load_watts holds the day's energy (daytime + nighttime Wh) */}
-                            <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><BoltIcon size={22} color={adminTokens.green} /></span>
-                                <span style={styles.resultLabel}>Daily Energy Use</span>
-                                <span style={styles.resultValue}>
-                                    {formatNumber(quotation?.solar_computation?.total_load_watts)} Wh
-                                </span>
-                            </div>
-
-                            {/* Inverter sizing — only on quotations made after it was added */}
-                            {quotation?.solar_computation?.total_load_w != null && (
-                                <div style={styles.resultBox}>
-                                    <span style={styles.resultIcon}><BoltIcon size={22} color={adminTokens.green} /></span>
-                                    <span style={styles.resultLabel}>Total Load</span>
-                                    <span style={styles.resultValue}>
-                                        {formatNumber(quotation.solar_computation.total_load_w)} W
-                                    </span>
-                                </div>
-                            )}
-                            {quotation?.solar_computation?.inverter_size_w != null && (
-                                <div style={styles.resultBox}>
-                                    <span style={styles.resultIcon}><PlugIcon size={22} color={adminTokens.green} /></span>
-                                    <span style={styles.resultLabel}>Inverter Size</span>
-                                    <span style={styles.resultValue}>
-                                        {formatNumber(quotation.solar_computation.inverter_size_w)} W
-                                    </span>
-                                    <span style={styles.resultNote}>Total load + 2,000 W buffer</span>
-                                </div>
-                            )}
-
-                            <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><PlugIcon size={22} color={adminTokens.green} /></span>
-                                <span style={styles.resultLabel}>Inverter Package</span>
-                                <span style={styles.resultValue}>
-                                    {quotation?.solar_computation?.inverter_specification}
-                                </span>
-                            </div>
-
-                            <div style={styles.resultBox}>
-                                <span style={styles.resultIcon}><SunIcon size={22} color={adminTokens.green} /></span>
-                                <span style={styles.resultLabel}>Panels</span>
-                                <span style={styles.resultValue}>
-                                    {quotation?.solar_computation?.panel_count
-                                        ? `${quotation.solar_computation.panel_count} panels · `
-                                        : ''}
-                                    {quotation?.solar_computation?.panel_capacity_kw} kW
-                                </span>
-                            </div>
-
-                            {parseFloat(quotation?.solar_computation?.battery_capacity_ah) > 0 && (
-                                <div style={styles.resultBox}>
-                                    <span style={styles.resultIcon}><BatteryIcon size={22} color={adminTokens.green} /></span>
-                                    <span style={styles.resultLabel}>Battery Capacity</span>
-                                    <span style={styles.resultValue}>
-                                        {/* A big night load gets a bank: 2 × 314 Ah, or 314 Ah + a smaller one */}
-                                        {quotation?.solar_computation?.battery_qty > 1 && `${quotation.solar_computation.battery_qty} × `}
-                                        {parseFloat(quotation?.solar_computation?.battery_capacity_ah
-                                        ).toLocaleString()} Ah
-                                        {quotation?.solar_computation?.extra_battery_ah && ` + ${quotation.solar_computation.extra_battery_ah} Ah`}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Price breakdown the customer saw in the calculator */}
-                        {quotation?.solar_computation?.line_items?.length > 0 && (
-                            <div style={styles.breakdown}>
-                                <div style={styles.breakdownTitle}>Price Breakdown</div>
-                                {quotation.solar_computation.line_items.map((item) => (
-                                    <div key={item.key} style={styles.breakdownRow}>
-                                        <span style={{ flex: 3, minWidth: 0 }}>
-                                            <span style={styles.breakdownLabel}>{item.label}</span>
-                                            {item.sku && <span style={styles.breakdownSku}> · {item.sku}</span>}
-                                        </span>
-                                        <span style={styles.breakdownQty}>
-                                            {item.qty} {item.qty_unit} × {formatCurrency(item.unit_price)}
-                                        </span>
-                                        <span style={styles.breakdownAmount}>{formatCurrency(item.amount)}</span>
+                        <section id="requirements" style={D.card}>
+                            <CardHead title="Recommended system" sub="Worked out from the appliance list" />
+                            <dl style={D.sizingGrid}>
+                                {sizing.map(([label, value, note]) => (
+                                    <div key={label} style={D.sizingCell}>
+                                        <dt style={D.sizingLabel}>{label}</dt>
+                                        <dd style={D.sizingValue}>{value}</dd>
+                                        {note && <dd style={{ margin: '2px 0 0', fontSize: '13px', color: adminTokens.muted }}>{note}</dd>}
                                     </div>
                                 ))}
-                            </div>
-                        )}
+                            </dl>
+                        </section>
 
-                        <div style={styles.totalBanner}>
-                            <span style={styles.totalBannerLabel}>Estimated cost</span>
-                            <span style={styles.totalBannerValue}>
-                                {formatCurrency(quotation?.solar_computation?.estimated_cost)}
-                            </span>
-                        </div>
-
-                        {/* Savings estimate — quotations made before this feature don't have one */}
-                        {quotation?.solar_computation?.monthly_savings != null && (() => {
-                            const computation = quotation.solar_computation;
-                            // Once approved, payback uses the approved total instead of the engine's price
-                            const total = quotation.quotation?.total_amount ?? computation.estimated_cost;
-                            const annual = parseFloat(computation.annual_savings);
-                            const payback = annual > 0 ? (parseFloat(total) / annual).toFixed(1) : null;
-                            const ret = computeReturn(annual, parseFloat(total));
-
-                            return (
-                                <div className="responsive-grid-2 m-two" style={{ ...styles.resultGrid, marginTop: '1rem' }}>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>Monthly Savings</span>
-                                        <span style={styles.resultValue}>{formatCurrency(computation.monthly_savings)}</span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>Annual Savings</span>
-                                        <span style={styles.resultValue}>{formatCurrency(computation.annual_savings)}</span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>New Monthly Bill</span>
-                                        <span style={styles.resultValue}>
-                                            {computation.new_monthly_bill != null ? formatCurrency(computation.new_monthly_bill) : '—'}
-                                        </span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>ROI (Payback Period)</span>
-                                        <span style={styles.resultValue}>{payback !== null ? `${payback} years` : '—'}</span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>Electricity Rate</span>
-                                        <span style={styles.resultValue}>
-                                            {formatCurrency(computation.electricity_rate)}/kWh
-                                            {computation.rate_source === 'bill' ? ' (from bill)' : ' (SORECO rate)'}
-                                        </span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Savings</span>
-                                        <span style={styles.resultValue}>{formatCurrency(ret.lifetimeSavings)}</span>
-                                    </div>
-                                    <div style={styles.resultBox}>
-                                        <span style={styles.resultLabel}>{SYSTEM_LIFE_YEARS}-Year Net Gain</span>
-                                        <span style={styles.resultValue}>{signedPeso(ret.netGain)}</span>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-                    </section>
-
-                    {/* ---- Finalized quotation ---- */}
-                    {quotation?.quotation && (
-                        <section id="quotation" className="m-pad" style={styles.card}>
-                            <h3 style={styles.cardTitle}>Finalized Quotation</h3>
-
-                            <div className="responsive-grid-4" style={styles.infoGrid}>
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>Adjusted Cost</span>
-                                    <span style={styles.infoValueFigure}>
-                                        {formatCurrency(quotation.quotation.adjusted_cost)}
-                                    </span>
-                                </div>
-
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>Labor Fee</span>
-                                    <span style={styles.infoValueFigure}>
-                                        {formatCurrency(quotation.quotation.labor_fee)}
-                                    </span>
-                                </div>
-
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>Transportation Fee</span>
-                                    <span style={styles.infoValueFigure}>
-                                        {formatCurrency(quotation.quotation.transportation_fee)}
-                                    </span>
-                                </div>
-
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>Approved</span>
-                                    <span style={styles.infoValue}>
-                                        {formatDate(quotation.quotation.approval_date)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div style={styles.totalBanner}>
-                                <span style={styles.totalBannerLabel}>Approved total</span>
-                                <span style={styles.totalBannerValue}>
-                                    {formatCurrency(quotation.quotation.total_amount)}
-                                </span>
+                        <section id="quotation" style={D.card}>
+                            <CardHead
+                                title="Pricing"
+                                sub={approvedQuote?.approval_date
+                                    ? `Estimate, then the final amount approved on ${formatDate(approvedQuote.approval_date)}`
+                                    : 'Estimate from the quote builder'}
+                            />
+                            <div className="scroll-x">
+                                <table style={D.table}>
+                                    {computation?.line_items?.length > 0 && (
+                                        <thead>
+                                            <tr style={adminUi.tableHead}>
+                                                <th scope="col" style={{ ...D.th, paddingLeft: '20px' }}>Item</th>
+                                                <th scope="col" style={D.th}>Quantity × price</th>
+                                                <th scope="col" style={{ ...D.th, textAlign: 'right', paddingRight: '20px' }}>Amount</th>
+                                            </tr>
+                                        </thead>
+                                    )}
+                                    <tbody>
+                                        {(computation?.line_items ?? []).map((item) => (
+                                            <tr key={item.key}>
+                                                <td style={{ ...D.td, paddingLeft: '20px' }}>
+                                                    <span style={{ fontWeight: 600 }}>{item.label}</span>
+                                                    {item.sku && <span style={{ fontSize: '12px', color: adminTokens.subtle }}> {item.sku}</span>}
+                                                </td>
+                                                <td style={{ ...D.td, color: adminTokens.muted }}>
+                                                    {item.qty} {item.qty_unit} × {formatCurrency(item.unit_price)}
+                                                </td>
+                                                <td style={{ ...D.tdNum, paddingRight: '20px' }}>{formatCurrency(item.amount)}</td>
+                                            </tr>
+                                        ))}
+                                        <tr>
+                                            <th scope="row" colSpan={2} style={{ ...D.td, paddingLeft: '20px', textAlign: 'left', fontWeight: 700, borderBottom: `1px solid ${adminTokens.line}` }}>
+                                                Estimated cost
+                                            </th>
+                                            <td style={{ ...D.tdNum, paddingRight: '20px', fontWeight: 700, borderBottom: `1px solid ${adminTokens.line}` }}>
+                                                {formatCurrency(computation?.estimated_cost)}
+                                            </td>
+                                        </tr>
+                                        {approvedQuote && (
+                                            <>
+                                                {[
+                                                    ['Adjusted cost', approvedQuote.adjusted_cost],
+                                                    ['+ Labor fee', approvedQuote.labor_fee],
+                                                    ['+ Transportation fee', approvedQuote.transportation_fee],
+                                                ].map(([label, amount]) => (
+                                                    <tr key={label}>
+                                                        <td colSpan={2} style={{ ...D.td, paddingLeft: '20px', color: adminTokens.body }}>{label}</td>
+                                                        <td style={{ ...D.tdNum, paddingRight: '20px' }}>{formatCurrency(amount)}</td>
+                                                    </tr>
+                                                ))}
+                                                <tr style={{ background: '#E3F1E8' }}>
+                                                    <th scope="row" colSpan={2} style={D.grandLabel}>Approved total</th>
+                                                    <td style={D.grandValue}>{formatCurrency(approvedQuote.total_amount)}</td>
+                                                </tr>
+                                            </>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </section>
-                    )}
 
-                    {/* ---- Cancelled by the customer ---- */}
-                    {quotation?.status === 'cancelled' && (
-                        <section className="m-pad" style={{ ...styles.card, ...styles.cardDanger }}>
-                            <h3 style={{ ...styles.cardTitle, color: adminTokens.danger }}>
-                                Cancelled by the customer
-                            </h3>
-                            <p style={styles.cardBodyText}>
-                                {quotation.cancellation_reason || 'No reason was given.'}
-                                {quotation.cancelled_at && (
-                                    <span style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.8rem', color: adminTokens.muted }}>
-                                        {new Date(quotation.cancelled_at).toLocaleString('en-PH', {
-                                            month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-                                        })}
-                                    </span>
-                                )}
-                            </p>
-                        </section>
-                    )}
-
-                    {/* ---- Rejection reason ---- */}
-                    {quotation?.status === 'rejected' && quotation?.notes && (
-                        <section className="m-pad" style={{ ...styles.card, ...styles.cardDanger }}>
-                            <h3 style={{ ...styles.cardTitle, color: adminTokens.danger }}>
-                                Rejection Reason
-                            </h3>
-                            <p style={styles.cardBodyText}>{quotation.notes}</p>
-                        </section>
-                    )}
-
-                    {/* ---- Approve / reject ---- */}
-                    {quotation?.status === 'pending' && !actionSuccess && (
-                        <section id="decision" className="m-pad" style={styles.card}>
-                            <h3 style={styles.cardTitle}>Decision</h3>
-
-                            {!showApproveForm && !showRejectForm && (
-                                <>
-                                    <p style={styles.cardDesc}>
-                                        Approve this request to set the final costs, or reject it
-                                        with a reason the customer can act on.
-                                    </p>
-
-                                    <div style={styles.actionButtons}>
-                                        <button
-                                            className="btn-primary"
-                                            onClick={() => { setDecisionError(''); setShowApproveForm(true); }}
-                                            style={styles.approveBtn}
-                                        >
-                                            <CheckIcon size={16} color="white" />
-                                            <span>Approve Quotation</span>
-                                        </button>
-
-                                        <button
-                                            className="btn-danger"
-                                            onClick={() => { setDecisionError(''); setShowRejectForm(true); }}
-                                            style={styles.rejectBtn}
-                                        >
-                                            <XIcon size={16} color="white" />
-                                            <span>Reject Quotation</span>
-                                        </button>
-                                    </div>
-                                </>
-                            )}
+                        {/* ---- Approve / reject ---- */}
+                        {quotation?.status === 'pending' && !actionSuccess && (
+                            <section id="decision" style={{ ...D.card, padding: '16px 20px' }}>
+                                <h2 style={D.cardTitle}>Decision</h2>
+                                <p style={{ margin: '2px 0 14px', color: adminTokens.muted, fontSize: '13px' }}>
+                                    Approve this request to set the final costs, or reject it with a reason the customer can act on.
+                                </p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    <button type="button" onClick={() => { setDecisionError(''); setShowApproveForm(true); }} style={adminUi.primaryBtn}>
+                                        <CheckIcon size={16} color="currentColor" />
+                                        Approve Quotation
+                                    </button>
+                                    <button type="button" onClick={() => { setDecisionError(''); setShowRejectForm(true); }} style={adminUi.rejectBtn}>
+                                        <XIcon size={16} color="currentColor" />
+                                        Reject Quotation
+                                    </button>
+                                </div>
 
                             {showApproveForm && (
                                 <div style={styles.decisionModalOverlay} onClick={() => setShowApproveForm(false)}>
@@ -932,25 +768,13 @@ export default function AdminQuotationDetailPage() {
                                     </div>
                                 </div>
                             )}
-                        </section>
-                    )}
+                            </section>
+                        )}
 
-                    {/* ---- Materials PDF for the supplier ---- */}
-                    {/* The admin downloads it and sends it on Messenger; nothing is saved or tracked */}
-                    {quotation?.status === 'approved' && quotation?.quotation && (
-                        <section id="materials" className="m-pad" style={styles.card}>
-                            {!materialsOpen ? (
-                                <div>
-                                    <h3 style={styles.cardTitle}>Materials for supplier</h3>
-                                    <p style={styles.cardDesc}>
-                                        Make a purchase request PDF from this quote's materials, then send it to the
-                                        supplier on Messenger. It has no prices and no customer name.
-                                    </p>
-                                    <button className="btn-primary" onClick={openMaterials} style={styles.approveBtn}>
-                                        <span>Prepare materials PDF</span>
-                                    </button>
-                                </div>
-                            ) : (
+                        {/* ---- Materials PDF for the supplier (the open form) ---- */}
+                        {/* The admin downloads it and sends it on Messenger; nothing is saved or tracked */}
+                        {isApproved && approvedQuote && materialsOpen && (
+                            <section id="materials" className="m-pad" style={{ ...D.card, padding: '16px 20px' }}>
                                 <form onSubmit={handleDownloadMaterials}>
                                     <div style={styles.matHead}>
                                         <div>
@@ -1153,72 +977,148 @@ export default function AdminQuotationDetailPage() {
                                         </div>
                                     </div>
                                 </form>
-                            )}
-                        </section>
-                    )}
+                            </section>
+                        )}
+                    </div>
 
-                    {/* ---- Installation schedule ---- */}
-                    {quotation?.status === 'approved' && (
-                        <section
-                            id="installation"
-                            className="m-pad"
-                            style={styles.card}
-                        >
-                            <h3 style={styles.cardTitle}>Installation Schedule</h3>
-
-                            {installSchedule ? (
-                                <div>
-                                    <div style={styles.success}>
-                                        <CheckIcon size={16} color={adminTokens.green} />
-                                        <span>Installation has been scheduled.</span>
-                                    </div>
-
-                                    <div className="responsive-grid-2" style={styles.infoGrid}>
-                                        <div style={styles.infoItem}>
-                                            <span style={styles.infoLabel}>Scheduled Date</span>
-                                            <span style={styles.infoValue}>
-                                                {formatDate(installSchedule.scheduled_date)}
-                                            </span>
-                                        </div>
-
-                                        <div style={styles.infoItem}>
-                                            <span style={styles.infoLabel}>Start Time</span>
-                                            <span style={styles.infoValueFigure}>
-                                                {formatTime(installSchedule.scheduled_time) || 'TBD'}
-                                            </span>
-                                        </div>
-
-                                        <div style={styles.infoItem}>
-                                            <span style={styles.infoLabel}>Assigned Technician</span>
-                                            <span style={styles.infoValue}>
-                                                {installSchedule.assigned_technician}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : scheduleSuccess ? (
-                                <div style={styles.success}>
-                                    <CheckIcon size={16} color={adminTokens.green} />
-                                    <span>Installation schedule created successfully.</span>
-                                </div>
-                            ) : (
-                                <div>
-                                    <p style={styles.cardDesc}>
-                                        Pick a day, time and technician for this installation.
+                    {/* ---- Right: who, when, what next ---- */}
+                    <div style={D.rightCol}>
+                        {quotation?.status === 'cancelled' && (
+                            <section style={{ ...D.card, ...D.dangerCard }}>
+                                <h2 style={{ ...D.cardTitle, color: adminTokens.danger }}>Cancelled by the customer</h2>
+                                <p style={{ margin: '6px 0 0', color: adminTokens.body }}>{quotation.cancellation_reason || 'No reason was given.'}</p>
+                                {quotation.cancelled_at && (
+                                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: adminTokens.muted }}>
+                                        {new Date(quotation.cancelled_at).toLocaleString('en-PH', {
+                                            month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+                                        })}
                                     </p>
+                                )}
+                            </section>
+                        )}
 
-                                    <button
-                                        className="btn-primary"
-                                        onClick={openScheduleModal}
-                                        style={styles.approveBtn}
-                                    >
-                                        <CalendarIcon size={15} color="white" />
-                                        <span>Set installation schedule</span>
-                                    </button>
+                        {quotation?.status === 'rejected' && quotation?.notes && (
+                            <section style={{ ...D.card, ...D.dangerCard }}>
+                                <h2 style={{ ...D.cardTitle, color: adminTokens.danger }}>Rejection reason</h2>
+                                <p style={{ margin: '6px 0 0', color: adminTokens.body }}>{quotation.notes}</p>
+                            </section>
+                        )}
+
+                        {isApproved && (
+                            <section id="installation" style={{ ...D.card, padding: '16px 20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                    <h2 style={D.cardTitle}>Installation</h2>
+                                    {installSchedule && <Badge status={installSchedule.status || 'scheduled'} />}
+                                </div>
+                                {installSchedule && scheduleDay ? (
+                                    <>
+                                        <div style={D.bookedRow}>
+                                            <div style={D.calTile} aria-hidden="true">
+                                                <div style={D.calTileMonth}>{scheduleDay.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 700, padding: '2px 0' }}>{scheduleDay.getDate()}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: 700 }}>
+                                                    {scheduleDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                                </div>
+                                                <div style={{ color: adminTokens.muted }}>
+                                                    {installSchedule.scheduled_time ? `Starts ${formatTime(installSchedule.scheduled_time)}` : 'Start time to be decided'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <dl style={{ ...D.facts, marginTop: '12px' }}>
+                                            <dt style={D.factLabel}>Technician</dt>
+                                            <dd style={{ margin: 0, fontWeight: 600 }}>{installSchedule.assigned_technician || '—'}</dd>
+                                        </dl>
+                                    </>
+                                ) : scheduleSuccess ? (
+                                    <p style={{ margin: 0, color: '#1F6B45', fontWeight: 600 }}>Installation schedule created successfully.</p>
+                                ) : (
+                                    <>
+                                        <p style={{ margin: '0 0 12px', color: adminTokens.muted }}>Pick a day, time and technician for this installation.</p>
+                                        <button type="button" onClick={openScheduleModal} style={adminUi.primaryBtn}>
+                                            <CalendarIcon size={15} color="currentColor" />
+                                            Set installation schedule
+                                        </button>
+                                    </>
+                                )}
+                            </section>
+                        )}
+
+                        <section id="customer" style={{ ...D.card, padding: '16px 20px' }}>
+                            <h2 style={{ ...D.cardTitle, marginBottom: '12px' }}>Customer</h2>
+                            <dl style={D.facts}>
+                                <dt style={D.factLabel}>Name</dt>
+                                <dd style={D.factValue}>{customerName || '—'}</dd>
+                                <dt style={D.factLabel}>Email</dt>
+                                <dd style={D.factValue}>
+                                    {customerEmail ? <a href={`mailto:${customerEmail}`} style={{ color: adminTokens.green, textDecoration: 'none' }}>{customerEmail}</a> : '—'}
+                                </dd>
+                                <dt style={D.factLabel}>Phone</dt>
+                                <dd style={D.factValue}>{formatPhone(quotation?.customer?.contact_number) || '—'}</dd>
+                                <dt style={D.factLabel}>Address</dt>
+                                <dd style={D.factValue}>{siteAddress || '—'}</dd>
+                                <dt style={D.factLabel}>System</dt>
+                                <dd style={D.factValue}>
+                                    {quotation?.solar_system_type
+                                        ? quotation.solar_system_type.charAt(0).toUpperCase() + quotation.solar_system_type.slice(1)
+                                        : '—'}
+                                </dd>
+                                {savingsBill != null && (
+                                    <>
+                                        <dt style={D.factLabel}>Monthly bill</dt>
+                                        <dd style={D.factValue}>
+                                            {formatCurrency(savingsBill)}{billLabel === 'Average Monthly Bill' ? ' on average' : ''}
+                                        </dd>
+                                    </>
+                                )}
+                                <dt style={D.factLabel}>Submitted</dt>
+                                <dd style={D.factValue}>{quotation?.submission_date ? formatDate(quotation.submission_date) : '—'}</dd>
+                            </dl>
+                            {/* The customer's own description of the house / site */}
+                            {quotation?.site_description && (
+                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${adminTokens.rowLine}` }}>
+                                    <div style={D.factLabel}>About the site</div>
+                                    <p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{quotation.site_description}</p>
                                 </div>
                             )}
                         </section>
-                    )}
+
+                        {savings && (
+                            <section style={D.card}>
+                                <div style={{ padding: '16px 20px 0' }}>
+                                    <h2 style={D.cardTitle}>Estimated savings</h2>
+                                    <p style={{ margin: '2px 0 12px', fontSize: '13px', color: adminTokens.muted }}>
+                                        At {savings.rate}, {savings.fromBill ? "taken from the customer's bill" : 'the SORECO rate'}
+                                    </p>
+                                </div>
+                                <div style={D.netGain}>
+                                    <span style={{ color: '#1F4D3A' }}>{SYSTEM_LIFE_YEARS}-year net gain</span>
+                                    <span style={{ fontSize: '22px', fontWeight: 700, color: adminTokens.green }}>{savings.netGain}</span>
+                                </div>
+                                <dl style={{ margin: 0, padding: '0 20px 14px' }}>
+                                    {savings.rows.map(([label, value, color]) => (
+                                        <div key={label} style={D.savingsRow}>
+                                            <dt style={{ color: adminTokens.body }}>{label}</dt>
+                                            <dd style={{ margin: 0, fontWeight: 700, color: color || adminTokens.ink }}>{value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </section>
+                        )}
+
+                        {isApproved && approvedQuote && !materialsOpen && (
+                            <section id="materials" style={D.materialsCard}>
+                                <h2 style={D.cardTitle}>Materials for the supplier</h2>
+                                <p style={{ margin: '4px 0 12px', color: '#5C3D00' }}>
+                                    A purchase request PDF of this quotation's materials, ready to send on Messenger. It has no prices or customer name.
+                                </p>
+                                <button type="button" onClick={startMaterials} style={{ ...adminUi.primaryBtn, height: '38px', fontWeight: 600 }}>
+                                    Prepare materials PDF
+                                </button>
+                            </section>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -1246,6 +1146,16 @@ export default function AdminQuotationDetailPage() {
 }
 
 
+// Title and grey line at the top of a card
+function CardHead({ title, sub }) {
+    return (
+        <div style={{ padding: '16px 20px 12px' }}>
+            <h2 style={D.cardTitle}>{title}</h2>
+            {sub && <p style={{ margin: '2px 0 0', fontSize: '13px', color: adminTokens.muted }}>{sub}</p>}
+        </div>
+    );
+}
+
 const styles = {
     loadError: {
         textAlign: 'center',
@@ -1258,7 +1168,7 @@ const styles = {
         maxWidth: '1080px',
         margin: '0 auto',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         overflow: 'hidden',
         boxShadow: '0 1px 2px rgba(17,24,39,0.04), 0 12px 32px -18px rgba(17,24,39,0.18)',
@@ -1298,7 +1208,7 @@ const styles = {
         border: `1px solid ${adminTokens.border}`,
         backgroundColor: adminTokens.surface,
         color: adminTokens.body,
-        borderRadius: '9px',
+        borderRadius: '6px',
         textDecoration: 'none',
         whiteSpace: 'nowrap',
     },
@@ -1403,7 +1313,7 @@ const styles = {
     /* ---------- Cards ---------- */
     card: {
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '14px',
+        borderRadius: '6px',
         padding: '1.25rem 1.375rem',
         backgroundColor: adminTokens.surface,
         ...adminUi.cardAccent,
@@ -1468,7 +1378,7 @@ const styles = {
         gap: '1rem',
         flexWrap: 'wrap',
         backgroundColor: adminTokens.greenTint,
-        borderRadius: '11px',
+        borderRadius: '6px',
         padding: '1rem 1.25rem',
         marginTop: '1.25rem',
     },
@@ -1515,7 +1425,7 @@ const styles = {
         flexDirection: 'column',
         gap: '0.375rem',
         padding: '1rem',
-        borderRadius: '11px',
+        borderRadius: '6px',
         border: `1px solid ${adminTokens.border}`,
         backgroundColor: colors.bgSubtle,
     },
@@ -1584,7 +1494,7 @@ const styles = {
         backgroundColor: adminTokens.green,
         color: 'white',
         border: 'none',
-        borderRadius: '9px',
+        borderRadius: '6px',
         fontWeight: '500',
         cursor: 'pointer',
     },
@@ -1597,7 +1507,7 @@ const styles = {
         backgroundColor: adminTokens.danger,
         color: 'white',
         border: 'none',
-        borderRadius: '9px',
+        borderRadius: '6px',
         fontWeight: '500',
         cursor: 'pointer',
     },
@@ -1606,7 +1516,7 @@ const styles = {
         color: adminTokens.body,
         border: `1px solid ${adminTokens.border}`,
         padding: '0.6875rem 1.125rem',
-        borderRadius: '9px',
+        borderRadius: '6px',
         fontSize: '0.8125rem',
         cursor: 'pointer',
     },
@@ -1628,14 +1538,14 @@ const styles = {
         width: '100%',
         padding: '0.625rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '9px',
+        borderRadius: '6px',
         fontSize: '0.9375rem',
         boxSizing: 'border-box',
     },
     decisionForm: {
         padding: '1rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '12px',
+        borderRadius: '6px',
         backgroundColor: colors.bgSubtle,
     },
     decisionModalOverlay: {
@@ -1655,7 +1565,7 @@ const styles = {
         overflowY: 'auto',
         padding: '1.25rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         boxShadow: '0 24px 70px rgba(17,24,39,0.22)',
     },
@@ -1663,7 +1573,7 @@ const styles = {
         width: '100%',
         padding: '0.7rem 0.75rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '9px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         color: adminTokens.ink,
         fontSize: '0.9375rem',
@@ -1676,7 +1586,7 @@ const styles = {
         minHeight: '122px',
         padding: '0.75rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '10px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         color: adminTokens.ink,
         fontSize: '0.875rem',
@@ -1824,7 +1734,7 @@ const styles = {
         gap: '0.6rem',
         padding: '0.75rem 0.875rem',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '10px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         cursor: 'pointer',
     },
@@ -1881,7 +1791,7 @@ const styles = {
         backgroundColor: adminTokens.greenTint,
         color: adminTokens.green,
         padding: '0.75rem 1rem',
-        borderRadius: '9px',
+        borderRadius: '6px',
         fontSize: '0.875rem',
     },
     error: { ...adminUi.errorBanner, marginBottom: 0 },
@@ -1889,4 +1799,98 @@ const styles = {
     /* ---------- Schedule modal ---------- */
 
     /* ---------- Calendar inside the modal ---------- */
+};
+
+// Page look from the "Quotation detail" mockup
+const D = {
+    page: { display: 'flex', flexDirection: 'column', gap: '20px', fontSize: '14px', color: adminTokens.ink },
+    backLink: {
+        alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '32px',
+        padding: 0, border: 'none', background: 'none', color: adminTokens.green, fontSize: '14px', fontWeight: 600,
+        fontFamily: 'inherit', cursor: 'pointer',
+    },
+
+    hero: { background: adminTokens.green, color: '#FFFFFF', borderRadius: adminTokens.heroRadius },
+    heroTop: {
+        display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between',
+        gap: '16px 24px', padding: '22px 24px 20px',
+    },
+    heroNameRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '4px' },
+    heroName: { margin: 0, fontSize: '26px', fontWeight: 700, letterSpacing: '-0.01em', overflowWrap: 'anywhere' },
+    heroPill: { fontSize: '12px', fontWeight: 700, color: adminTokens.green, borderRadius: '4px', padding: '2px 8px' },
+    heroAddress: { margin: '2px 0 0', fontSize: '14px', color: adminTokens.stripText },
+    heroActions: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+    heroOutlineBtn: {
+        height: '42px', padding: '0 14px', boxSizing: 'border-box', borderRadius: adminTokens.radius,
+        border: '1px solid rgba(255,255,255,0.3)', background: 'transparent', color: '#FFFFFF', fontSize: '14px',
+        fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', whiteSpace: 'nowrap',
+    },
+    progress: {
+        listStyle: 'none', margin: 0, padding: '14px 24px 16px', display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px 0',
+        borderTop: '1px solid rgba(255,255,255,0.14)', background: adminTokens.strip,
+        borderRadius: `0 0 ${adminTokens.heroRadius} ${adminTokens.heroRadius}`,
+    },
+    progressStep: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 },
+    progressDot: {
+        width: '26px', height: '26px', borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: adminTokens.stripText,
+        border: '1px solid rgba(255,255,255,0.3)', boxSizing: 'border-box',
+    },
+    progressDone: { background: '#A8D5C2', color: adminTokens.green, border: 'none' },
+    progressRejected: { background: '#F08A7E', color: '#5A120B', border: 'none' },
+    progressCurrent: { background: 'transparent', color: adminTokens.gold, border: `2px solid ${adminTokens.gold}` },
+    progressLine: { flex: 1, minWidth: '16px', height: '1px', background: 'rgba(255,255,255,0.22)', margin: '0 16px' },
+
+    success: {
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: adminTokens.radius,
+        background: '#E3F1E8', color: '#1F6B45', fontWeight: 600,
+    },
+
+    columns: { display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' },
+    leftCol: { flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' },
+    rightCol: { flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '20px' },
+
+    card: { background: '#FFFFFF', border: `1px solid ${adminTokens.line}`, borderRadius: adminTokens.radius },
+    cardTitle: { margin: 0, fontSize: '16px', fontWeight: 700, color: adminTokens.ink },
+    dangerCard: { padding: '16px 20px', borderColor: '#F0D0CB', background: '#FFF8F7' },
+
+    table: { width: '100%', minWidth: '520px', borderCollapse: 'collapse', fontSize: '14px' },
+    th: {
+        textAlign: 'left', fontWeight: 600, padding: '9px 12px',
+        borderTop: `1px solid ${adminTokens.line}`, borderBottom: `1px solid ${adminTokens.line}`,
+    },
+    td: { padding: '10px 12px', borderBottom: `1px solid ${adminTokens.rowLine}` },
+    tdNum: { padding: '10px 12px', borderBottom: `1px solid ${adminTokens.rowLine}`, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
+    grandLabel: { textAlign: 'left', padding: '14px 12px 14px 20px', fontSize: '15px', fontWeight: 700, color: adminTokens.green },
+    grandValue: { padding: '14px 20px 14px 12px', textAlign: 'right', fontSize: '22px', fontWeight: 700, color: adminTokens.green, whiteSpace: 'nowrap' },
+
+    sizingGrid: {
+        margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        borderTop: `1px solid ${adminTokens.line}`, overflow: 'hidden',
+        borderRadius: `0 0 ${adminTokens.radius} ${adminTokens.radius}`,
+    },
+    // The right/bottom lines of the last column and row fall outside and are clipped
+    sizingCell: {
+        padding: '14px 20px', borderBottom: `1px solid ${adminTokens.rowLine}`, borderRight: `1px solid ${adminTokens.rowLine}`,
+        marginRight: '-1px', marginBottom: '-1px',
+    },
+    sizingLabel: { fontSize: '12px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: adminTokens.muted },
+    sizingValue: { margin: '2px 0 0', fontSize: '17px', fontWeight: 700, overflowWrap: 'anywhere' },
+
+    bookedRow: { display: 'flex', gap: '14px', alignItems: 'center', paddingBottom: '12px', borderBottom: `1px solid ${adminTokens.rowLine}` },
+    calTile: { width: '52px', flex: 'none', border: `1px solid ${adminTokens.line}`, borderRadius: adminTokens.radius, overflow: 'hidden', textAlign: 'center' },
+    calTileMonth: { background: adminTokens.green, color: '#FFFFFF', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', padding: '2px 0' },
+
+    facts: { margin: 0, display: 'grid', gridTemplateColumns: '90px minmax(0, 1fr)', gap: '8px 10px' },
+    factLabel: { color: adminTokens.muted },
+    factValue: { margin: 0, overflowWrap: 'anywhere' },
+
+    netGain: {
+        margin: '0 20px 12px', padding: '12px 14px', background: '#E3F1E8', borderRadius: adminTokens.radius,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap',
+    },
+    savingsRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '7px 0', borderTop: `1px solid ${adminTokens.rowLine}` },
+
+    materialsCard: { background: '#FDF6E3', border: '1px solid #F1DFB0', borderRadius: adminTokens.radius, padding: '16px 20px' },
 };

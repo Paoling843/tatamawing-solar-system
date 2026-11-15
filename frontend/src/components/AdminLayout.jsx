@@ -11,17 +11,19 @@ import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
 import AccountMenu from './AccountMenu';
 import { readSeenCounts, writeSeenCounts } from '../utils/adminSeen';
-import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
-import { roundBell } from '../styles/theme';
+import { adminTokens } from '../styles/adminTheme';
+import AdminHero from './AdminHero';
+import useButtonHover from '../hooks/useButtonHover';
 
 // Sidebar on the brand green, with the brand yellow for the current page
 const SIDE = {
     bg: adminTokens.green,
-    text: '#e2ebe6',
-    muted: '#c3d4cb',
+    text: '#E4ECE8',
+    muted: '#C3D3CB',
+    groupLabel: '#9db5a9',
     line: 'rgba(255, 255, 255, 0.12)',
     highlight: adminTokens.gold,
-    onHighlight: adminTokens.green,
+    onHighlight: '#14261F',
 };
 
 // Schedule uses the newest schedule id rather than a count: the dot means
@@ -59,6 +61,8 @@ const writeCachedCounts = (counts) => {
 // e.g. "#Q-2026-050 · Juan Dela Cruz" on a quotation's details page
 export default function AdminLayout({ children, active, title, subtitle, actions, crumb }) {
     const { user, logout } = useAuth();
+    // Hover effects for every button on the admin pages
+    useButtonHover();
     const navigate = useNavigate();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -152,19 +156,19 @@ export default function AdminLayout({ children, active, title, subtitle, actions
             items: [
                 { label: 'Users', path: '/admin/system', icon: <PersonIcon /> },
                 { label: 'Messages', path: '/admin/inbox', icon: <MessageIcon size={16} />, countKey: 'messages' },
-                { label: 'Audit Log', path: '/admin/audit-logs', icon: <ShieldIcon size={16} /> },
-                { label: 'FAQ Management', path: '/admin/faqs', icon: <HelpIcon size={16} /> },
+                { label: 'Audit log', path: '/admin/audit-logs', icon: <ShieldIcon size={16} /> },
+                { label: 'FAQ management', path: '/admin/faqs', icon: <HelpIcon size={16} /> },
             ],
         },
     ];
 
     // Breadcrumb: sidebar group › page › item (when there is one). My Profile
     // lives in the account menu, not the sidebar, so it has its own group.
-    const crumbGroups = [...navGroups, { label: 'Account', items: [{ label: 'My Profile', path: '/admin/profile' }] }];
+    const crumbGroups = [...navGroups, { label: 'Account', items: [{ label: 'My profile', path: '/admin/profile' }] }];
     const crumbGroup = crumbGroups.find((group) => group.items.some((item) => item.label === active));
     const crumbPage = crumbGroup?.items.find((item) => item.label === active);
 
-    const today = new Date().toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
     return (
         <div style={styles.wrapper}>
@@ -200,7 +204,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                                     >
                                         <span style={{
                                             ...styles.navIcon,
-                                            color: isActive ? SIDE.onHighlight : SIDE.muted,
+                                            color: 'currentColor',
                                         }}>
                                             {item.icon}
                                         </span>
@@ -242,11 +246,11 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                         <nav aria-label="Breadcrumb" style={styles.breadcrumb}>
                             {/* The group isn't a page of its own; phones skip it to save room */}
                             <span className="m-hide" style={styles.crumbGroup}>{crumbGroup.label}</span>
-                            <span className="m-hide" style={styles.crumbSep} aria-hidden="true">›</span>
+                            <span className="m-hide" style={styles.crumbSep} aria-hidden="true">/</span>
                             {crumb ? (
                                 <>
                                     <Link to={crumbPage.path} style={styles.crumbLink}>{crumbPage.label}</Link>
-                                    <span style={styles.crumbSep} aria-hidden="true">›</span>
+                                    <span style={styles.crumbSep} aria-hidden="true">/</span>
                                     <span aria-current="page" style={styles.crumbCurrent}>{crumb}</span>
                                 </>
                             ) : (
@@ -258,7 +262,7 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                     <div style={styles.topBarRight}>
                         <span className="m-hide" style={styles.today}>{today}</span>
 
-                        <NotificationBell iconColor={adminTokens.green} buttonStyle={roundBell} />
+                        <NotificationBell iconColor={adminTokens.body} buttonStyle={styles.bell} />
 
                         {actions}
 
@@ -267,19 +271,18 @@ export default function AdminLayout({ children, active, title, subtitle, actions
                             user={user}
                             onProfile={() => navigate('/admin/profile')}
                             onLogout={() => setConfirmLogout(true)}
-                            avatarColors={{ bg: adminTokens.green, text: adminTokens.gold }}
+                            avatarColors={{ bg: adminTokens.green, text: '#FFFFFF' }}
+                            triggerStyle={styles.accountTrigger}
+                            nameStyle={styles.accountName2}
                         />
                     </div>
                 </div>
 
                 <main className="m-pad" style={styles.main}>
-                    {(title || subtitle) && (
-                        <div style={styles.pageHeading}>
-                            {title && <h1 style={styles.pageTitle}>{title}</h1>}
-                            {subtitle && <p style={styles.pageSubtitle}>{subtitle}</p>}
-                        </div>
-                    )}
-                    {children}
+                    <div style={styles.mainInner}>
+                        {(title || subtitle) && <AdminHero title={title} subtitle={subtitle} />}
+                        {children}
+                    </div>
                 </main>
             </div>
 
@@ -340,10 +343,11 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.6rem',
-        height: '68px',
+        height: '60px',
         flexShrink: 0,
-        padding: '0 1.1rem',
-        marginBottom: '1.25rem',
+        padding: '0 20px',
+        marginBottom: '0.5rem',
+        borderBottom: `1px solid ${SIDE.line}`,
         border: 'none',
         background: 'transparent',
         cursor: 'pointer',
@@ -354,36 +358,37 @@ const styles = {
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        padding: '0 0.75rem',
+        padding: '8px 12px',
         overflowY: 'auto',
     },
     navGroup: {
         display: 'flex',
         flexDirection: 'column',
         gap: '2px',
-        marginBottom: '0.35rem',
+        marginBottom: '10px',
     },
     navGroupLabel: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 500,
+        fontSize: '11px',
+        fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: SIDE.muted,
-        opacity: 0.8,
-        padding: '0.9rem 0.75rem 0.4rem',
+        letterSpacing: '.08em',
+        color: SIDE.groupLabel,
+        padding: '10px 10px 6px',
     },
     navItem: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.625rem',
-        padding: '0.55rem 0.75rem',
-        borderRadius: '8px',
+        gap: '10px',
+        minHeight: '40px',
+        padding: '0 10px',
+        borderRadius: adminTokens.radius,
         border: 'none',
         backgroundColor: 'transparent',
         color: SIDE.text,
         fontFamily: adminTokens.fontUI,
-        fontSize: '13.5px',
+        fontSize: '14px',
+        fontWeight: 500,
         cursor: 'pointer',
         textAlign: 'left',
         width: '100%',
@@ -458,12 +463,12 @@ const styles = {
         minHeight: '100vh',
     },
     topBar: {
-        minHeight: '68px',
+        minHeight: '60px',
         backgroundColor: adminTokens.surface,
-        borderBottom: `1px solid ${adminTokens.border}`,
+        borderBottom: `1px solid ${adminTokens.line}`,
         display: 'flex',
         alignItems: 'center',
-        padding: '8px 24px',
+        padding: '8px 32px',
         position: 'sticky',
         top: 0,
         zIndex: 50,
@@ -485,7 +490,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        fontSize: '13.5px',
+        fontSize: '14px',
         whiteSpace: 'nowrap',
     },
     crumbGroup: {
@@ -520,11 +525,14 @@ const styles = {
     },
     main: {
         flex: 1,
-        padding: '26px 28px',
+        padding: '28px 32px 48px',
         overflowY: 'auto',
         fontFamily: adminTokens.fontUI,
+        fontVariantNumeric: 'tabular-nums',
     },
-    pageHeading: adminUi.hero,
-    pageTitle: adminText.pageTitle,
-    pageSubtitle: adminText.pageSubtitle,
+    mainInner: { width: '100%', maxWidth: '1320px', margin: '0 auto' },
+    // Plain 44px bell, as in the mockups
+    bell: { width: '44px', height: '44px', padding: 0, border: 'none', borderRadius: adminTokens.radius, background: 'transparent' },
+    accountTrigger: { border: 'none', borderRadius: adminTokens.radius, background: 'transparent', height: '44px', padding: '0 4px', gap: '8px', color: adminTokens.ink },
+    accountName2: { fontSize: '14px', fontWeight: 600, color: adminTokens.ink },
 };

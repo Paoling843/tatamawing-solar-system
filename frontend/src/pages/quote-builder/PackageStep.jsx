@@ -3,22 +3,23 @@ import {
     arrayKwp, batteryBank, bankWh, bankLabel, panelOptions, panelsForInverterSize,
     formatWhole, formatDecimal, peso,
 } from '../../services/solarEngine';
-import { C, NUM, SANS, COST_RAMP, s } from './engineStyles';
 import { Em, RecommendationReason } from './ReasonText';
 import SavingsCard from './SavingsCard';
-import { smallGreenButton } from '../../styles/theme';
-import {
-    BoltIcon, SunIcon, WrenchIcon, GridIcon, ShieldIcon, BatteryIcon,
-} from '../../components/Icons';
+import StepBanner from './StepBanner';
+import { Q, qs } from './calcTheme';
+
+// Colours of the price bar and its legend squares, biggest cost first
+const COST_COLORS = ['#0F3D2E', '#1F6B45', '#2E8B5E', '#5FA382', '#A8D5C2', '#F2C14E', '#D49A23'];
 
 // STEP 3 — the recommended package. The customer can:
 //   - move the inverter UP from the recommended package (never below)
 //   - pick a panel count inside the chosen package's range
 //   - pick any battery (up or down)
 // Every change updates the itemized quote immediately.
+// Look from the "Customer · Request quotation, step 3" mockup.
 export default function PackageStep({
     load, selection, quote, savings, selectedCost, submitting, submitError, resumeNotice, onSwitchAccount,
-    onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onRequestQuote,
+    onPickPackage, onPanelsChange, onPickBattery, onSelectCost, onBack, onEditBills, onRequestQuote,
 }) {
     const {
         pkg, pkgIndex, recommendedPkgIndex, recommendedPanels, panels,
@@ -29,6 +30,7 @@ export default function PackageStep({
     // The whole battery bank (e.g. 314 Ah + 100 Ah when the night needs it)
     const usableWh = batteryWhTotal;
     const recommendedIsBank = recommendedBank.qty > 1 || recommendedBank.extra !== null;
+    const isRecommended = pkgIndex === recommendedPkgIndex && panels === recommendedPanels && batteryIndex === recommendedBatteryIndex;
 
     // Inverter size ÷ 610 W before it's kept inside the package's panel range
     const sizedPanels = panelsForInverterSize(load.inverterSize);
@@ -44,7 +46,7 @@ export default function PackageStep({
     // all read in the same order.
     const ranked = [...quote.items]
         .sort((a, b) => b.amount - a.amount)
-        .map((item, n) => ({ ...item, color: COST_RAMP[n % COST_RAMP.length] }));
+        .map((item, n) => ({ ...item, color: COST_COLORS[n % COST_COLORS.length] }));
 
     // Clicking a band highlights its cost line and scrolls it into view.
     // Clicking the same band again clears the highlight.
@@ -56,297 +58,243 @@ export default function PackageStep({
         }
     };
 
+    // "Use recommended": the recommended inverter (which also resets the
+    // panels to its recommended count) and the recommended battery
+    const useRecommended = () => {
+        onPickPackage(recommendedPkgIndex);
+        onPickBattery(recommendedBatteryIndex);
+    };
+
     const summary = [
         { k: 'Inverter', v: `${pkg.kw} kW hybrid` },
         { k: 'Panels', v: `${panels} × 610 W` },
         { k: 'Array size', v: `${formatDecimal(arrayKwp(panels))} kWp` },
         { k: 'Battery', v: `${batteryLabel} @ 51.2 V` },
         { k: 'Usable storage', v: `${formatDecimal(usableWh)} Wh` },
-        { k: 'Inverter size', v: `${formatWhole(load.inverterSize)} W` },
+        { k: 'Inverter size needed', v: `${formatWhole(load.inverterSize)} W` },
         { k: 'Estimated total', v: peso(quote.total) },
         { k: 'Monthly savings', v: peso(savings.monthlySavings) },
     ];
 
     const checks = [
-        { ok: usableWh >= load.night, title: 'Nighttime load', body: `${formatWhole(load.night)} Wh needed, ${formatDecimal(usableWh)} Wh usable in the battery.` },
-        { ok: pkgIndex >= recommendedPkgIndex, title: 'Inverter floor', body: `Cannot go below the recommended ${PACKAGES[recommendedPkgIndex].kw} kW.` },
-        { ok: panels >= pkg.panelDefault, title: 'Panel minimum', body: `${pkg.panelDefault} panels ship with this package; ${panels} selected.` },
+        { ok: usableWh >= load.night, title: 'Nighttime use', body: `${formatWhole(load.night)} Wh needed, ${formatDecimal(usableWh)} Wh usable in the battery.` },
+        { ok: pkgIndex >= recommendedPkgIndex, title: 'Inverter size', body: `${pkg.kw} kW covers your ${formatWhole(load.inverterSize)} W. We can't go below ${PACKAGES[recommendedPkgIndex].kw} kW.` },
+        { ok: panels >= pkg.panelDefault, title: 'Panel count', body: `${panels} selected. The package needs at least ${pkg.panelDefault}.` },
     ];
 
     return (
-        <div className="se-page" style={s.stepPage('1160px')}>
-            <div style={s.eyebrow}>STEP 03 · RECOMMENDED PACKAGE</div>
-            <div style={styles.titleRow}>
-                <div>
-                    <h1 className="se-h1" style={{ ...s.h1, margin: 0 }}>{pkg.kw} kW hybrid, sized to your load.</h1>
-                    <p style={{ ...s.lead, maxWidth: '640px' }}>
-                        Sized from your appliance list. You can pick a bigger inverter, add panels, or change the battery.
-                    </p>
-                </div>
-                <div style={styles.adjustedBox}>
-                    <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>INVERTER SIZE</div>
-                    <div style={styles.adjustedValue}>{formatWhole(load.inverterSize)} W</div>
-                </div>
-            </div>
+        <div className="se-step" style={qs.page}>
+            <StepBanner
+                screen="package"
+                title="Your recommended package"
+                subtitle={`${pkg.kw} kW hybrid, sized to your ${formatWhole(load.inverterSize)} W load. You can upgrade any part below.`}
+                aside={(
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={styles.asideLabel}>Estimated total</div>
+                        <div style={styles.asideTotal}>{peso(quote.total)}</div>
+                        <div style={{ fontSize: '13px', color: Q.stripText }}>Saves about {peso(Math.round(savings.monthlySavings))} a month</div>
+                    </div>
+                )}
+            />
 
-            {resumeNotice && (
-                <div style={styles.infoBanner}>{resumeNotice}</div>
-            )}
+            {resumeNotice && <p role="status" style={qs.notice}>{resumeNotice}</p>}
 
             {exceedsMax && (
-                <div style={styles.warning}>
-                    <span style={styles.warningIcon}>!</span>
+                <div role="alert" style={{ ...qs.alert, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={styles.warningIcon} aria-hidden="true">!</span>
                     <div>
-                        <div style={{ fontSize: '14px', fontWeight: 700 }}>Load exceeds the largest package</div>
-                        <div style={{ marginTop: '3px' }}>
-                            {formatWhole(load.inverterSize)} W is above our largest {largest.kw} kW package. The quote
-                            uses the {largest.kw} kW and an engineer will review it.
-                        </div>
+                        <strong>Load exceeds the largest package.</strong>{' '}
+                        {formatWhole(load.inverterSize)} W is above our largest {largest.kw} kW package. The quote
+                        uses the {largest.kw} kW and an engineer will review it.
                     </div>
                 </div>
             )}
 
-            <div style={styles.cards}>
-                {/* ================= Inverter ================= */}
-                <div style={styles.optionCard}>
-                    <div style={styles.cardHead}>
-                        <span style={s.cardEyebrow}>INVERTER</span>
-                        <span style={s.tag(C.mint, C.green)}>UPGRADE ONLY</span>
+            {/* ================= Choose your parts ================= */}
+            <section aria-labelledby="parts-h" style={qs.card}>
+                <div style={{ ...qs.cardHead, borderBottom: 'none' }}>
+                    <div>
+                        <h2 id="parts-h" style={qs.h2}>Choose your parts</h2>
+                        <p style={qs.sub}>We picked the smallest setup that covers your appliances.</p>
                     </div>
-                    <div style={styles.figureRow}>
-                        <span style={styles.bigNumber}>{pkg.kw}</span>
-                        <span style={{ fontSize: '13.5px', color: C.muted }}>kW hybrid · {pkg.brand}</span>
-                        {pkgIndex === recommendedPkgIndex ? (
-                            <RecommendedPill />
-                        ) : (
-                            <button type="button" className="btn-primary" onClick={() => onPickPackage(recommendedPkgIndex)} style={styles.useRecommended}>
-                                Use recommended ({PACKAGES[recommendedPkgIndex].kw} kW)
-                            </button>
-                        )}
-                    </div>
-                    {/* The inverter size that picked the package (was a box at the top of the page) */}
-                    <div style={styles.cardNote}>Sized for {formatWhole(load.inverterSize)} W</div>
-                    <div style={styles.optionList}>
+                    <button type="button" className="c-btn c-btn-secondary" onClick={useRecommended} disabled={isRecommended}>
+                        Use recommended
+                    </button>
+                </div>
+                <div style={styles.parts}>
+                    {/* ----- Inverter ----- */}
+                    <PartCard
+                        title="Inverter"
+                        tag="Upgrade only"
+                        pick={`${pkg.kw} kW hybrid · ${pkg.brand}`}
+                        reason={<RecommendationReason load={load} />}
+                    >
                         {PACKAGES.map((p, i) => {
                             const locked = i < recommendedPkgIndex;
-                            const active = i === pkgIndex;
                             const recommended = i === recommendedPkgIndex;
                             return (
-                                <button
+                                <Option
                                     key={p.kw}
-                                    type="button"
+                                    name="inverter"
+                                    checked={i === pkgIndex}
                                     disabled={locked}
-                                    onClick={() => onPickPackage(i)}
-                                    style={{
-                                        ...s.option(active, locked),
-                                        opacity: locked ? 0.55 : 1,
-                                        ...(recommended ? styles.recommendedRow : {}),
-                                    }}
-                                >
-                                    <span style={s.radioDot(active)} />
-                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>{p.kw} kW hybrid</span>
-                                    {recommended
-                                        ? <RecommendedPill />
-                                        : <span style={styles.optionTag(false)}>{locked ? 'below floor' : 'upgrade'}</span>}
-                                </button>
+                                    onPick={() => onPickPackage(i)}
+                                    label={`${p.kw} kW hybrid`}
+                                    sub={`${formatWhole(p.watts)} W max · ${p.brand}`}
+                                    tag={recommended ? 'Recommended' : locked ? 'Too small' : 'Upgrade'}
+                                    tagKind={recommended ? 'rec' : locked ? 'low' : 'up'}
+                                />
                             );
                         })}
-                    </div>
-                    <p style={styles.cardFootnote}><RecommendationReason load={load} /></p>
-                </div>
+                    </PartCard>
 
-                {/* ================= Panels ================= */}
-                <div style={styles.optionCard}>
-                    <div style={styles.cardHead}>
-                        <span style={s.cardEyebrow}>PANELS · {PANEL_WATTS} W EACH</span>
-                        <span style={s.tag(C.mint, C.green)}>{pkg.panelDefault}–{pkg.panelMax}</span>
-                    </div>
-                    <div style={styles.figureRow}>
-                        <span style={styles.bigNumber}>{panels}</span>
-                        <span style={{ fontSize: '13.5px', color: C.muted }}>panels · {formatDecimal(arrayKwp(panels))} kWp</span>
-                        {panels === recommendedPanels ? (
-                            <RecommendedPill />
-                        ) : (
-                            <button type="button" className="btn-primary" onClick={() => onPanelsChange(recommendedPanels)} style={styles.useRecommended}>
-                                Use recommended ({recommendedPanels})
-                            </button>
-                        )}
-                    </div>
-                    {/* Client's wording: the recommended count is a floor, not a cap */}
-                    <div style={styles.cardNote}>Minimum recommended, subject to upgrade</div>
-                    {/* Same radio rows as the inverter and battery. A package takes up to
-                        9 counts, so the list scrolls after about 5 rows to keep the three
-                        cards the same height. */}
-                    <div style={{ ...styles.optionList, ...styles.panelList }}>
+                    {/* ----- Panels ----- */}
+                    <PartCard
+                        title={`Panels · ${PANEL_WATTS} W each`}
+                        tag={`${pkg.panelDefault} to ${pkg.panelMax}`}
+                        pick={`${panels} panels · ${formatDecimal(arrayKwp(panels))} kWp`}
+                        reason={panelReason}
+                        columns={2}
+                    >
                         {panelOptions(pkg).map((n) => {
-                            const active = n === panels;
                             const recommended = n === recommendedPanels;
+                            const minimum = n === pkg.panelDefault;
                             return (
-                                <button
+                                <Option
                                     key={n}
-                                    type="button"
-                                    onClick={() => onPanelsChange(n)}
-                                    style={{ ...s.option(active, false), ...(recommended ? styles.recommendedRow : {}) }}
-                                >
-                                    <span style={s.radioDot(active)} />
-                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>
-                                        {n} panels · {formatDecimal(arrayKwp(n))} kWp
-                                    </span>
-                                    {recommended
-                                        ? <RecommendedPill />
-                                        : <span style={styles.optionTag(false)}>{n === pkg.panelDefault ? 'minimum' : ''}</span>}
-                                </button>
+                                    name="panels"
+                                    checked={n === panels}
+                                    onPick={() => onPanelsChange(n)}
+                                    label={`${n} panels`}
+                                    sub={`${formatDecimal(arrayKwp(n))} kWp`}
+                                    tag={recommended ? 'Recommended' : minimum ? 'Minimum' : null}
+                                    tagKind={recommended ? 'rec' : 'up'}
+                                />
                             );
                         })}
-                    </div>
-                    <p style={styles.cardFootnote}>{panelReason}</p>
-                </div>
+                    </PartCard>
 
-                {/* ================= Battery ================= */}
-                <div style={styles.optionCard}>
-                    <div style={styles.cardHead}>
-                        <span style={s.cardEyebrow}>BATTERY · 51.2 V</span>
-                        <span style={s.tag(C.warnBg, C.warnIcon)}>FREE CHOICE</span>
-                    </div>
-                    <div style={styles.figureRow}>
-                        {/* "314 Ah", or a whole bank like "314 Ah + 100 Ah" (a bit smaller so it fits) */}
-                        <span style={{ ...styles.bigNumber, ...(selection.bank.qty > 1 || selection.bank.extra ? styles.bigNumberBank : {}) }}>
-                            {batteryLabel}
-                        </span>
-                        <span style={{ fontSize: '13.5px', color: C.muted }}>{formatDecimal(usableWh)} Wh usable</span>
-                        {batteryIndex === recommendedBatteryIndex ? (
-                            <RecommendedPill />
-                        ) : (
-                            <button type="button" className="btn-primary" onClick={() => onPickBattery(recommendedBatteryIndex)} style={styles.useRecommended}>
-                                Use recommended ({recommendedBatteryLabel})
-                            </button>
-                        )}
-                    </div>
-                    <div style={styles.cardNote}>
-                        {load.night <= 0
-                            ? 'No nighttime load'
-                            : usableWh >= load.night
-                                ? `Covers ${formatWhole(load.night)} Wh at night`
-                                : `Covers ${formatWhole(usableWh)} of ${formatWhole(load.night)} Wh at night`}
-                    </div>
-                    <div style={styles.optionList}>
-                        {BATTERIES.map((b, i) => {
-                            const active = i === batteryIndex;
-                            const recommended = i === recommendedBatteryIndex;
-                            // The bank this battery would come as (more than one unit only
-                            // for a 314 Ah on a big night, e.g. "314 Ah + 100 Ah")
-                            const bank = batteryBank(b, load.night);
-                            return (
-                                <button
-                                    key={b.ah}
-                                    type="button"
-                                    onClick={() => onPickBattery(i)}
-                                    style={{ ...s.option(active, false), ...(recommended ? styles.recommendedRow : {}) }}
-                                >
-                                    <span style={s.radioDot(active)} />
-                                    <span style={{ fontFamily: NUM, fontSize: '14px' }}>
-                                        {bankLabel(b, bank)} · {formatDecimal(bankWh(b, bank))} Wh
-                                    </span>
-                                    {recommended && <RecommendedPill />}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <p style={styles.cardFootnote}>
-                        {load.night > 0 ? (
+                    {/* ----- Battery ----- */}
+                    <PartCard
+                        title="Battery · 51.2 V"
+                        tag="Any size"
+                        pick={`${batteryLabel} · ${formatDecimal(usableWh)} Wh usable`}
+                        reason={load.night > 0 ? (
                             <>
                                 About {formatWhole(load.night)} Wh at night needs at least <Em>{recommendedBatteryLabel}</Em>.
                                 {recommendedIsBank ? ' We added more batteries to cover it.' : ''} Any battery can be picked.
                             </>
                         ) : (
-                            <>No night use, so the <Em>smallest battery</Em> is enough.</>
+                            <>No nighttime use, so the <Em>smallest battery</Em> is enough.</>
                         )}
-                    </p>
+                    >
+                        {BATTERIES.map((b, i) => {
+                            // The bank this battery would come as (more than one unit only
+                            // for a 314 Ah on a big night, e.g. "314 Ah + 100 Ah")
+                            const bank = batteryBank(b, load.night);
+                            return (
+                                <Option
+                                    key={b.ah}
+                                    name="battery"
+                                    checked={i === batteryIndex}
+                                    onPick={() => onPickBattery(i)}
+                                    label={bankLabel(b, bank)}
+                                    sub={`${formatDecimal(bankWh(b, bank))} Wh usable`}
+                                    tag={i === recommendedBatteryIndex ? 'Recommended' : null}
+                                    tagKind="rec"
+                                />
+                            );
+                        })}
+                    </PartCard>
                 </div>
-            </div>
+            </section>
 
-            {/* ================= Where the price goes ================= */}
-            <div style={{ ...s.card, marginTop: '20px', overflow: 'hidden' }}>
-                <div className="se-pad" style={styles.priceHead}>
+            {/* ================= Where the money goes ================= */}
+            <section aria-labelledby="price-h" style={qs.card}>
+                <div style={{ ...qs.cardHead, alignItems: 'flex-end', borderBottom: 'none', paddingBottom: '14px' }}>
                     <div>
-                        <div style={s.cardTitle}>Where the price goes</div>
-                        <div style={{ ...s.cardNote, color: C.muted, maxWidth: '560px' }}>
-                            Each band is one cost, sized to its share of the total.
-                        </div>
+                        <h2 id="price-h" style={qs.h2}>Where the money goes</h2>
+                        <p style={qs.sub}>Each bar is one cost, sized by its share of the total. Tap one to find it below.</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={s.cardEyebrow}>TOTAL</div>
-                        <div style={styles.priceTotal}>{peso(quote.total)}</div>
+                        <div style={{ fontSize: '13px', color: Q.muted }}>Total installed price</div>
+                        <div style={{ fontSize: '26px', fontWeight: 700 }}>{peso(quote.total)}</div>
                     </div>
                 </div>
-
-                <div style={{ padding: '22px 26px 20px' }}>
-                    <div style={styles.bar}>
-                        {ranked.map((item) => (
-                            <div
-                                key={item.key}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => pickCost(item.key)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickCost(item.key); } }}
-                                title={`${item.label} · ${peso(item.amount)}`}
-                                style={styles.band(item, selectedCost)}
-                            />
-                        ))}
-                    </div>
-                    <div style={{ fontSize: '12.5px', color: C.muted, marginTop: '9px' }}>Tap a band to jump to that cost.</div>
+                <div style={styles.bar}>
+                    {ranked.map((item) => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => pickCost(item.key)}
+                            aria-pressed={selectedCost === item.key}
+                            aria-label={`${item.label}, ${peso(item.amount)}`}
+                            title={`${item.label} · ${peso(item.amount)}`}
+                            style={styles.band(item, selectedCost)}
+                        />
+                    ))}
                 </div>
-
-                {ranked.map((item) => {
-                    const active = selectedCost === item.key;
-                    return (
-                        <div key={item.key} id={`cost-row-${item.key}`} className="se-pad" style={styles.costRow(active, item.color)}>
-                            {/* Only the material, its cost and its share of the total */}
-                            <div style={{ ...styles.costLine, flex: '1 1 auto', minWidth: 0, alignItems: 'center' }}>
-                                <div style={styles.materialName}>
-                                    <MaterialIcon itemKey={item.key} color={item.color} />
-                                    <span>{item.label}</span>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontFamily: NUM, fontSize: '16px', color: C.ink, whiteSpace: 'nowrap' }}>{peso(item.amount)}</div>
-                                    <div style={{ fontSize: '12px', color: C.muted, whiteSpace: 'nowrap', marginTop: '2px' }}>
-                                        {Math.round((item.amount / quote.total) * 100)}% of total
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-
-                <div className="se-pad" style={styles.priceFoot}>
-                    <div style={{ fontWeight: 700, color: C.ink, fontSize: '15px' }}>Total installed price</div>
-                    <div style={{ fontFamily: NUM, color: C.ink, fontSize: '18px', whiteSpace: 'nowrap' }}>{peso(quote.total)}</div>
+                <div className="se-table-scroll">
+                    <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
+                        <tbody>
+                            {ranked.map((item) => {
+                                const active = selectedCost === item.key;
+                                return (
+                                    <tr key={item.key} id={`cost-row-${item.key}`} style={styles.costRow(active, item.color)}>
+                                        <th scope="row" style={{ ...styles.costCell, paddingLeft: '20px', textAlign: 'left', fontWeight: 600 }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                                                <span aria-hidden="true" style={{ width: '12px', height: '12px', borderRadius: '3px', background: item.color, flex: 'none' }} />
+                                                {item.label}
+                                            </span>
+                                        </th>
+                                        <td style={{ ...styles.costCell, color: Q.muted }}>
+                                            {item.qtyLabel} × {peso(item.unitPrice)}
+                                        </td>
+                                        <td style={{ ...styles.costCell, textAlign: 'right', color: Q.muted, whiteSpace: 'nowrap' }}>
+                                            {Math.round((item.amount / quote.total) * 100)}%
+                                        </td>
+                                        <td style={{ ...styles.costCell, paddingRight: '20px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                            {peso(item.amount)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            <tr style={{ background: Q.tint }}>
+                                <th scope="row" colSpan={3} style={{ ...styles.costCell, padding: '13px 12px 13px 20px', textAlign: 'left', fontWeight: 700, color: Q.green }}>
+                                    Total installed price
+                                </th>
+                                <td style={{ ...styles.costCell, padding: '13px 20px 13px 12px', textAlign: 'right', fontSize: '18px', fontWeight: 700, color: Q.green, whiteSpace: 'nowrap' }}>
+                                    {peso(quote.total)}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+            </section>
 
             {/* ================= Estimated savings ================= */}
-            <SavingsCard savings={savings} total={quote.total} />
+            <SavingsCard savings={savings} total={quote.total} onEditBills={onEditBills} />
 
-            {/* ================= Summary + coverage check ================= */}
-            <div style={{ ...s.card, marginTop: '20px', display: 'flex', flexWrap: 'wrap', overflow: 'hidden' }}>
-                <div className="se-pad" style={{ flex: '1 1 480px', minWidth: 0, padding: '26px 28px' }}>
-                    <div style={s.cardEyebrow}>CONFIGURATION SUMMARY</div>
-                    <div style={styles.summaryGrid}>
+            {/* ================= Review and send ================= */}
+            <section aria-labelledby="rev-h" style={{ ...qs.card, display: 'flex', flexWrap: 'wrap', overflow: 'hidden' }}>
+                <div style={{ flex: '3 1 420px', minWidth: 0, padding: '18px 20px 20px' }}>
+                    <h2 id="rev-h" style={{ ...qs.h2, marginBottom: '10px' }}>Review and send</h2>
+                    <dl style={styles.summary}>
                         {summary.map((row) => (
                             <div key={row.k} style={styles.summaryRow}>
-                                <span style={{ color: C.muted }}>{row.k}</span>
-                                <span style={{ fontFamily: NUM, color: C.ink, textAlign: 'right' }}>{row.v}</span>
+                                <dt style={{ color: Q.body }}>{row.k}</dt>
+                                <dd style={{ margin: 0, fontWeight: 700, textAlign: 'right' }}>{row.v}</dd>
                             </div>
                         ))}
-                    </div>
+                    </dl>
 
                     {submitError && (
-                        <div style={styles.error}>
+                        <div role="alert" style={{ ...qs.alert, marginTop: '16px' }}>
                             {submitError}
                             {/* Only when the admin is signed in: switch to a customer without losing the inputs */}
                             {onSwitchAccount && (
                                 <div style={{ marginTop: '10px' }}>
-                                    <button type="button" className="se-btn-secondary" onClick={onSwitchAccount} style={{ ...s.secondaryButton, padding: '9px 14px', fontSize: '13px' }}>
+                                    <button type="button" className="c-btn c-btn-secondary" onClick={onSwitchAccount}>
                                         Log out and continue
                                     </button>
                                 </div>
@@ -354,152 +302,141 @@ export default function PackageStep({
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '22px', flexWrap: 'wrap' }}>
-                        <button className="se-btn-secondary" onClick={onBack} style={{ ...s.secondaryButton, padding: '13px 20px', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginTop: '18px' }}>
+                        <button type="button" className="c-btn c-btn-secondary" onClick={onBack} style={{ ...qs.bigBtn, fontWeight: 600, padding: '0 16px' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+                            </svg>
                             Back to computation
                         </button>
-                        <button
-                            className="se-btn-primary"
-                            onClick={onRequestQuote}
-                            disabled={submitting}
-                            style={{ ...s.primaryButton, padding: '13px 22px', fontSize: '14px' }}
-                        >
-                            {submitting ? 'Sending request…' : 'Request quotation'}
+                        <button type="button" className="c-btn c-btn-primary" onClick={onRequestQuote} disabled={submitting} style={qs.bigBtn}>
+                            {submitting ? 'Sending request…' : 'Send quotation request'}
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4z" />
+                            </svg>
                         </button>
                     </div>
+                    <p style={{ margin: '10px 0 0', fontSize: '13px', color: Q.muted }}>
+                        All prices are sales prices. We'll review your request and confirm the final amount.
+                    </p>
                 </div>
 
-                <aside className="se-pad" style={styles.coverage}>
-                    <div style={{ ...s.cardEyebrow, color: C.onDarkMuted }}>COVERAGE CHECK</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+                <div style={styles.coverage}>
+                    <h3 style={styles.coverageTitle}>Coverage check</h3>
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         {checks.map((check) => (
-                            <div key={check.title} style={{ display: 'flex', gap: '11px', alignItems: 'flex-start' }}>
-                                <span style={styles.checkIcon(check.ok)}>{check.ok ? '✓' : '!'}</span>
-                                <div>
-                                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#fff' }}>{check.title}</div>
-                                    <div style={{ fontSize: '12.5px', lineHeight: 1.5, color: C.onDark, marginTop: '2px' }}>{check.body}</div>
-                                </div>
-                            </div>
+                            <li key={check.title} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                <span style={styles.checkIcon(check.ok)}>
+                                    {check.ok ? (
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <path d="M20 6 9 17l-5-5" />
+                                        </svg>
+                                    ) : <span aria-hidden="true">!</span>}
+                                    <span style={qs.srOnly}>{check.ok ? 'OK' : 'Check this'}</span>
+                                </span>
+                                <span>
+                                    <span style={{ display: 'block', fontWeight: 700 }}>{check.title}</span>
+                                    <span style={{ display: 'block', fontSize: '13px', color: Q.stripText }}>{check.body}</span>
+                                </span>
+                            </li>
                         ))}
-                    </div>
-                    <div style={{ marginTop: 'auto', paddingTop: '20px', fontSize: '12.5px', lineHeight: 1.55, color: C.onDarkMuted }}>
-                        All prices shown are sales prices.
-                    </div>
-                </aside>
-            </div>
+                    </ul>
+                </div>
+            </section>
         </div>
     );
 }
 
-// Icon for each quote line, keyed by the line's key from buildQuote()
-const MATERIAL_ICONS = {
-    inverter: BoltIcon,
-    panels: SunIcon,
-    installation: WrenchIcon,
-    mounting: GridIcon,
-    safety: ShieldIcon,
-    battery: BatteryIcon,
-    battery_extra: BatteryIcon,
-};
-
-// The material's icon on a tile in its bar colour. The lightest colour
-// (the yellow) gets a dark icon so it stays visible.
-function MaterialIcon({ itemKey, color }) {
-    const Icon = MATERIAL_ICONS[itemKey] ?? GridIcon;
-    const light = color.toLowerCase() === '#f4c542' || color.toLowerCase() === '#79ac99';
+// One of the three part cards: its name and range tag, what's picked and
+// why, then the options as radio buttons
+function PartCard({ title, tag, pick, reason, columns = 1, children }) {
     return (
-        <span style={{ ...styles.materialIcon, background: color }} aria-hidden="true">
-            <Icon size={18} color={light ? C.ink : '#fff'} />
-        </span>
+        <fieldset style={styles.partCard}>
+            <legend style={qs.srOnly}>{title}</legend>
+            <div style={{ padding: '14px 16px 12px', borderBottom: `1px solid ${Q.rowLine}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                    <span style={styles.partTitle}>{title}</span>
+                    <span style={styles.partTag}>{tag}</span>
+                </div>
+                <div style={{ marginTop: '4px', fontSize: '20px', fontWeight: 700, overflowWrap: 'anywhere' }}>{pick}</div>
+                <div style={{ fontSize: '13px', color: Q.muted }}>{reason}</div>
+            </div>
+            <div style={{
+                padding: '12px 16px 16px', display: 'grid', gap: '6px',
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                ...(columns > 1 ? { maxHeight: '320px', overflowY: 'auto' } : {}),
+            }}>
+                {children}
+            </div>
+        </fieldset>
     );
 }
 
-// Green pill that marks the option the engine recommends
-function RecommendedPill() {
-    return <span style={styles.recommendedPill}>★ RECOMMENDED</span>;
+function Option({ name, checked, disabled = false, onPick, label, sub, tag, tagKind }) {
+    return (
+        <label style={styles.option(checked, disabled)}>
+            <input
+                type="radio"
+                name={name}
+                checked={checked}
+                disabled={disabled}
+                onChange={onPick}
+                style={{ margin: '2px 0 0', width: '16px', height: '16px', accentColor: Q.green, flex: 'none' }}
+            />
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                <span style={{ fontWeight: 600 }}>{label}</span>
+                <span style={{ fontSize: '12px', color: Q.muted }}>{sub}</span>
+                {tag && <span style={styles.optTag(tagKind)}>{tag}</span>}
+            </span>
+        </label>
+    );
 }
 
-
 const styles = {
-    titleRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '36px', flexWrap: 'wrap', marginTop: '16px' },
-    infoBanner: { ...s.reminder, marginTop: '24px' },
-    warning: { ...s.alert, display: 'flex', gap: '13px', alignItems: 'flex-start', marginTop: '24px' },
+    asideLabel: { fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: Q.stripText },
+    asideTotal: { fontSize: '30px', fontWeight: 700, lineHeight: 1.15, color: Q.gold, whiteSpace: 'nowrap' },
     warningIcon: {
-        flex: 'none', width: '20px', height: '20px', borderRadius: '50%', background: C.errorText, color: '#fff',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginTop: '1px',
+        flex: 'none', width: '20px', height: '20px', borderRadius: '50%', background: Q.danger, color: '#FFFFFF',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, marginTop: '1px',
     },
-    cards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(272px, 100%), 1fr))', gap: '20px', marginTop: '36px', alignItems: 'start' },
-    optionCard: { ...s.card, padding: '24px', display: 'flex', flexDirection: 'column' },
-    cardHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
-    adjustedBox: { background: C.green, borderRadius: '12px', padding: '20px 24px' },
-    adjustedValue: { fontFamily: NUM, fontSize: '28px', fontWeight: 600, letterSpacing: '-.03em', color: C.yellow, marginTop: '8px', whiteSpace: 'nowrap' },
-    // Every card's top: big number, its unit, then the recommended pill or a "Use recommended" link
-    figureRow: { display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginTop: '14px' },
-    // Green line under the figure: what the recommendation is based on
-    cardNote: { marginTop: '6px', fontSize: '13px', fontWeight: 600, color: C.green },
-    bigNumber: { fontFamily: NUM, fontSize: '30px', fontWeight: 600, letterSpacing: '-.03em', color: C.ink },
-    // A battery bank's label ("314 Ah + 100 Ah") is longer, so it's set a bit smaller
-    bigNumberBank: { fontSize: '24px' },
-    optionList: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '20px' },
-    // Green ring around the recommended row. A box-shadow, not a thicker
-    // border, so the row doesn't change size when it's highlighted.
-    recommendedRow: { boxShadow: `0 0 0 2px ${C.green}` },
-    recommendedPill: {
-        marginLeft: 'auto', alignSelf: 'center', fontFamily: NUM, fontSize: '11px', fontWeight: 700,
-        letterSpacing: '.06em', background: C.green, color: '#fff', borderRadius: '20px',
-        padding: '4px 9px', whiteSpace: 'nowrap',
-    },
-    useRecommended: { ...smallGreenButton, marginLeft: 'auto', alignSelf: 'center', fontFamily: SANS },
-    optionTag: (highlight) => ({
-        marginLeft: 'auto', fontFamily: NUM, fontSize: '11.5px', fontWeight: 600, letterSpacing: '.06em',
-        color: highlight ? C.green : C.dim,
+    parts: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '14px', padding: '0 20px 20px', alignItems: 'start' },
+    partCard: { margin: 0, padding: 0, border: `1px solid ${Q.line}`, borderRadius: '6px', minWidth: 0, display: 'flex', flexDirection: 'column' },
+    partTitle: { fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: Q.muted },
+    partTag: { fontSize: '12px', fontWeight: 600, color: Q.body, background: '#EEEFEC', borderRadius: '4px', padding: '1px 8px', whiteSpace: 'nowrap' },
+    option: (on, off) => ({
+        display: 'flex', alignItems: 'flex-start', gap: '10px', minHeight: '44px', boxSizing: 'border-box',
+        borderRadius: '6px', cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.55 : 1,
+        ...(on
+            ? { border: `2px solid ${Q.green}`, background: Q.tintSoft, padding: '7px 9px' }
+            : { border: `1px solid ${Q.line}`, background: '#FFFFFF', padding: '8px 10px' }),
     }),
-    // About 5 rows tall, then scrolls. The 3px padding keeps the recommended
-    // row's ring (a box-shadow outside the row) from being clipped.
-    panelList: { maxHeight: '262px', overflowY: 'auto', padding: '3px', margin: '17px -3px 0' },
-    // The explanation under each card (why this package / panel count / battery): a green reminder
-    cardFootnote: { ...s.reminder, margin: '14px 0 0', fontSize: '13px', lineHeight: 1.55 },
-    priceHead: {
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '20px',
-        padding: '20px 26px', borderBottom: `1px solid ${C.borderSoft}`, flexWrap: 'wrap',
-    },
-    priceTotal: { fontFamily: NUM, fontSize: '29px', fontWeight: 600, letterSpacing: '-.03em', color: C.green, whiteSpace: 'nowrap', marginTop: '4px' },
-    bar: { display: 'flex', height: '14px', borderRadius: '99px', overflow: 'hidden', gap: '2px' },
+    optTag: (kind) => (kind === 'rec'
+        ? { marginTop: '2px', fontSize: '11px', fontWeight: 700, color: Q.onGold, background: Q.gold, borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }
+        : kind === 'low'
+            ? { fontSize: '11px', fontWeight: 700, color: '#A3261B', whiteSpace: 'nowrap' }
+            : { fontSize: '11px', fontWeight: 600, color: Q.muted, whiteSpace: 'nowrap' }),
+    bar: { display: 'flex', gap: '2px', height: '14px', margin: '0 20px 16px', borderRadius: '4px', overflow: 'hidden' },
     band: (item, selected) => ({
-        flex: `${item.amount} 0 0`, background: item.color, cursor: 'pointer',
-        transition: 'box-shadow .18s, filter .18s',
-        boxShadow: selected === item.key ? `inset 0 0 0 2px ${C.ink}` : 'none',
+        flex: `${item.amount} 0 0`, minWidth: '4px', padding: 0, border: 'none', background: item.color, cursor: 'pointer',
+        boxShadow: selected === item.key ? `inset 0 0 0 2px ${Q.ink}` : 'none',
         filter: selected === null || selected === item.key ? 'none' : 'saturate(.45)',
+        transition: 'box-shadow .15s, filter .15s',
     }),
     costRow: (active, color) => ({
-        display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 26px',
-        borderTop: `1px solid ${C.rowBorder}`, transition: 'background .18s',
-        background: active ? '#f6f9f5' : 'transparent', boxShadow: active ? `inset 3px 0 0 ${color}` : 'none',
+        background: active ? Q.tintSoft : 'transparent',
+        boxShadow: active ? `inset 3px 0 0 ${color}` : 'none',
+        transition: 'background .15s',
     }),
-    materialName: {
-        display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0,
-        fontSize: '15px', fontWeight: 700, color: C.ink, letterSpacing: '-.012em',
+    costCell: { padding: '11px 12px', borderTop: `1px solid ${Q.rowLine}` },
+    summary: { margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', columnGap: '28px' },
+    summaryRow: { display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '9px 0', borderBottom: `1px solid ${Q.rowLine}` },
+    coverage: { flex: '2 1 300px', minWidth: 0, background: Q.green, color: '#FFFFFF', padding: '18px 20px 20px' },
+    coverageTitle: {
+        margin: '0 0 12px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: Q.gold,
     },
-    // Rounded tile in the cost's bar colour, so each row matches its band in the bar above
-    materialIcon: {
-        flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: '36px', height: '36px', borderRadius: '10px', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.06)',
-    },
-    costLine: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '18px' },
-    priceFoot: {
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '20px',
-        padding: '20px 26px', background: C.fieldBg, flexWrap: 'wrap',
-    },
-    summaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: '0 32px', marginTop: '12px' },
-    summaryRow: {
-        display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '11px 0',
-        borderBottom: `1px solid ${C.rowBorder}`, fontSize: '14px',
-    },
-    error: { ...s.alert, marginTop: '18px' },
-    coverage: { flex: '1 1 280px', minWidth: 0, background: C.darkPanel, padding: '26px', display: 'flex', flexDirection: 'column' },
     checkIcon: (ok) => ({
-        flex: 'none', width: '19px', height: '19px', borderRadius: '50%', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: '12px', marginTop: '1px',
-        background: ok ? C.yellow : '#c0392b', color: ok ? C.ink : '#fff',
+        width: '22px', height: '22px', borderRadius: '50%', background: ok ? Q.done : '#F08A7E', color: Q.green,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: '1px',
+        fontSize: '13px', fontWeight: 700,
     }),
 };

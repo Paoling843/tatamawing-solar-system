@@ -3,20 +3,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
+import AdminHero, { HeroStat, HeroStrip } from '../components/AdminHero';
 import { adminTokens, adminUi } from '../styles/adminTheme';
 import { smallGreenButton, whiteButton } from '../styles/theme';
 
 import LoadingState from '../components/LoadingState';
-import Badge from '../components/Badge';
+import Badge from '../components/StatusPill';
 
 import ScheduleModal from '../components/ScheduleModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Pagination from '../components/Pagination';
+import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
 
-import { CalendarIcon, DownloadIcon, XIcon } from '../components/Icons';
+import { CalendarIcon, CheckIcon, DownloadIcon, PlusIcon, XIcon } from '../components/Icons';
 
 const TABLE_COLUMNS = '126px minmax(0,1.5fr) 96px 124px 78px 108px';
 
@@ -348,164 +351,193 @@ export default function AdminDashboardPage() {
     const cancelledCount = quotations.filter((q) => q.status === 'cancelled').length;
     const filterCounts = { all: totalCount, approved: approvedCount, pending: pendingCount, rejected: rejectedCount, cancelled: cancelledCount };
 
+    // The queue sits beside "Upcoming schedules" (6 rows), so 5 keeps the two
+    // cards about the same height. A new filter or sort starts at page 1.
+    const queuePager = usePagination(queue, 5);
+    const externalPager = usePagination(externalRequests, 5);
+    const rowsPager = usePagination(filteredRows, 10, `${statusFilter}|${sort.key}|${sort.dir}`);
+
     return (
-        <AdminLayout
-            active="Overview"
-            title="Operational Overview"
-            subtitle="Manage customer quotations and schedules."
-            actions={
-                <button
-                    className="btn-primary"
-                    style={styles.exportBtn}
-                    onClick={() => navigate('/admin/reports')}
-                >
-                    <DownloadIcon size={15} color="currentColor" /> Export Report
-                </button>
-            }
-        >
+        <AdminLayout active="Overview">
+            <AdminHero
+                eyebrow={TODAY.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                title="Overview"
+                subtitle="Customer quotations and installation schedules"
+                actions={
+                    <button
+                        className="btn-primary"
+                        style={styles.exportBtn}
+                        onClick={() => navigate('/admin/reports')}
+                    >
+                        <DownloadIcon size={16} color="currentColor" /> Export report
+                    </button>
+                }
+            >
+                {!loading && (
+                    <HeroStrip>
+                        <HeroStat label="Total requests" value={totalCount.toLocaleString()} note="Across Sorsogon" />
+                        <HeroStat label="Approved projects" value={approvedCount.toLocaleString()} note="Ready for installation" valueColor="#A8D5C2" />
+                        <HeroStat
+                            label="Waiting for review"
+                            value={pendingCount.toLocaleString()}
+                            note={`Oldest has waited ${oldestPendingDays} ${oldestPendingDays === 1 ? 'day' : 'days'}`}
+                            valueColor={adminTokens.gold}
+                        />
+                        <HeroStat label="Contracted value" value={`₱${contractedValueM}M`} note={`Average quotation ${formatCurrency(avgQuote)}`} />
+                    </HeroStrip>
+                )}
+            </AdminHero>
+
             {loading ? (
                 <LoadingState label="Loading dashboard..." />
             ) : (
                 <div style={styles.blocks}>
 
-                    <div style={styles.metricGrid}>
-                        <MetricCard
-                            label="TOTAL REQUESTS"
-                            value={totalCount.toLocaleString()}
-                            note="Across Sorsogon"
-                            tone="#1d6b4f"
-                        />
-                        <MetricCard
-                            label="APPROVED PROJECTS"
-                            value={approvedCount.toLocaleString()}
-                            note="Ready for installation"
-                            tone="#17663f"
-                        />
-                        <MetricCard
-                            label="PENDING REVIEW"
-                            value={pendingCount.toLocaleString()}
-                            note={`Oldest waiting ${oldestPendingDays}d`}
-                            tone="#a15c07"
-                        />
-                        <MetricCard
-                            label="CONTRACTED VALUE"
-                            value={`₱${contractedValueM}`}
-                            unit="M"
-                            note={`Average quote ${formatCurrency(avgQuote)}`}
-                            solid
-                        />
-                    </div>
-
-                    <div style={styles.twoColGrid}>
-                        <div style={styles.card}>
+                    <div className="ov-grid" style={styles.twoColGrid}>
+                        <div style={{ ...styles.card, padding: 0 }}>
                             <div style={styles.queueHeader}>
                                 <div>
-                                    <h2 style={styles.cardTitle}>Decision queue</h2>
-                                    <p style={styles.cardSubtitle}>Pending decisions and approved installs to schedule</p>
+                                    <h2 style={{ ...styles.cardTitle, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        Needs a decision
+                                        <span style={{
+                                            ...styles.countPill,
+                                            ...(queue.length ? styles.countPillGold : styles.countPillGreen),
+                                        }}>
+                                            {queue.length}
+                                        </span>
+                                    </h2>
+                                    <p style={styles.cardSubtitle}>Quotation requests waiting for approval or scheduling, oldest first</p>
                                 </div>
-                                <span style={{
-                                    ...styles.countPill,
-                                    ...(pendingList.length ? styles.countPillGold : styles.countPillGreen),
-                                }}>
-                                    {pendingList.length} waiting
-                                </span>
+                                {queue.length > 0 && (
+                                    <button type="button" style={styles.viewAllLink} onClick={() => navigate('/admin/quotations')}>
+                                        View all {queue.length} →
+                                    </button>
+                                )}
                             </div>
 
                             {queue.length === 0 ? (
-                                <div style={styles.queueEmpty}>Nothing waiting on a decision.</div>
+                                <div style={{ ...styles.queueEmpty, margin: '0 24px 20px' }}>Nothing waiting on a decision.</div>
                             ) : (
-                                <div style={styles.queueList}>
-                                    {queue.map((q) => {
-                                        const age = daysAgo(q.created_at);
-                                        const isPending = q.queueKind === 'pending';
-                                        const stale = isPending && age >= 3;
-                                        return (
-                                            <div
-                                                key={q.id}
-                                                style={{
-                                                    ...styles.queueRow,
-                                                    borderLeft: `3px solid ${stale ? adminTokens.danger : adminTokens.gold}`,
-                                                }}
-                                            >
-                                                <div style={styles.queueTopLine}>
-                                                    <button
-                                                        style={styles.queueRef}
-                                                        onClick={() => setSelectedQuotation(q)}
-                                                    >
-                                                        {formatQuotationRef(q.id, q.created_at)}
-                                                    </button>
-                                                    <span style={styles.queueCustomer}>
-                                                        {q.customer?.user?.name || 'N/A'}
-                                                    </span>
-                                                    <span style={{
-                                                        ...styles.queueAgePill,
-                                                        ...(stale ? styles.queueAgePillDanger : {}),
-                                                    }}>
-                                                        {isPending ? `waiting ${age}d` : `approved ${age}d ago`}
-                                                    </span>
-                                                </div>
-                                                <div style={styles.queueBottomLine}>
-                                                    <span style={styles.queueLocation}>
-                                                        {q.installation_address || q.customer?.install_location || ''}
-                                                    </span>
-                                                    <span style={styles.queueValue}>
-                                                        {formatCurrency(getValue(q))}
-                                                    </span>
-                                                    <div className="m-wrap" style={styles.queueActions}>
-                                                        {isPending ? (
-                                                            <>
-                                                                <button
-                                                                    style={{
-                                                                        ...styles.queueApproveBtn,
-                                                                        opacity: approvingQuotationId ? 0.65 : 1,
-                                                                        cursor: approvingQuotationId ? 'not-allowed' : 'pointer',
-                                                                    }}
-                                                                    onClick={() => setApproveTarget(q)}
-                                                                    disabled={Boolean(approvingQuotationId)}
-                                                                >
-                                                                    {approvingQuotationId === q.id ? 'Approving...' : 'Approve & schedule'}
-                                                                </button>
-                                                                <button
-                                                                    style={styles.queueRejectBtn}
-                                                                    onClick={() => openRejectQuotation(q)}
-                                                                >
-                                                                    Reject
-                                                                </button>
-                                                            </>
-                                                        ) : (
+                                // Fits without scrolling on a computer; on a phone the table scrolls
+                                // sideways inside the card so the buttons stay reachable
+                                <div className="scroll-x">
+                                    <table style={styles.queueTable}>
+                                        <thead>
+                                            <tr>
+                                                <th scope="col" style={{ ...styles.queueTh, paddingLeft: '24px' }}>Customer</th>
+                                                <th scope="col" style={styles.queueTh}>Location</th>
+                                                <th scope="col" style={{ ...styles.queueTh, textAlign: 'right' }}>Amount</th>
+                                                <th scope="col" style={styles.queueTh}>Waiting</th>
+                                                <th scope="col" style={{ ...styles.queueTh, paddingRight: '24px' }}>
+                                                    <span style={styles.srOnly}>Actions</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {queuePager.pageItems.map((q) => {
+                                                const age = daysAgo(q.created_at);
+                                                const isPending = q.queueKind === 'pending';
+                                                const stale = isPending && age >= 3;
+                                                return (
+                                                    <tr key={q.id}>
+                                                        <td style={{ ...styles.queueTd, paddingLeft: '24px' }}>
+                                                            <div style={styles.queueCustomer}>{q.customer?.user?.name || 'N/A'}</div>
                                                             <button
-                                                                style={styles.queueScheduleBtn}
-                                                                onClick={() => goToSchedule(q)}
+                                                                style={styles.queueRef}
+                                                                onClick={() => setSelectedQuotation(q)}
                                                             >
-                                                                Schedule
+                                                                {formatQuotationRef(q.id, q.created_at)}
                                                             </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                        </td>
+                                                        <td style={{ ...styles.queueTd, ...styles.queueLocation }}>
+                                                            {q.installation_address || q.customer?.install_location || ''}
+                                                        </td>
+                                                        <td style={{ ...styles.queueTd, ...styles.queueValue }}>
+                                                            {formatCurrency(getValue(q))}
+                                                        </td>
+                                                        <td style={{ ...styles.queueTd, whiteSpace: 'nowrap' }}>
+                                                            <span style={{
+                                                                ...styles.queueAgePill,
+                                                                ...(stale ? styles.queueAgePillDanger : {}),
+                                                            }}>
+                                                                {isPending ? `waiting ${age}d` : `approved ${age}d ago`}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ ...styles.queueTd, paddingRight: '24px' }}>
+                                                            <div style={styles.queueActions}>
+                                                                {isPending ? (
+                                                                    <>
+                                                                        <button
+                                                                            style={{
+                                                                                ...styles.queueApproveBtn,
+                                                                                opacity: approvingQuotationId ? 0.65 : 1,
+                                                                                cursor: approvingQuotationId ? 'not-allowed' : 'pointer',
+                                                                            }}
+                                                                            onClick={() => setApproveTarget(q)}
+                                                                            disabled={Boolean(approvingQuotationId)}
+                                                                        >
+                                                                            {approvingQuotationId === q.id ? 'Approving...' : 'Approve & schedule'}
+                                                                        </button>
+                                                                        <button
+                                                                            style={styles.queueRejectBtn}
+                                                                            onClick={() => openRejectQuotation(q)}
+                                                                        >
+                                                                            Reject
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <button
+                                                                        style={styles.queueScheduleBtn}
+                                                                        onClick={() => goToSchedule(q)}
+                                                                    >
+                                                                        Schedule
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
                                 </div>
                             )}
+
+                            <Pagination {...queuePager} noun="in queue" onChange={queuePager.setPage} style={styles.cardPager} />
                         </div>
 
                         <div style={{ ...styles.card, ...styles.scheduleCard }}>
                             <div style={styles.scheduleHeader}>
-                                <h2 style={styles.cardTitle}>Upcoming schedules</h2>
+                                <div>
+                                    <h2 style={styles.cardTitle}>Upcoming installations</h2>
+                                    <p style={styles.cardSubtitle}>Next scheduled visits</p>
+                                </div>
                                 <button
                                     type="button"
-                                    className="btn-primary m-tap"
-                                    style={smallGreenButton}
+                                    className="btn-secondary m-tap"
+                                    style={styles.outlineSmallBtn}
                                     onClick={() => navigate('/admin/schedule')}
                                 >
+                                    <PlusIcon size={14} color="currentColor" />
                                     Schedule
                                 </button>
                             </div>
 
                             {scheduleLoading ? (
-                                <p style={styles.cardSubtitle}>Loading schedules...</p>
+                                <div aria-busy="true" aria-label="Loading schedules" style={styles.scheduleList}>
+                                    {[['60%', '40%'], ['70%', '35%'], ['55%', '45%']].map(([w1, w2]) => (
+                                        <div key={w1} className="ov-pulse" style={styles.scheduleRow}>
+                                            <div style={{ ...styles.scheduleDateBlock, backgroundColor: '#EDF3EF' }} />
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ height: '10px', width: w1, background: '#ECECE7', borderRadius: '3px' }} />
+                                                <div style={{ height: '10px', width: w2, background: '#F2F2EE', borderRadius: '3px' }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <p style={{ ...styles.cardSubtitle, padding: '12px 0 0' }}>Loading schedules…</p>
+                                </div>
                             ) : upcomingSchedules.length === 0 ? (
-                                <div style={styles.queueEmpty}>No upcoming installations scheduled.</div>
+                                <div style={{ ...styles.queueEmpty, margin: '16px 24px 20px' }}>No upcoming installations scheduled.</div>
                             ) : (
                                 <div style={styles.scheduleList}>
                                     {upcomingSchedules.map((s) => {
@@ -520,7 +552,15 @@ export default function AdminDashboardPage() {
                                             || s.external_installation_request?.address
                                             || '';
                                         return (
-                                            <div key={s.id} style={styles.scheduleRow}>
+                                            // Opens the Schedule page on that day with this installation's details
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                className="upcoming-row"
+                                                onClick={() => navigate('/admin/schedule', { state: { openScheduleId: s.id } })}
+                                                aria-label={`${customerName}, ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}${s.scheduled_time ? ` at ${formatTime(s.scheduled_time)}` : ''}. View on the schedule`}
+                                                style={styles.scheduleRow}
+                                            >
                                                 <div style={styles.scheduleDateBlock}>
                                                     <span style={styles.scheduleMonth}>
                                                         {d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
@@ -532,7 +572,7 @@ export default function AdminDashboardPage() {
                                                     <div style={styles.scheduleLocation}>{location}</div>
                                                 </div>
                                                 <span style={styles.scheduleTime}>{formatTime(s.scheduled_time)}</span>
-                                            </div>
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -557,7 +597,7 @@ export default function AdminDashboardPage() {
                             <div style={styles.queueEmpty}>No external installation requests.</div>
                         ) : (
                             <div style={styles.externalList}>
-                                {externalRequests.map((requestRecord) => (
+                                {externalPager.pageItems.map((requestRecord) => (
                                     <div key={requestRecord.id} style={styles.externalRow}>
                                         <div style={styles.externalInfo}>
                                             <div style={styles.queueTopLine}>
@@ -599,6 +639,8 @@ export default function AdminDashboardPage() {
                                 ))}
                             </div>
                         )}
+
+                        <Pagination {...externalPager} noun="requests" onChange={externalPager.setPage} />
                     </div>
 
                     <div style={styles.card}>
@@ -640,7 +682,7 @@ export default function AdminDashboardPage() {
                             {filteredRows.length === 0 ? (
                                 <div style={styles.emptyFilterState}>No quotations match this filter.</div>
                             ) : (
-                                filteredRows.map((q) => {
+                                rowsPager.pageItems.map((q) => {
                                     const age = daysAgo(q.created_at);
                                     const staleAge = q.status === 'pending' && age >= 3;
                                     return (
@@ -681,9 +723,18 @@ export default function AdminDashboardPage() {
                         </div>
 
                         <div className="m-wrap" style={styles.footerRow}>
-                            <span style={styles.footerText}>
-                                Showing {filteredRows.length} of {quotations.length} quotations
-                            </span>
+                            {rowsPager.pageCount > 1 ? (
+                                <Pagination
+                                    {...rowsPager}
+                                    noun="quotations"
+                                    onChange={rowsPager.setPage}
+                                    style={styles.footerPager}
+                                />
+                            ) : (
+                                <span style={styles.footerText}>
+                                    Showing {filteredRows.length} of {quotations.length} quotations
+                                </span>
+                            )}
                             <button
                                 type="button"
                                 className="btn-primary m-tap"
@@ -864,57 +915,83 @@ export default function AdminDashboardPage() {
                 />
             )}
 
-            {selectedQuotation && (
+            {selectedQuotation && (() => {
+                const q = selectedQuotation;
+                // The installation booked for this quotation, if there is one
+                const booked = q.quotation?.id ? schedules.find((s) => s.quotation_id === q.quotation.id) : null;
+                const bookedDate = booked?.scheduled_date ? new Date(`${String(booked.scheduled_date).slice(0, 10)}T00:00:00`) : null;
+                const address = q.installation_address || q.customer?.install_location || '';
+                const email = q.customer?.user?.email;
+
+                return (
                 <>
-                    <div style={styles.scrim} onClick={() => setSelectedQuotation(null)} />
-                    <div style={styles.drawer}>
-                        <div style={styles.drawerHeader}>
-                            <span style={styles.drawerRef}>
-                                {formatQuotationRef(selectedQuotation.id, selectedQuotation.created_at)}
-                            </span>
-                            <button
-                                className="m-tap"
-                                style={styles.drawerClose}
-                                onClick={() => setSelectedQuotation(null)}
-                                aria-label="Close"
-                            >
-                                &#10005;
-                            </button>
+                    <div style={styles.scrim} onClick={() => setSelectedQuotation(null)} aria-hidden="true" />
+                    <aside role="dialog" aria-modal="true" aria-labelledby="qv-title" style={styles.drawer}>
+                        <div style={styles.drawerHead}>
+                            <div style={styles.drawerHeader}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={styles.drawerRef}>{formatQuotationRef(q.id, q.created_at)}</span>
+                                    <Badge status={q.status} />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="m-tap"
+                                    style={styles.drawerClose}
+                                    onClick={() => setSelectedQuotation(null)}
+                                    aria-label="Close"
+                                >
+                                    <XIcon size={20} color="currentColor" />
+                                </button>
+                            </div>
+                            <h2 id="qv-title" style={styles.drawerCustomer}>{q.customer?.user?.name || 'N/A'}</h2>
+                            {address && <p style={styles.drawerLocation}>{address}</p>}
                         </div>
 
-                        <h2 style={styles.drawerCustomer}>
-                            {selectedQuotation.customer?.user?.name || 'N/A'}
-                        </h2>
-                        <p style={styles.drawerLocation}>
-                            {selectedQuotation.installation_address || selectedQuotation.customer?.install_location || ''}
-                        </p>
+                        <div style={styles.drawerBody}>
+                            <div style={styles.drawerTotal}>
+                                <div style={{ fontSize: '13px', color: '#1F4D3A' }}>{priceLabel(q)}</div>
+                                <div style={styles.drawerTotalValue}>{formatCurrency(getValue(q))}</div>
+                            </div>
 
-                        <div style={styles.drawerRows}>
-                            <div style={styles.drawerRow}>
-                                <span style={styles.drawerRowLabel}>SYSTEM TYPE</span>
-                                <span style={styles.drawerRowValue}>
-                                    {systemTypeLabel(selectedQuotation.solar_system_type)}
-                                </span>
-                            </div>
-                            <div style={styles.drawerRow}>
-                                <span style={styles.drawerRowLabel}>{priceLabel(selectedQuotation).toUpperCase()}</span>
-                                <span style={styles.drawerRowValue}>
-                                    {formatCurrency(getValue(selectedQuotation))}
-                                </span>
-                            </div>
-                            <div style={styles.drawerRow}>
-                                <span style={styles.drawerRowLabel}>REQUESTED</span>
-                                <span style={styles.drawerRowValue}>
-                                    {daysAgoLabel(daysAgo(selectedQuotation.created_at))}
-                                </span>
-                            </div>
-                            <div style={{ ...styles.drawerRow, ...styles.drawerRowLast }}>
-                                <span style={styles.drawerRowLabel}>STATUS</span>
-                                <Badge status={selectedQuotation.status} />
-                            </div>
-                        </div>
+                            <dl style={styles.drawerFacts}>
+                                <dt style={{ color: adminTokens.muted }}>System</dt>
+                                <dd style={{ margin: 0, fontWeight: 600 }}>{systemTypeLabel(q.solar_system_type)}</dd>
+                                <dt style={{ color: adminTokens.muted }}>Requested</dt>
+                                <dd style={{ margin: 0 }}>
+                                    <span style={{ fontWeight: 600 }}>
+                                        {new Date(q.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                    <span style={{ color: adminTokens.muted }}> · {daysAgoLabel(daysAgo(q.created_at))}</span>
+                                </dd>
+                            </dl>
 
-                        {selectedQuotation.status === 'pending' ? (
+                            {booked && bookedDate && (
+                                <div style={styles.drawerBooked}>
+                                    <div style={styles.drawerBookedHead}>
+                                        <CheckIcon size={16} color="#2E8B5E" />
+                                        Installation scheduled
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 14px' }}>
+                                        <div style={styles.calTile} aria-hidden="true">
+                                            <div style={styles.calTileMonth}>
+                                                {bookedDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                                            </div>
+                                            <div style={{ fontSize: '18px', fontWeight: 700 }}>{bookedDate.getDate()}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: 600 }}>
+                                                {bookedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                                {booked.scheduled_time ? ` · ${formatTime(booked.scheduled_time)}` : ''}
+                                            </div>
+                                            {booked.assigned_technician && (
+                                                <div style={{ color: adminTokens.muted }}>Technician: {booked.assigned_technician}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                        {q.status === 'pending' ? (
                             <div style={styles.drawerActions}>
                                 <button
                                     style={styles.drawerApproveBtn}
@@ -929,34 +1006,43 @@ export default function AdminDashboardPage() {
                                     Reject
                                 </button>
                             </div>
-                        ) : selectedQuotation.status === 'approved' && selectedQuotation.quotation?.id
-                            && !scheduledQuotationIds.has(selectedQuotation.quotation.id) ? (
+                        ) : q.status === 'approved' && q.quotation?.id
+                            && !scheduledQuotationIds.has(q.quotation.id) ? (
                             <div style={styles.drawerActions}>
                                 <button
                                     style={styles.drawerApproveBtn}
-                                    onClick={() => goToSchedule(selectedQuotation)}
+                                    onClick={() => goToSchedule(q)}
                                 >
                                     Schedule installation
                                 </button>
                             </div>
-                        ) : selectedQuotation.status === 'approved' ? (
-                            <p style={styles.drawerDecided}>Installation already scheduled.</p>
+                        ) : q.status === 'approved' ? (
+                            // The booking card above already says so, when the schedule is loaded
+                            !booked && <p style={styles.drawerDecided}>Installation already scheduled.</p>
                         ) : (
                             <p style={styles.drawerDecided}>This quotation has already been decided.</p>
                         )}
+                        </div>
 
-                        {/* The row's ⋯ button used to open the full page; it's here now */}
-                        <button
-                            type="button"
-                            className="btn-primary m-tap"
-                            style={{ ...smallGreenButton, marginTop: '14px', alignSelf: 'flex-start' }}
-                            onClick={() => navigate(`/admin/quotation-requests/${selectedQuotation.id}`)}
-                        >
-                            View full details →
-                        </button>
-                    </div>
+                        <div style={styles.drawerFoot}>
+                            <button
+                                type="button"
+                                className="m-tap"
+                                style={{ ...adminUi.primaryBtn, flex: 1, height: '42px' }}
+                                onClick={() => navigate(`/admin/quotation-requests/${q.id}`)}
+                            >
+                                View full quotation →
+                            </button>
+                            {email && (
+                                <a href={`mailto:${email}`} style={{ ...adminUi.whiteBtn, height: '42px', textDecoration: 'none' }}>
+                                    Contact
+                                </a>
+                            )}
+                        </div>
+                    </aside>
                 </>
-            )}
+                );
+            })()}
 
             <ConfirmDialog
                 open={!!approveTarget}
@@ -975,20 +1061,6 @@ export default function AdminDashboardPage() {
 
             <style>{`.qt-row:hover { background-color: #fafbf9; }`}</style>
         </AdminLayout>
-    );
-}
-
-function MetricCard({ label, value, unit, note, tone, solid }) {
-    const onGreen = solid ? { color: '#cfe0d6' } : {};
-    return (
-        <div style={{ ...styles.metricCard, ...(solid ? { backgroundColor: adminTokens.green, borderColor: adminTokens.green } : {}) }}>
-            <div style={{ ...styles.metricLabel, ...onGreen }}>{label}</div>
-            <div style={styles.metricValueRow}>
-                <span style={{ ...styles.metricValue, color: solid ? '#ffffff' : tone }}>{value}</span>
-                {unit && <span style={{ ...styles.metricUnit, ...(solid ? { color: '#ffffff' } : {}) }}>{unit}</span>}
-            </div>
-            <div style={{ ...styles.metricNote, ...onGreen }}>{note}</div>
-        </div>
     );
 }
 
@@ -1012,205 +1084,205 @@ function SortableHeader({ label, sortKey, sortState, onSort, align }) {
 
 const styles = {
     modalError: { ...adminUi.errorBanner, margin: '0 1.5rem 1rem' },
+    // Gold button on the green banner
     exportBtn: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.55rem 1rem',
+        gap: '6px',
+        height: '42px',
+        padding: '0 16px',
         border: 'none',
-        borderRadius: '10px',
-        backgroundColor: adminTokens.green,
-        color: 'white',
-        fontSize: '13.5px',
-        fontWeight: '700',
+        borderRadius: adminTokens.radius,
+        backgroundColor: adminTokens.gold,
+        color: '#14261F',
+        fontSize: '14px',
+        fontWeight: 700,
         whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
     },
     blocks: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '20px',
     },
-    metricGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))',
-        gap: '14px',
-    },
-    metricCard: {
-        backgroundColor: adminTokens.surface,
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
-        padding: '1.5rem',
-        minWidth: 0,
-    },
-    metricLabel: {
-        fontSize: '10.5px',
-        fontWeight: 500,
-        letterSpacing: '.11em',
-        color: '#3d4d45',
-        marginBottom: '14px',
-    },
-    metricValueRow: { display: 'flex', alignItems: 'baseline', gap: '4px' },
-    metricValue: { fontSize: '30px', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
-    metricUnit: { fontSize: '14px', fontWeight: 600, color: adminTokens.muted },
-    metricNote: { fontSize: '12.5px', color: '#5a6a62', marginTop: '8px' },
-
+    // The queue takes the room it needs; the schedule list is a narrow column
     twoColGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
-        gap: '14px',
-        alignItems: 'stretch',
+        gridTemplateColumns: 'minmax(0, 1fr) 300px',
+        gap: '20px',
+        alignItems: 'start',
+    },
+    viewAllLink: {
+        border: 'none', background: 'none', padding: '2px 0 0', cursor: 'pointer', fontFamily: 'inherit',
+        fontSize: '14px', fontWeight: 600, color: adminTokens.green, whiteSpace: 'nowrap',
+    },
+    outlineSmallBtn: {
+        display: 'inline-flex', alignItems: 'center', gap: '6px', height: '34px', padding: '0 12px',
+        border: `1px solid ${adminTokens.control}`, borderRadius: adminTokens.radius, background: '#FFFFFF',
+        color: adminTokens.ink, fontSize: '13px', fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0,
     },
     card: {
-        backgroundColor: adminTokens.surface,
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
-        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
-        padding: '20px',
-        ...adminUi.cardAccent,
+        ...adminUi.card,
+        padding: '20px 24px',
+        minWidth: 0,
     },
-    cardTitle: { fontSize: '15px', fontWeight: 700, color: adminTokens.ink, margin: 0 },
-    cardSubtitle: { fontSize: '12.5px', color: adminTokens.muted, margin: '2px 0 0' },
+    cardTitle: { fontSize: '16px', fontWeight: 700, color: adminTokens.ink, margin: 0 },
+    cardSubtitle: { fontSize: '13px', color: adminTokens.muted, margin: '4px 0 0' },
+    cardPager: { padding: '12px 24px 16px' },
 
     queueHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '14px',
+        padding: '20px 24px 14px',
         gap: '0.75rem',
     },
+    queueTable: { width: '100%', borderCollapse: 'collapse', fontSize: '14px' },
+    queueTh: {
+        ...adminUi.tableHead,
+        textAlign: 'left',
+        padding: '9px 12px',
+        borderTop: `1px solid ${adminTokens.line}`,
+        borderBottom: `1px solid ${adminTokens.line}`,
+    },
+    queueTd: { padding: '14px 12px', borderBottom: `1px solid ${adminTokens.rowLine}`, verticalAlign: 'middle' },
+    srOnly: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)' },
     countPill: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '11px',
-        fontWeight: 600,
-        padding: '4px 11px',
-        borderRadius: '999px',
+        fontSize: '12px',
+        fontWeight: 700,
+        padding: '1px 7px',
+        borderRadius: '4px',
         whiteSpace: 'nowrap',
     },
-    countPillGold: { backgroundColor: '#fdf4dc', color: '#8a6a12' },
+    countPillGold: { backgroundColor: '#FBEBC4', color: '#7A4F00' },
     countPillGreen: { backgroundColor: '#e4ede8', color: adminTokens.green },
     queueEmpty: {
         backgroundColor: '#e4ede8',
         color: adminTokens.green,
-        borderRadius: '10px',
+        borderRadius: adminTokens.radius,
         padding: '14px',
         fontSize: '13px',
         fontWeight: 600,
         textAlign: 'center',
     },
     queueList: { display: 'flex', flexDirection: 'column', gap: '10px' },
-    externalList: { display: 'flex', flexDirection: 'column', gap: '10px' },
+    externalList: { display: 'flex', flexDirection: 'column', borderTop: `1px solid ${adminTokens.line}` },
     externalRow: {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px',
-        flexWrap: 'wrap', borderRadius: '10px', backgroundColor: adminTokens.page, padding: '12px 14px',
+        flexWrap: 'wrap', padding: '14px 0', borderBottom: `1px solid ${adminTokens.rowLine}`,
     },
     externalInfo: { minWidth: 0, flex: '1 1 280px' },
     externalSource: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '10px', fontWeight: 600, padding: '3px 8px',
-        borderRadius: '999px', backgroundColor: '#fdf4dc', color: '#8a6a12',
+        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12px', fontWeight: 700, padding: '1px 8px',
+        borderRadius: '4px', backgroundColor: '#FBEBC4', color: '#6B4500',
     },
-    externalMeta: { fontSize: '12px', color: adminTokens.muted, marginTop: '5px' },
+    externalMeta: { fontSize: '13px', color: adminTokens.muted, marginTop: '4px' },
     externalActions: { display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' },
-    queueRow: {
-        borderRadius: '10px',
-        backgroundColor: adminTokens.page,
-        padding: '12px 14px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-    },
     queueTopLine: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
     queueRef: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '12.5px',
-        color: adminTokens.green,
+        fontSize: '13px',
+        color: adminTokens.muted,
         textDecoration: 'underline',
         background: 'none',
         border: 'none',
         cursor: 'pointer',
         padding: 0,
     },
-    queueCustomer: { fontSize: '13.5px', fontWeight: 600, color: adminTokens.ink },
+    queueCustomer: { fontSize: '14px', fontWeight: 600, color: adminTokens.ink },
     queueAgePill: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
+        fontSize: '13px',
         fontWeight: 600,
-        padding: '3px 9px',
-        borderRadius: '999px',
-        backgroundColor: '#f2f4f0',
-        color: adminTokens.muted,
-        marginLeft: 'auto',
+        padding: '2px 7px',
+        borderRadius: '4px',
+        backgroundColor: '#FBE9DD',
+        color: '#A4410E',
     },
-    queueAgePillDanger: { backgroundColor: '#fbeae7', color: adminTokens.danger },
-    queueBottomLine: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' },
-    queueLocation: {
-        fontSize: '12px',
-        color: adminTokens.muted,
-        flex: 1,
-        minWidth: 0,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-    },
-    queueValue: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.ink },
-    queueActions: { display: 'flex', gap: '6px' },
+    queueAgePillDanger: { backgroundColor: '#fbe4e1', color: '#a3261b' },
+    queueLocation: { color: '#3A4440' },
+    queueValue: { textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap', color: adminTokens.ink },
+    // Buttons wrap under each other instead of widening the table
+    queueActions: { display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'flex-end' },
     queueApproveBtn: {
-        padding: '5px 12px',
-        minHeight: '32px',
+        padding: '0 12px',
+        minHeight: '34px',
+        whiteSpace: 'nowrap',
+        fontFamily: 'inherit',
         border: 'none',
-        borderRadius: '8px',
+        borderRadius: adminTokens.radius,
         backgroundColor: adminTokens.green,
         color: 'white',
-        fontSize: '12px',
+        fontSize: '13px',
         fontWeight: 700,
         cursor: 'pointer',
     },
     queueScheduleBtn: {
-        padding: '5px 12px',
-        minHeight: '32px',
+        padding: '0 12px',
+        minHeight: '34px',
+        whiteSpace: 'nowrap',
+        fontFamily: 'inherit',
         border: 'none',
-        borderRadius: '8px',
+        borderRadius: adminTokens.radius,
         backgroundColor: adminTokens.green,
         color: 'white',
-        fontSize: '12px',
+        fontSize: '13px',
         fontWeight: 700,
         cursor: 'pointer',
     },
     queueRejectBtn: {
-        padding: '5px 12px',
-        minHeight: '32px',
-        border: '1px solid #f0d0cb',
-        borderRadius: '8px',
+        padding: '0 12px',
+        minHeight: '34px',
+        whiteSpace: 'nowrap',
+        fontFamily: 'inherit',
+        border: '1px solid #E8C4BF',
+        borderRadius: adminTokens.radius,
         backgroundColor: '#fff',
         color: adminTokens.danger,
-        fontSize: '12px',
+        fontSize: '13px',
         fontWeight: 700,
         cursor: 'pointer',
     },
 
-    scheduleCard: { display: 'flex', flexDirection: 'column', height: '100%' },
+    scheduleCard: { display: 'flex', flexDirection: 'column', padding: 0 },
     scheduleHeader: {
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '14px',
+        alignItems: 'flex-start',
+        gap: '12px',
+        padding: '20px 24px 14px',
+        borderBottom: `1px solid ${adminTokens.line}`,
     },
-    scheduleList: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+    // Rows reach 12px further out than the text, so the hover highlight has room
+    scheduleList: { display: 'flex', flexDirection: 'column', padding: '4px 12px 12px' },
+    // A button that looks like a list row; its background and hover are in
+    // App.css (.upcoming-row), because an inline background would hide the hover
     scheduleRow: {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        padding: '10px 0',
-        borderBottom: `1px solid ${adminTokens.hairline2}`,
+        width: '100%',
+        padding: '12px',
+        border: 'none',
+        borderRadius: adminTokens.radius,
+        textAlign: 'left',
+        font: 'inherit',
+        color: 'inherit',
+        cursor: 'pointer',
     },
     scheduleDateBlock: {
         width: '44px',
+        height: '44px',
         flexShrink: 0,
         textAlign: 'center',
-        paddingRight: '12px',
-        borderRight: `1px solid ${adminTokens.hairline}`,
+        justifyContent: 'center',
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#EDF3EF',
         display: 'flex',
         flexDirection: 'column',
-        gap: '2px',
+        gap: 0,
     },
     scheduleMonth: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
@@ -1218,10 +1290,10 @@ const styles = {
         color: adminTokens.faint,
         textTransform: 'uppercase',
     },
-    scheduleDay: { fontSize: '17px', fontWeight: 700, color: adminTokens.ink },
+    scheduleDay: { fontSize: '17px', fontWeight: 700, color: adminTokens.ink, lineHeight: 1.1 },
     scheduleInfo: { flex: 1, minWidth: 0 },
     scheduleCustomer: {
-        fontSize: '13.5px',
+        fontSize: '14px',
         fontWeight: 600,
         color: adminTokens.ink,
         overflow: 'hidden',
@@ -1229,7 +1301,7 @@ const styles = {
         whiteSpace: 'nowrap',
     },
     scheduleLocation: {
-        fontSize: '12px',
+        fontSize: '13px',
         color: adminTokens.muted,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -1249,9 +1321,10 @@ const styles = {
         display: 'flex',
         flexWrap: 'wrap',
         gap: '4px',
-        backgroundColor: '#eef2ec',
-        padding: '4px',
-        borderRadius: '12px',
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #D6D6D0',
+        padding: '3px',
+        borderRadius: adminTokens.radius,
     },
     segmentBtn: {
         display: 'flex',
@@ -1259,7 +1332,7 @@ const styles = {
         gap: '6px',
         padding: '6px 12px',
         border: 'none',
-        borderRadius: '9px',
+        borderRadius: '4px',
         backgroundColor: 'transparent',
         color: '#4a5a52',
         fontSize: '12.5px',
@@ -1289,7 +1362,7 @@ const styles = {
         width: 'min(520px, 100%)',
         maxHeight: 'calc(100vh - 40px)',
         overflowY: 'auto',
-        borderRadius: '16px',
+        borderRadius: adminTokens.heroRadius,
         backgroundColor: adminTokens.surface,
         boxShadow: '0 20px 60px rgba(16,33,26,.22)',
     },
@@ -1297,7 +1370,7 @@ const styles = {
         width: 'min(900px, 100%)',
         maxHeight: 'calc(100vh - 40px)',
         overflow: 'hidden',
-        borderRadius: '16px',
+        borderRadius: adminTokens.heroRadius,
         backgroundColor: adminTokens.surface,
         boxShadow: '0 20px 60px rgba(16,33,26,.22)',
     },
@@ -1320,8 +1393,8 @@ const styles = {
         padding: '20px',
         backgroundColor: '#f2f4f0',
     },
-    quotationPreviewImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 270px)', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 4px 18px rgba(16,33,26,.14)' },
-    quotationPreviewFrame: { display: 'block', width: '100%', height: 'min(620px, calc(100vh - 270px))', border: 'none', borderRadius: '8px', backgroundColor: 'white' },
+    quotationPreviewImage: { display: 'block', maxWidth: '100%', maxHeight: 'calc(100vh - 270px)', objectFit: 'contain', borderRadius: '6px', boxShadow: '0 4px 18px rgba(16,33,26,.14)' },
+    quotationPreviewFrame: { display: 'block', width: '100%', height: 'min(620px, calc(100vh - 270px))', border: 'none', borderRadius: '6px', backgroundColor: 'white' },
     quotationUnsupported: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', color: adminTokens.muted, textAlign: 'center' },
     modalEyebrow: {
         fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
@@ -1342,7 +1415,7 @@ const styles = {
         width: '30px',
         height: '30px',
         border: `1px solid ${adminTokens.border}`,
-        borderRadius: '8px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         cursor: 'pointer',
         flexShrink: 0,
@@ -1357,7 +1430,7 @@ const styles = {
         gap: '8px',
         marginBottom: '18px',
         padding: '10px 12px',
-        borderRadius: '8px',
+        borderRadius: '6px',
         backgroundColor: '#fdf8e8',
         color: '#725b16',
         fontSize: '12.5px',
@@ -1366,8 +1439,8 @@ const styles = {
     confirmLabel: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: adminTokens.body },
     confirmModalFooter: { display: 'flex', justifyContent: 'flex-end', gap: '9px', flexWrap: 'wrap', padding: '16px clamp(16px, 5vw, 28px) 22px', borderTop: `1px solid ${adminTokens.hairline}` },
     modalSecondaryBtn: { ...whiteButton, minWidth: '92px', minHeight: '40px' },
-    modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '9px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },
-    modalDangerBtn: { minWidth: '132px', minHeight: '40px', padding: '10px 16px', border: '1px solid #c0392b', borderRadius: '9px', backgroundColor: '#c0392b', color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(192,57,43,.14)' },
+    modalPrimaryBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', minWidth: '170px', minHeight: '40px', padding: '10px 16px', border: 'none', borderRadius: '6px', backgroundColor: adminTokens.green, color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(15,59,44,.14)' },
+    modalDangerBtn: { minWidth: '132px', minHeight: '40px', padding: '10px 16px', border: '1px solid #c0392b', borderRadius: '6px', backgroundColor: '#c0392b', color: 'white', fontWeight: 700, boxShadow: '0 2px 6px rgba(192,57,43,.14)' },
 
     tableScrollWrap: { overflowX: 'auto' },
     th: {
@@ -1385,17 +1458,18 @@ const styles = {
         border: 'none',
         cursor: 'pointer',
         padding: 0,
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 500,
+        fontFamily: 'inherit',
+        fontSize: '12px',
+        fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '.08em',
-        color: '#cfe0d6',
+        letterSpacing: '.04em',
+        // Same as the other column labels on the light table head
+        color: adminTokens.muted,
         display: 'flex',
         alignItems: 'center',
         gap: '4px',
     },
-    sortArrow: { color: adminTokens.gold, fontSize: '10px' },
+    sortArrow: { color: adminTokens.green, fontSize: '12px' },
     tableHeaderRow: {
         display: 'grid',
         gap: '12px',
@@ -1438,58 +1512,71 @@ const styles = {
         fontSize: '13px',
         color: adminTokens.muted,
     },
+    // Sits in the footer next to "View all", which brings its own spacing
+    footerPager: { padding: 0, flex: 1, minWidth: 0 },
     footerRow: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: '10px 16px',
         paddingTop: '14px',
         marginTop: '6px',
         borderTop: `1px solid ${adminTokens.hairline}`,
     },
     footerText: { fontSize: '12.5px', color: adminTokens.muted },
 
-    scrim: { position: 'fixed', inset: 0, backgroundColor: 'rgba(16,33,26,.32)', zIndex: 200 },
+    // Quick view: a panel from the right edge (the "quick view" mockup)
+    scrim: { position: 'fixed', inset: 0, backgroundColor: 'rgba(11, 30, 24, 0.42)', zIndex: 200 },
     drawer: {
         position: 'fixed',
         top: 0,
         right: 0,
         bottom: 0,
-        width: 'min(400px, 88vw)',
-        backgroundColor: '#fff',
+        width: '440px',
+        maxWidth: '100%',
+        backgroundColor: '#FFFFFF',
+        borderLeft: `1px solid ${adminTokens.line}`,
         zIndex: 201,
-        padding: '24px',
-        overflowY: 'auto',
-        boxShadow: '-4px 0 24px rgba(16,33,26,.12)',
-    },
-    drawerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' },
-    drawerRef: { fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums', fontSize: '12.5px', color: adminTokens.muted },
-    drawerClose: { background: 'none', border: 'none', fontSize: '18px', color: adminTokens.muted, cursor: 'pointer', lineHeight: 1 },
-    drawerCustomer: { fontSize: '22px', fontWeight: 800, color: adminTokens.ink, margin: '8px 0 2px' },
-    drawerLocation: { fontSize: '13px', color: adminTokens.muted, margin: '0 0 20px' },
-    drawerRows: { border: `1px solid ${adminTokens.border}`, borderRadius: '10px', overflow: 'hidden', marginBottom: '20px' },
-    drawerRow: {
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 14px',
-        borderBottom: `1px solid ${adminTokens.hairline2}`,
+        flexDirection: 'column',
+        boxShadow: '-8px 0 24px rgba(0,0,0,0.12)',
+        fontSize: '14px',
+        color: adminTokens.ink,
     },
-    drawerRowLast: { borderBottom: 'none' },
-    drawerRowLabel: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '.08em',
-        color: adminTokens.faint,
+    drawerHead: { padding: '18px 24px 16px', borderBottom: `1px solid ${adminTokens.line}` },
+    drawerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' },
+    drawerRef: { fontSize: '13px', fontWeight: 600, color: adminTokens.muted, fontVariantNumeric: 'tabular-nums' },
+    drawerClose: {
+        width: '44px', height: '44px', margin: '-10px -12px -10px 0', border: 'none', background: 'transparent',
+        borderRadius: adminTokens.radius, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', color: adminTokens.body, flex: 'none',
     },
-    drawerRowValue: { fontSize: '13px', fontWeight: 600, color: adminTokens.ink, textTransform: 'capitalize' },
+    drawerCustomer: { fontSize: '22px', fontWeight: 700, letterSpacing: '-0.01em', color: adminTokens.ink, margin: '6px 0 2px' },
+    drawerLocation: { color: adminTokens.muted, margin: 0 },
+    drawerBody: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px' },
+    drawerTotal: { background: '#E3F1E8', borderRadius: adminTokens.radius, padding: '14px 16px' },
+    drawerTotalValue: { fontSize: '26px', fontWeight: 700, color: adminTokens.green, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' },
+    drawerFacts: { margin: 0, display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr)', gap: '10px 12px' },
+    drawerBooked: { border: `1px solid ${adminTokens.line}`, borderRadius: adminTokens.radius },
+    drawerBookedHead: {
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', fontWeight: 700,
+        borderBottom: `1px solid ${adminTokens.rowLine}`, background: adminTokens.headBg,
+        borderRadius: `${adminTokens.radius} ${adminTokens.radius} 0 0`,
+    },
+    calTile: {
+        width: '46px', flex: 'none', border: `1px solid ${adminTokens.line}`, borderRadius: adminTokens.radius,
+        overflow: 'hidden', textAlign: 'center',
+    },
+    calTileMonth: {
+        background: adminTokens.green, color: '#FFFFFF', fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', padding: '1px 0',
+    },
+    drawerFoot: { display: 'flex', gap: '8px', padding: '14px 24px', borderTop: `1px solid ${adminTokens.line}` },
     drawerActions: { display: 'flex', gap: '10px' },
     drawerApproveBtn: {
         flex: 1,
         padding: '12px',
         border: 'none',
-        borderRadius: '10px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.green,
         color: 'white',
         fontSize: '13.5px',
@@ -1500,7 +1587,7 @@ const styles = {
         flex: 1,
         padding: '12px',
         border: '1px solid #f0d0cb',
-        borderRadius: '10px',
+        borderRadius: '6px',
         backgroundColor: '#fff',
         color: adminTokens.danger,
         fontSize: '13.5px',
@@ -1511,7 +1598,7 @@ const styles = {
         fontSize: '13px',
         color: adminTokens.muted,
         backgroundColor: adminTokens.page,
-        borderRadius: '10px',
+        borderRadius: '6px',
         padding: '14px',
         textAlign: 'center',
     },

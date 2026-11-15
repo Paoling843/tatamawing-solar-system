@@ -97,6 +97,20 @@ class MessengerFallbackTest extends TestCase
         $this->assertTrue($card->created_at->eq($sentAt->copy()->addMinutes(10)), 'dated when it became due');
     }
 
+    public function test_the_list_marks_the_automatic_card_so_the_chat_still_needs_a_reply(): void
+    {
+        $this->enable(10);
+        $this->customerSays('hello');
+        $this->travel(12)->minutes();
+        $this->adminRefreshes();
+
+        $this->actingAs($this->admin, 'sanctum')->getJson('/api/conversations')
+            ->assertOk()
+            ->assertJsonPath('0.latest_type', ChatMessage::TYPE_MESSENGER_LINK)
+            ->assertJsonPath('0.latest_from_admin', true)
+            ->assertJsonPath('0.latest_is_auto', true);
+    }
+
     public function test_customer_chat_refresh_also_sends_it(): void
     {
         $this->enable(5);
@@ -211,6 +225,7 @@ class MessengerFallbackTest extends TestCase
             ->assertJsonPath('0.user.customer.contact_number', '+639171234567')
             ->assertJsonPath('0.latest_message', 'Hi Johnny')
             ->assertJsonPath('0.latest_from_admin', true)
+            ->assertJsonPath('0.latest_is_auto', false)
             ->assertJsonPath('0.unread_count', 1)
             ->assertJsonPath('0.linked_request.id', $request->id)
             ->assertJsonPath('0.linked_request.status', 'pending')

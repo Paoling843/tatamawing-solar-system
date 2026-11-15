@@ -218,6 +218,8 @@ class MessageController extends Controller
                 'latest_from_admin' => $isAdmin($message->sender_id),
                 'latest_sender_id' => $message->sender_id,
                 'latest_sender_name' => $message->sender?->name,
+                // The slow-reply Messenger card isn't a real answer from an admin
+                'latest_is_auto' => $message->isAutoMessengerLink(),
                 'latest_time' => $message->created_at,
                 'unread_count' => (int) ($unread[$otherUser->id] ?? 0),
                 'linked_request' => $this->linkedRequest($customer?->latestQuotationRequest),
