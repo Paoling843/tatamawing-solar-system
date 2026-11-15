@@ -1,94 +1,135 @@
-import { formatWhole, formatDecimal, panelsForInverterSize } from '../../services/solarEngine';
-import { C, NUM, SANS, s } from './engineStyles';
-
-const GRID = 'minmax(0,1.6fr) minmax(0,0.8fr) minmax(0,0.75fr) minmax(0,0.45fr) minmax(0,0.95fr) minmax(0,1.2fr) minmax(0,1.2fr)';
+import { formatWhole, formatDecimal, formatHour, panelsForInverterSize, PANEL_WATTS } from '../../services/solarEngine';
+import StepBanner from './StepBanner';
+import { ArrowGlyph } from './ApplianceLoadStep';
+import { Q, qs } from './calcTheme';
 
 // STEP 2 — shows the arithmetic behind the total: one line per appliance
-// with "watts × qty" and "watts × qty × hours" spelled out, then the ledger.
-export default function ComputationStep({ rows, load, onBack, onNext }) {
-    const ledger = [
-        { label: 'TOTAL DAYTIME', value: load.day, unit: 'Wh', formula: 'sum of daytime Wh · 08:00–16:00' },
-        { label: 'TOTAL NIGHTTIME', value: load.night, unit: 'Wh', formula: 'sum of nighttime Wh · 16:00–08:00' },
-        { label: 'TOTAL LOAD', value: load.inverterSize, unit: 'W', formula: 'sizes the inverter', highlight: true },
-        { label: 'PANELS', value: panelsForInverterSize(load.inverterSize), unit: 'panels', formula: 'total load ÷ 610 W, rounded down' },
-    ];
+// with "watts × qty" and "watts × qty × hours" spelled out, then the four
+// numbers that decide the package.
+// Look from the "Customer · Request quotation, step 2" mockup.
+export default function ComputationStep({ rows, load, timeFormat = '24', onBack, onNext }) {
+    const hour = (h) => formatHour(h, timeFormat);
+    const panels = panelsForInverterSize(load.inverterSize);
 
     return (
-        <div className="se-page" style={s.stepPage('1160px')}>
-            <div style={s.eyebrow}>STEP 02 · COMPUTATION</div>
-            <h1 className="se-h1" style={s.h1}>How the total was reached.</h1>
-            <p style={s.lead}>
-                Daytime and nighttime energy are each wattage × quantity × hours used. Total load is wattage ×
-                quantity, everything running at once, and sizes the inverter.
-            </p>
+        <div className="se-step" style={qs.page}>
+            <StepBanner
+                screen="compute"
+                title="How we worked out your system"
+                subtitle="Check the numbers before we match you with a package"
+            />
 
             {/* ----- Per-appliance breakdown ----- */}
-            <div style={{ ...s.card, overflow: 'hidden', marginTop: '36px' }}>
-                <div className="se-table-scroll">
-                    <div style={{ minWidth: '860px' }}>
-                        <div style={styles.head}>
-                            <div>APPLIANCE</div>
-                            <div>BASIS</div>
-                            <div style={{ textAlign: 'right' }}>WATTS</div>
-                            <div style={{ textAlign: 'right' }}>QTY</div>
-                            <div style={{ textAlign: 'right' }}>TOTAL LOAD</div>
-                            <div style={{ textAlign: 'right' }}>DAYTIME Wh</div>
-                            <div style={{ textAlign: 'right' }}>NIGHTTIME Wh</div>
-                        </div>
-
-                        {rows.map((row, i) => {
-                            // load.rows[i] holds the computed numbers for rows[i]
-                            const c = load.rows[i];
-                            return (
-                                <div key={row.id} style={styles.row}>
-                                    <div style={styles.name}>{c.name}</div>
-                                    <div style={{ fontSize: '13px', color: C.muted }}>
-                                        {c.usesHp ? `${Number(row.hp)} hp` : 'entered'}
-                                    </div>
-                                    <div style={styles.figure}>{formatWhole(c.watts)} W</div>
-                                    <div style={styles.figure}>{c.qty}</div>
-                                    <FormulaCell value={`${formatWhole(c.rowWatts)} W`} formula={`${formatWhole(c.watts)} × ${c.qty}`} />
-                                    <EnergyCell wh={c.dayWh} watts={c.watts} qty={c.qty} hours={c.dayHours} emptyText="no daytime use" />
-                                    <EnergyCell wh={c.nightWh} watts={c.watts} qty={c.qty} hours={c.nightHours} emptyText="no nighttime use" />
-                                </div>
-                            );
-                        })}
-
-                        <div style={styles.totals}>
-                            <div style={{ fontFamily: SANS, fontWeight: 700, color: C.ink }}>Totals</div>
-                            <div /><div /><div />
-                            <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.totalLoad)} W</div>
-                            <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.day)}</div>
-                            <div style={{ textAlign: 'right', color: C.ink }}>{formatWhole(load.night)}</div>
-                        </div>
+            <section aria-labelledby="calc-h" style={qs.card}>
+                <div style={{ ...qs.cardHead, borderBottom: 'none' }}>
+                    <div>
+                        <h2 id="calc-h" style={qs.h2}>Your appliances</h2>
+                        <p style={qs.sub}>Two numbers come from each appliance:</p>
                     </div>
+                    <dl style={{ margin: 0, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={styles.keyChip('#F3F8F5', '#DCEAE2')}>
+                            <dt style={{ fontWeight: 700, color: Q.green }}>Load</dt>
+                            <dd style={{ margin: 0, color: Q.body }}>watts × quantity</dd>
+                        </div>
+                        <div style={styles.keyChip('#FFFBF0', '#F1DFB0')}>
+                            <dt style={{ fontWeight: 700, color: '#6B4500' }}>Energy</dt>
+                            <dd style={{ margin: 0, color: Q.body }}>watts × quantity × hours used</dd>
+                        </div>
+                    </dl>
                 </div>
-            </div>
+                <div className="se-table-scroll">
+                    <table style={styles.table}>
+                        <thead>
+                            <tr style={styles.headRow}>
+                                <th scope="col" style={{ ...styles.th, paddingLeft: '20px' }}>Appliance</th>
+                                <th scope="col" style={{ ...styles.th, textAlign: 'right' }}>Watts</th>
+                                <th scope="col" style={{ ...styles.th, textAlign: 'right' }}>Qty</th>
+                                <th scope="col" style={{ ...styles.th, textAlign: 'right', color: Q.green }}>Load</th>
+                                <th scope="col" style={{ ...styles.th, textAlign: 'right', color: '#6B4500' }}>Daytime energy</th>
+                                <th scope="col" style={{ ...styles.th, textAlign: 'right', color: '#1F4E80', paddingRight: '20px' }}>Nighttime energy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, i) => {
+                                // load.rows[i] holds the computed numbers for rows[i]
+                                const c = load.rows[i];
+                                return (
+                                    <tr key={row.id}>
+                                        <th scope="row" style={{ ...styles.td, paddingLeft: '20px', textAlign: 'left' }}>
+                                            <div style={{ fontWeight: 700 }}>{c.name}</div>
+                                            <div style={{ fontSize: '13px', fontWeight: 400, color: Q.muted }}>
+                                                {c.usesHp ? `${Number(row.hp)} hp × 800 W` : 'From the label'}
+                                            </div>
+                                        </th>
+                                        <td style={styles.tdNum}>{formatWhole(c.watts)} W</td>
+                                        <td style={styles.tdNum}>{c.qty}</td>
+                                        <FormulaCell value={`${formatWhole(c.rowWatts)} W`} formula={`${formatWhole(c.watts)} × ${c.qty}`} />
+                                        <EnergyCell wh={c.dayWh} watts={c.watts} qty={c.qty} hours={c.dayHours} />
+                                        <EnergyCell wh={c.nightWh} watts={c.watts} qty={c.qty} hours={c.nightHours} last />
+                                    </tr>
+                                );
+                            })}
+                            <tr style={{ background: Q.headBg }}>
+                                <th scope="row" colSpan={3} style={{ ...styles.totalCell, paddingLeft: '20px', textAlign: 'left' }}>Total</th>
+                                <td style={{ ...styles.totalCell, textAlign: 'right' }}>{formatWhole(load.totalLoad)} W</td>
+                                <td style={{ ...styles.totalCell, textAlign: 'right', color: load.day ? Q.ink : Q.subtle }}>{formatWhole(load.day)} Wh</td>
+                                <td style={{ ...styles.totalCell, textAlign: 'right', paddingRight: '20px', color: load.night ? Q.ink : Q.subtle }}>
+                                    {formatWhole(load.night)} Wh
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
-            {/* ----- Four-box ledger ----- */}
-            <div style={styles.ledger}>
-                {ledger.map((box) => (
-                    <div key={box.label} style={styles.ledgerBox(box.highlight)}>
-                        <div style={{ fontFamily: NUM, fontSize: '12px', fontWeight: 600, letterSpacing: '.06em', color: box.highlight ? C.onDark : C.muted }}>
-                            {box.label}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', marginTop: '12px' }}>
-                            <span style={{ fontFamily: NUM, fontSize: '27px', fontWeight: 600, letterSpacing: '-.03em', color: box.highlight ? C.yellow : C.ink }}>
-                                {formatWhole(box.value)}
-                            </span>
-                            <span style={{ fontSize: '12px', color: box.highlight ? C.onDark : C.muted }}>{box.unit}</span>
-                        </div>
-                        <div style={{ fontFamily: NUM, fontSize: '12.5px', color: box.highlight ? C.onDark : C.muted, marginTop: '6px' }}>
-                            {box.formula}
-                        </div>
-                    </div>
-                ))}
-            </div>
+            {/* ----- The four numbers ----- */}
+            <section aria-labelledby="res-h" style={qs.card}>
+                <div style={{ padding: '18px 20px 14px' }}>
+                    <h2 id="res-h" style={qs.h2}>What your home needs</h2>
+                    <p style={qs.sub}>These four numbers decide your package</p>
+                </div>
+                <dl style={styles.needs}>
+                    <Need
+                        label="Daytime energy"
+                        value={formatWhole(load.day)}
+                        unit="Wh"
+                        note={`Used ${hour(8)} – ${hour(16)}, covered by the panels${load.day ? '' : '. Nothing set yet.'}`}
+                        style={{ borderLeft: '4px solid #D49A23' }}
+                        dim={!load.day}
+                    />
+                    <Need
+                        label="Nighttime energy"
+                        value={formatWhole(load.night)}
+                        unit="Wh"
+                        note={`Used ${hour(16)} – ${hour(8)}, from the battery${load.night ? '' : '. Nothing set yet.'}`}
+                        style={styles.needDivider}
+                        dim={!load.night}
+                    />
+                    <Need
+                        label="Inverter size"
+                        value={formatWhole(load.inverterSize)}
+                        unit="W"
+                        note={`${formatWhole(load.totalLoad)} W load + 2,000 W safety buffer`}
+                        dark
+                    />
+                    <Need
+                        label="Solar panels"
+                        value={panels}
+                        unit="panels"
+                        note={`${formatWhole(load.inverterSize)} W ÷ ${PANEL_WATTS} W per panel, rounded down`}
+                        style={styles.needDivider}
+                    />
+                </dl>
+            </section>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '28px', flexWrap: 'wrap' }}>
-                <button className="se-btn-secondary" onClick={onBack} style={s.secondaryButton}>Edit appliances</button>
-                <button className="se-btn-primary" onClick={onNext} style={s.primaryButton}>
-                    See recommended package <span style={{ fontSize: '17px' }}>→</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <button type="button" className="c-btn c-btn-secondary" onClick={onBack} style={{ ...qs.bigBtn, fontWeight: 600, padding: '0 16px' }}>
+                    <BackGlyph />
+                    Edit appliances
+                </button>
+                <button type="button" className="c-btn c-btn-primary" onClick={onNext} style={qs.bigBtn}>
+                    See recommended package
+                    <ArrowGlyph />
                 </button>
             </div>
         </div>
@@ -96,51 +137,68 @@ export default function ComputationStep({ rows, load, onBack, onNext }) {
 }
 
 // One Wh figure with its formula underneath, e.g. "2,400 × 1 × 8 h"
-function EnergyCell({ wh, watts, qty, hours, emptyText }) {
+function EnergyCell({ wh, watts, qty, hours, last }) {
+    if (!hours) {
+        return (
+            <td style={{ ...styles.tdNum, ...(last ? { paddingRight: '20px' } : {}) }}>
+                <div style={{ fontWeight: 700, color: Q.subtle }}>Not used</div>
+            </td>
+        );
+    }
     return (
         <FormulaCell
-            value={formatWhole(wh)}
-            formula={hours ? `${formatWhole(watts)} × ${qty} × ${formatDecimal(hours)} h` : emptyText}
+            value={`${formatWhole(wh)} Wh`}
+            formula={`${formatWhole(watts)} × ${qty} × ${formatDecimal(hours)} h`}
+            last={last}
         />
     );
 }
 
 // A figure with the formula that produced it underneath
-function FormulaCell({ value, formula }) {
+function FormulaCell({ value, formula, last }) {
     return (
-        <div style={{ textAlign: 'right', minWidth: 0 }}>
-            <div style={{ fontFamily: NUM, color: C.ink }}>{value}</div>
-            <div style={{ fontFamily: NUM, fontSize: '12px', color: C.muted, marginTop: '4px' }}>{formula}</div>
+        <td style={{ ...styles.tdNum, ...(last ? { paddingRight: '20px' } : {}) }}>
+            <div style={{ fontWeight: 700 }}>{value}</div>
+            <div style={{ fontSize: '12px', color: Q.subtle }}>{formula}</div>
+        </td>
+    );
+}
+
+function Need({ label, value, unit, note, dark, dim, style }) {
+    return (
+        <div style={{ padding: '16px 20px', minWidth: 0, ...(dark ? { background: Q.green, color: '#FFFFFF' } : {}), ...style }}>
+            <dt style={{ fontSize: '13px', fontWeight: 600, color: dark ? Q.stripText : Q.muted }}>{label}</dt>
+            <dd style={{ margin: '2px 0 0', fontSize: '28px', fontWeight: 700, lineHeight: 1.2, color: dark ? Q.gold : dim ? Q.subtle : Q.ink }}>
+                {value} <span style={{ fontSize: '15px', fontWeight: 600, color: dark ? '#FFFFFF' : Q.muted }}>{unit}</span>
+            </dd>
+            <dd style={{ margin: '2px 0 0', fontSize: '13px', color: dark ? Q.stripText : Q.muted }}>{note}</dd>
         </div>
     );
 }
 
+function BackGlyph() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+        </svg>
+    );
+}
+
 const styles = {
-    head: {
-        display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '13px 20px', background: C.fieldBg,
-        borderBottom: `1px solid ${C.borderSoft}`, fontFamily: NUM, fontSize: '11.5px', lineHeight: 1.5,
-        fontWeight: 600, letterSpacing: '.05em', color: C.muted, alignItems: 'end',
-    },
-    row: {
-        display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '15px 20px',
-        borderBottom: `1px solid ${C.rowBorder}`, fontSize: '14px', alignItems: 'start',
-    },
-    name: { color: C.ink, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    figure: { fontFamily: NUM, textAlign: 'right', color: C.body },
-    totals: {
-        display: 'grid', gridTemplateColumns: GRID, gap: '12px', padding: '16px 20px', background: C.fieldBg,
-        fontFamily: NUM, fontSize: '14px',
-    },
-    // 1px gaps on a border-coloured background draw the dividers, so boxes
-    // that wrap onto new rows (or stack on phones) never keep a stray border.
-    // Flex items grow to fill each row, so no empty grey cell is left over.
-    ledger: {
-        display: 'flex', flexWrap: 'wrap', gap: '1px', background: C.borderSoft,
-        border: `1px solid ${C.border}`, borderRadius: '13px', overflow: 'hidden', marginTop: '20px',
-    },
-    ledgerBox: (highlight) => ({
-        flex: '1 1 140px',
-        padding: '22px 24px',
-        background: highlight ? C.green : '#fff',
+    keyChip: (bg, border) => ({
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: bg,
+        border: `1px solid ${border}`, borderRadius: '6px',
     }),
+    table: { width: '100%', minWidth: '860px', borderCollapse: 'collapse' },
+    headRow: { fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: Q.muted, background: Q.headBg },
+    th: { textAlign: 'left', fontWeight: 600, padding: '10px 12px', borderTop: `1px solid ${Q.line}`, borderBottom: `1px solid ${Q.line}` },
+    td: { padding: '14px 12px', borderBottom: `1px solid ${Q.rowLine}`, verticalAlign: 'top' },
+    tdNum: { padding: '14px 12px', borderBottom: `1px solid ${Q.rowLine}`, verticalAlign: 'top', textAlign: 'right', whiteSpace: 'nowrap' },
+    totalCell: { padding: '12px', fontWeight: 700 },
+    // marginLeft -1px hides the divider of whichever cell starts a wrapped row
+    needs: {
+        margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        borderTop: `1px solid ${Q.line}`, overflow: 'hidden', borderRadius: '0 0 6px 6px',
+    },
+    needDivider: { borderLeft: `1px solid ${Q.rowLine}` },
 };

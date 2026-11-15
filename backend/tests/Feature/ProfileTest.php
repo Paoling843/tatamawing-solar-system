@@ -62,10 +62,12 @@ class ProfileTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/profile/summary')
             ->assertOk()
-            ->assertJsonPath('stats.0.label', 'Quotes approved')
+            ->assertJsonPath('stats.0.label', 'Quotations approved')
             ->assertJsonCount(1, 'activity')
             ->assertJsonPath('activity.0.label', 'Approved quotation request · #Q-2026-001')
-            ->assertJsonPath('activity.0.tone', 'approved');
+            ->assertJsonPath('activity.0.tone', 'approved')
+            ->assertJsonPath('activity.0.action', 'Approved')
+            ->assertJsonPath('activity.0.target', '#Q-2026-001');
     }
 
     public function test_a_customer_updates_name_and_mobile_but_not_email(): void

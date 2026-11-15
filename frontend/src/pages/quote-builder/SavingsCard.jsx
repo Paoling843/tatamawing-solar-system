@@ -1,103 +1,97 @@
+import { useState } from 'react';
 import {
     DEFAULT_RATE_PER_KWH, PEAK_SUN_HOURS, SYSTEM_LIFE_YEARS, DAYS_PER_MONTH,
     formatWhole, formatDecimal, peso,
 } from '../../services/solarEngine';
-import { C, s } from './engineStyles';
+import { Q, qs } from './calcTheme';
 
-// STEP 3 — "Your estimated savings" card, from the Solar Savings Card design.
-//   Left:   monthly savings, and how much of the current bill solar covers
-//   Right:  ROI in years (the payback period), with a chart of total savings vs. the system cost
+// STEP 3 — "Your estimated savings".
+//   Left:   monthly and yearly savings, the payback period and the net gain,
+//           and how much of the current bill solar covers (when a bill was entered)
+//   Right:  "Are you ahead yet?" — where the customer stands each year
+//           (savings so far minus the price), with a tooltip per year
 // savings comes from computeSavings() in solarEngine.js; total is the quote total.
-export default function SavingsCard({ savings, total }) {
+// Look from the "Customer · Request quotation, step 3" mockup.
+export default function SavingsCard({ savings, total, onEditBills }) {
     // Energy solar covers: the daytime it powers plus the night the battery carries
     const usedKwh = ((savings.dayCoveredWh + savings.nightCoveredWh) / 1000) * DAYS_PER_MONTH;
     const roundOne = (n) => formatDecimal(Math.round(n * 10) / 10);
+    const ownRate = savings.rateSource === 'bill';
 
     return (
-        <div style={{ ...s.card, marginTop: '20px', overflow: 'hidden' }}>
-            <header className="se-pad" style={styles.header}>
-                <h2 style={styles.title}>Your estimated savings</h2>
+        <section aria-labelledby="save-h" style={qs.card}>
+            <div style={{ ...qs.cardHead, alignItems: 'center' }}>
+                <h2 id="save-h" style={qs.h2}>Your estimated savings</h2>
                 <span style={styles.ratePill}>
-                    {savings.rateSource === 'bill' ? 'Your rate' : 'SORECO rate'}:{' '}
-                    <strong style={{ fontWeight: 600 }}>₱{savings.rate.toFixed(2)}/kWh</strong>
+                    {ownRate ? 'Your rate' : 'SORECO rate'}: ₱{savings.rate.toFixed(2)}/kWh
                 </span>
-            </header>
+            </div>
 
-            {/* 1px gaps on a border-coloured background draw the dividers,
-                whether the two columns sit side by side or stack */}
-            <div style={styles.split}>
-                <div className="se-pad" style={styles.column}>
-                    <Figure label="Monthly savings" value={peso(savings.monthlySavings)} accent />
-                    <span style={{ fontSize: '15px', color: C.muted, marginTop: '-18px' }}>
-                        {peso(savings.annualSavings)} per year
-                    </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+                <div style={styles.left}>
+                    <div>
+                        <div style={{ color: Q.muted }}>Monthly savings</div>
+                        <div style={{ ...styles.big, color: Q.green }}>{peso(savings.monthlySavings)}</div>
+                        <div style={{ color: Q.body }}>{peso(savings.annualSavings)} a year</div>
+                    </div>
+                    <div>
+                        <div style={{ color: Q.muted }}>Pays for itself in</div>
+                        <div style={styles.big}>
+                            {savings.paybackYears !== null ? roundOne(savings.paybackYears) : '—'}
+                            {savings.paybackYears !== null && <span style={{ fontSize: '18px' }}> years</span>}
+                        </div>
+                        <div style={{ color: Q.body }}>
+                            Net {savings.netGain >= 0 ? 'gain' : 'loss'} over {SYSTEM_LIFE_YEARS} years:{' '}
+                            <strong style={{ color: savings.netGain >= 0 ? '#1F6B45' : Q.danger }}>{peso(Math.abs(savings.netGain))}</strong>
+                        </div>
+                    </div>
 
                     <BillBar savings={savings} />
+
+                    {!ownRate && onEditBills && (
+                        <button type="button" onClick={onEditBills} style={styles.stepLink}>
+                            Add your bill in Step 1 to use your own rate instead of SORECO's.{' '}
+                            <span style={{ color: Q.green, fontWeight: 600 }}>Go to Step 1 →</span>
+                        </button>
+                    )}
                 </div>
 
-                <div className="se-pad" style={{ ...styles.column, gap: '16px' }}>
-                    <Figure
-                        label="ROI (payback period)"
-                        value={savings.paybackYears !== null ? roundOne(savings.paybackYears) : '—'}
-                        unit={savings.paybackYears !== null ? 'years' : null}
-                    />
-                    <PaybackChart savings={savings} total={total} />
+                <figure style={styles.right}>
+                    <figcaption style={styles.caption}>
+                        <span style={{ fontWeight: 700 }}>Are you ahead yet?</span>
+                        <span style={{ fontSize: '13px', color: Q.muted }}>Savings minus what you paid, each year</span>
+                    </figcaption>
+                    <AheadChart annual={savings.annualSavings} total={total} payback={savings.paybackYears} />
                     <div style={styles.legend}>
-                        <span style={styles.legendItem}>
-                            <span style={{ width: '16px', height: '3px', background: C.green, borderRadius: '2px' }} />
-                            Total savings
-                        </span>
-                        <span style={styles.legendItem}>
-                            <span style={{ width: '16px', height: 0, borderTop: `2px dashed ${C.muted}` }} />
-                            System cost
-                        </span>
-                        {!netGainFitsChart(savings, total) && (
-                            <span style={{ marginLeft: 'auto', fontWeight: 600, color: savings.netGain >= 0 ? C.ink : C.errorText }}>
-                                {netGainLabel(savings)} over {SYSTEM_LIFE_YEARS} years
-                            </span>
-                        )}
+                        <span style={styles.legendItem}><span style={{ width: '16px', height: '3px', background: Q.green, borderRadius: '2px' }} />Your position</span>
+                        <span style={styles.legendItem}><span style={{ width: '10px', height: '10px', background: '#F6E1A6', borderRadius: '2px' }} />Still paying off</span>
+                        <span style={styles.legendItem}><span style={{ width: '10px', height: '10px', background: '#CFE8DA', borderRadius: '2px' }} />In profit</span>
                     </div>
-                </div>
+                </figure>
             </div>
 
-            <div style={styles.stats}>
-                <Stat label="Solar produced" value={formatWhole(savings.productionKwh)} unit="kWh/mo" />
-                <Stat label="Solar used" value={formatWhole(usedKwh)} unit="kWh/mo" />
-                <Stat label="Still from SORECO" value={formatWhole(savings.gridKwh)} unit="kWh/mo" />
-                <Stat label="Sun hours" value={formatDecimal(PEAK_SUN_HOURS)} unit="per day" />
-            </div>
-
-            <footer className="se-pad" style={styles.footer}>
+            <dl style={styles.stats}>
+                <Stat label="Solar produces" value={formatWhole(savings.productionKwh)} unit="kWh a month" />
+                <Stat label="You use from solar" value={formatWhole(usedKwh)} unit="kWh a month" divider />
+                <Stat label="Still from SORECO" value={formatWhole(savings.gridKwh)} unit="kWh a month" divider good={savings.gridKwh < 0.5} />
+                <Stat label="Sun hours" value={formatDecimal(PEAK_SUN_HOURS)} unit="a day" divider />
+            </dl>
+            <p style={styles.footer}>
                 Estimates only. Solar covers your daytime use first, then charges the battery for the night.
                 Results vary with weather and usage.
-                {savings.rateSource === 'default' && (
-                    <> Based on SORECO's ₱{DEFAULT_RATE_PER_KWH}/kWh rate. Add your bill and kWh in Step 1 to use yours.</>
-                )}
-            </footer>
-        </div>
+                {!ownRate && <> Based on SORECO's ₱{DEFAULT_RATE_PER_KWH}/kWh rate.</>}
+            </p>
+        </section>
     );
 }
 
-function Figure({ label, value, unit, accent }) {
+function Stat({ label, value, unit, divider, good }) {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 500, color: C.body }}>{label}</span>
-            <span style={{ ...styles.bigNumber, color: accent ? C.green : C.ink }}>
-                {value}
-                {unit && <span style={{ fontSize: '24px', fontWeight: 500, color: C.muted }}> {unit}</span>}
-            </span>
-        </div>
-    );
-}
-
-function Stat({ label, value, unit }) {
-    return (
-        <div className="se-pad" style={styles.stat}>
-            <span style={{ fontSize: '13px', color: C.muted }}>{label}</span>
-            <span style={{ fontSize: '22px', fontWeight: 600, color: C.ink }}>
-                {value}
-                {unit && <span style={{ fontSize: '14px', fontWeight: 500, color: C.muted }}> {unit}</span>}
-            </span>
+        <div style={{ padding: '14px 20px', marginLeft: '-1px', ...(divider ? { borderLeft: `1px solid ${Q.rowLine}` } : {}) }}>
+            <dt style={{ fontSize: '13px', color: Q.muted }}>{label}</dt>
+            <dd style={{ margin: '2px 0 0', fontSize: '20px', fontWeight: 700, color: good ? '#1F6B45' : Q.ink }}>
+                {value} <span style={{ fontSize: '13px', fontWeight: 500, color: Q.muted }}>{unit}</span>
+            </dd>
         </div>
     );
 }
@@ -105,162 +99,179 @@ function Stat({ label, value, unit }) {
 // Current bill split into "covered by solar" and "new bill".
 // Needs a bill amount from Step 1; without one there is nothing to split.
 function BillBar({ savings }) {
-    if (savings.monthlyBill === null) {
-        return (
-            <div style={styles.billPlaceholder}>
-                Add your bill amount in Step 1 to see how much solar covers.
-            </div>
-        );
-    }
+    if (savings.monthlyBill === null) return null;
 
     const coveredPct = savings.monthlyBill > 0 ? (savings.monthlySavings / savings.monthlyBill) * 100 : 0;
-    const newPct = 100 - coveredPct;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: C.body }}>
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '13px', color: Q.body }}>
                 <span>{savings.billCount > 1 ? 'Average monthly bill' : 'Current monthly bill'}</span>
-                <strong style={{ fontWeight: 600, color: C.ink }}>{peso(savings.monthlyBill)}</strong>
+                <strong>{peso(savings.monthlyBill)}</strong>
             </div>
-            <div style={styles.bar}>
-                {coveredPct > 0 && (
-                    <BarSegment pct={coveredPct} background={C.yellow} label="Covered by solar" value={peso(savings.monthlySavings)} />
-                )}
-                {newPct > 0 && (
-                    <BarSegment pct={newPct} background={C.border} label="New bill" value={peso(savings.newMonthlyBill)} />
-                )}
+            <div
+                role="img"
+                aria-label={`Solar covers ${Math.round(coveredPct)}% of your bill. New bill ${peso(savings.newMonthlyBill)}`}
+                style={{ display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', background: '#F0F0EC', margin: '6px 0 4px' }}
+            >
+                <span style={{ width: `${Math.min(100, coveredPct)}%`, background: Q.gold }} />
             </div>
-            <span style={{ fontSize: '13px', color: C.muted }}>{Math.round(coveredPct)}% lower bill</span>
+            <div style={{ fontSize: '13px', color: Q.muted }}>
+                {Math.round(coveredPct)}% lower bill · new bill {peso(savings.newMonthlyBill)}
+            </div>
         </div>
     );
 }
 
-function BarSegment({ pct, background, label, value }) {
-    // A sliver of the bar has no room for its text
-    const roomy = pct >= 22;
+// Where the customer stands at the end of each year: savings so far minus the
+// price. Below ₱0 they're still paying it off; it crosses ₱0 at the payback year.
+// Drawn on a 600 × 250 canvas that scales with the card.
+const L = 56; const R = 584; const T = 14; const B = 226;
 
-    return (
-        <div style={{ ...styles.segment, width: `${pct}%`, background }} title={`${label}: ${value}`}>
-            {roomy && (
-                <>
-                    <span style={{ fontSize: '12px', fontWeight: 500 }}>{label}</span>
-                    <span style={{ fontSize: '18px', fontWeight: 700 }}>{value}</span>
-                </>
-            )}
-        </div>
-    );
+function niceStep(range) {
+    const raw = range / 4;
+    const pow = 10 ** Math.floor(Math.log10(raw || 1));
+    return [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw) || raw;
 }
 
-function netGainLabel(savings) {
-    return savings.netGain >= 0 ? `Net gain ${peso(savings.netGain)}` : `Net loss ${peso(-savings.netGain)}`;
-}
+const shortPeso = (v) => {
+    const a = Math.abs(v);
+    const text = a >= 1000000 ? `₱${formatDecimal(Math.round(a / 100000) / 10)}M` : a >= 1000 ? `₱${Math.round(a / 1000)}k` : `₱${Math.round(a)}`;
+    return v < 0 ? `−${text}` : text;
+};
 
-// True when the gap between the cost line and the end of the savings line
-// (155 units tall at most) has room for the net gain label above the cost line
-function netGainFitsChart(savings, total) {
-    const max = Math.max(savings.lifetimeSavings, total, 1);
-    return savings.netGain > 0 && (155 * savings.netGain) / max >= 30;
-}
+function AheadChart({ annual, total, payback }) {
+    const [hover, setHover] = useState(null);
+    const netAt = (yr) => annual * yr - total;
+    const end = netAt(SYSTEM_LIFE_YEARS);
 
-// Total savings (a straight line, since savings are the same every year) against
-// the system cost. Where they cross is the payback year; the shaded area after it
-// is the net gain. Drawn on a fixed 480 × 230 canvas that scales with the card.
-function PaybackChart({ savings, total }) {
-    const left = 40;
-    const right = 460;
-    const base = 190;
-    const top = 35;
+    const step = niceStep(Math.max(end, 0) - Math.min(-total, 0));
+    const lo = Math.floor(Math.min(-total, 0) / step) * step;
+    const hi = Math.ceil(Math.max(end, 0) / step) * step || step;
+    const X = (yr) => L + (yr / SYSTEM_LIFE_YEARS) * (R - L);
+    const Y = (v) => T + ((hi - v) / (hi - lo)) * (B - T);
+    const f = (n) => n.toFixed(1);
+    const ticks = [];
+    for (let v = lo; v <= hi + 1; v += step) ticks.push(v);
 
-    const lifetime = savings.lifetimeSavings;
-    const max = Math.max(lifetime, total, 1);
-    const yOf = (value) => base - ((base - top) * value) / max;
-
-    const costY = yOf(total);
-    const endY = yOf(lifetime);
-    const pays = savings.paybackYears !== null && savings.paybackYears <= SYSTEM_LIFE_YEARS;
-    const crossX = pays ? left + ((right - left) * savings.paybackYears) / SYSTEM_LIFE_YEARS : null;
-
-    // The net gain label fits in the shaded area only when it's tall enough;
-    // otherwise the card shows it in the legend instead (see netGainFitsChart)
-    const showGainLabel = netGainFitsChart(savings, total);
-    // Keep the payback year label clear of the "Year 0" and "Year 25" labels
-    const showCrossLabel = pays && crossX > left + 62 && crossX < right - 62;
-
+    const zeroY = Y(0);
+    const pays = payback !== null && payback <= SYSTEM_LIFE_YEARS;
+    const payX = pays ? X(payback) : null;
+    const lossEnd = pays ? payX : X(SYSTEM_LIFE_YEARS);
     const summary = pays
-        ? `Total savings pass the system cost at year ${formatDecimal(Math.round(savings.paybackYears * 10) / 10)} and reach ${peso(lifetime)} by year ${SYSTEM_LIFE_YEARS}`
-        : `Total savings reach ${peso(lifetime)} by year ${SYSTEM_LIFE_YEARS}, below the system cost of ${peso(total)}`;
+        ? `You start ${peso(total)} behind. Savings cover the cost in year ${formatDecimal(Math.round(payback * 10) / 10)}. By year ${SYSTEM_LIFE_YEARS} you are ${peso(end)} ahead.`
+        : `You start ${peso(total)} behind and are still ${peso(-end)} behind after ${SYSTEM_LIFE_YEARS} years.`;
+    const hn = hover === null ? null : netAt(hover);
 
     return (
-        <svg viewBox="0 0 480 230" width="100%" role="img" aria-label={summary} style={{ display: 'block', fontFamily: 'inherit' }}>
-            <line x1={left} y1={base} x2={right} y2={base} stroke={C.fieldBorder} strokeWidth="1" />
-            {pays && (
-                <polygon points={`${crossX},${costY} ${right},${endY} ${right},${costY}`} fill={C.green} fillOpacity="0.14" />
-            )}
-            <line x1={left} y1={costY} x2={right} y2={costY} stroke={C.muted} strokeWidth="1.5" strokeDasharray="5 4" />
-            <line x1={left} y1={base} x2={right} y2={endY} stroke={C.green} strokeWidth="3" strokeLinecap="round" />
-            {pays && (
-                <>
-                    <line x1={crossX} y1={costY} x2={crossX} y2={base} stroke={C.ink} strokeWidth="1" strokeDasharray="2 3" />
-                    <circle cx={crossX} cy={costY} r="6" fill="#fff" stroke={C.ink} strokeWidth="2" />
-                </>
-            )}
-
-            <text x={left + 4} y={Math.max(costY - 8, 14)} fontSize="12" fill={C.muted}>System cost {peso(total)}</text>
-            <text x={right - 4} y={Math.max(endY - 9, 14)} fontSize="12" fill={C.green} fontWeight="600" textAnchor="end">
-                Total saved {peso(lifetime)}
-            </text>
-            {showGainLabel && (
-                <text x={right - 8} y={costY - 12} fontSize="12" fill={C.ink} fontWeight="600" textAnchor="end">
-                    {netGainLabel(savings)}
+        <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
+            <p style={qs.srOnly}>{summary}</p>
+            <svg viewBox="0 0 600 250" aria-hidden="true" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible', fontFamily: 'inherit' }}>
+                {ticks.map((v) => (
+                    <g key={v}>
+                        <line x1={L} x2={R} y1={f(Y(v))} y2={f(Y(v))} stroke={v === 0 ? Q.body : '#EEEEEA'} strokeWidth={v === 0 ? 1.5 : 1} />
+                        <text x={L - 8} y={f(Y(v) + 4)} fontSize="11" textAnchor="end" fill={v === 0 ? Q.ink : Q.subtle} fontWeight={v === 0 ? 700 : 400}>
+                            {v === 0 ? '₱0' : shortPeso(v)}
+                        </text>
+                    </g>
+                ))}
+                {/* Shaded below ₱0 while paying off, above it once in profit */}
+                <polygon points={`${f(X(0))},${f(zeroY)} ${f(X(0))},${f(Y(-total))} ${f(lossEnd)},${f(pays ? zeroY : Y(end))} ${f(lossEnd)},${f(zeroY)}`} fill="#F6E1A6" />
+                {pays && <polygon points={`${f(payX)},${f(zeroY)} ${f(X(SYSTEM_LIFE_YEARS))},${f(Y(end))} ${f(X(SYSTEM_LIFE_YEARS))},${f(zeroY)}`} fill="#CFE8DA" />}
+                <line x1={f(X(0))} y1={f(Y(-total))} x2={f(X(SYSTEM_LIFE_YEARS))} y2={f(Y(end))} stroke={Q.green} strokeWidth="3" strokeLinecap="round" />
+                <circle cx={f(X(0))} cy={f(Y(-total))} r="5" fill={Q.green} />
+                <circle cx={f(X(SYSTEM_LIFE_YEARS))} cy={f(Y(end))} r="5" fill={Q.green} />
+                <text x={f(X(0) + 10)} y={f(Y(-total) + 4)} fontSize="12" fontWeight="700" fill="#6B4500">−{peso(total)}</text>
+                <text x={f(X(SYSTEM_LIFE_YEARS))} y={f(Y(end) - 10)} fontSize="12" fontWeight="700" fill={end >= 0 ? Q.green : Q.danger} textAnchor="end">
+                    {end >= 0 ? '+' : '−'}{peso(Math.abs(end))}
                 </text>
-            )}
+                {pays && (
+                    <>
+                        <line x1={f(payX)} x2={f(payX)} y1={f(zeroY)} y2={f(zeroY - 30)} stroke={Q.green} strokeWidth="1.5" strokeDasharray="3 3" />
+                        <rect x={f(Math.min(Math.max(payX - 56, L), R - 112))} y={f(zeroY - 52)} width="112" height="22" rx="4" fill={Q.green} />
+                        <text x={f(Math.min(Math.max(payX, L + 56), R - 56))} y={f(zeroY - 37)} fontSize="12" fontWeight="700" fill="#FFFFFF" textAnchor="middle">
+                            Paid off · yr {formatDecimal(Math.round(payback * 10) / 10)}
+                        </text>
+                        <circle cx={f(payX)} cy={f(zeroY)} r="7" fill="#FFFFFF" stroke={Q.green} strokeWidth="3" />
+                    </>
+                )}
+                {hn !== null && (
+                    <>
+                        <line x1={f(X(hover))} x2={f(X(hover))} y1={T} y2={B} stroke={Q.body} strokeWidth="1" />
+                        <circle cx={f(X(hover))} cy={f(Y(hn))} r="6" fill={hn >= 0 ? '#1F6B45' : '#B07A12'} stroke="#FFFFFF" strokeWidth="2" />
+                    </>
+                )}
+                {[0, 5, 10, 15, 20, 25].map((k) => (
+                    <text key={k} x={f(X(k))} y="244" fontSize="11" fill={Q.subtle} textAnchor="middle">{k === 0 ? 'Today' : `Yr ${k}`}</text>
+                ))}
+            </svg>
 
-            <text x={left} y="210" fontSize="12" fill={C.muted}>Year 0</text>
-            {showCrossLabel && (
-                <text x={crossX} y="210" fontSize="12" fill={C.ink} fontWeight="600" textAnchor="middle">
-                    Year {formatDecimal(Math.round(savings.paybackYears * 10) / 10)}
-                </text>
+            {/* One invisible target per year, for the tooltip (mouse or Tab) */}
+            <div style={styles.hits}>
+                {Array.from({ length: SYSTEM_LIFE_YEARS + 1 }, (_, k) => {
+                    const n = netAt(k);
+                    return (
+                        <button
+                            key={k}
+                            type="button"
+                            onMouseEnter={() => setHover(k)}
+                            onFocus={() => setHover(k)}
+                            onBlur={() => setHover(null)}
+                            aria-label={`Year ${k}: ${n >= 0 ? `ahead by ${peso(n)}` : `${peso(-n)} left to pay off`}`}
+                            style={styles.hit}
+                        />
+                    );
+                })}
+            </div>
+
+            {hn !== null && (
+                <div
+                    role="status"
+                    style={{
+                        ...styles.tip,
+                        left: `${(X(hover) / 600) * 100}%`,
+                        transform: hover > 18 ? 'translateX(calc(-100% - 10px))' : 'translateX(10px)',
+                    }}
+                >
+                    <div style={{ fontWeight: 700 }}>{hover === 0 ? 'Today' : `Year ${hover}`}</div>
+                    <div style={{ color: Q.body }}>Saved {peso(annual * hover)}</div>
+                    <div style={{ fontWeight: 700, color: hn >= 0 ? '#1F6B45' : '#6B4500' }}>
+                        {hn >= 0 ? `Ahead by ${peso(hn)}` : `${peso(-hn)} left to pay off`}
+                    </div>
+                </div>
             )}
-            <text x={right} y="210" fontSize="12" fill={C.muted} textAnchor="end">Year {SYSTEM_LIFE_YEARS}</text>
-        </svg>
+        </div>
     );
 }
 
 const styles = {
-    header: {
-        padding: '24px 28px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between',
-        alignItems: 'center', gap: '12px 24px', borderBottom: `1px solid ${C.border}`,
+    ratePill: { fontSize: '13px', fontWeight: 600, color: Q.body, background: '#F3F4F1', borderRadius: '6px', padding: '5px 10px' },
+    left: { flex: '1 1 300px', minWidth: 0, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px' },
+    big: { fontSize: 'clamp(28px, 7vw, 36px)', fontWeight: 700, lineHeight: 1.15, whiteSpace: 'nowrap' },
+    stepLink: {
+        display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: `1px dashed ${Q.control}`,
+        borderRadius: '6px', background: 'transparent', color: Q.body, fontSize: '13px', fontFamily: 'inherit', cursor: 'pointer',
     },
-    title: { margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-.015em', color: C.ink },
-    ratePill: { fontSize: '14px', color: C.body, background: C.softBg, padding: '6px 12px', borderRadius: '999px' },
-    // Flex items grow to fill each row, so the 1px-gap dividers never leave
-    // an empty grey cell when the items wrap
-    split: { display: 'flex', flexWrap: 'wrap', gap: '1px', background: C.border },
-    column: {
-        flex: '1 1 340px', background: '#fff', padding: '28px', display: 'flex', flexDirection: 'column',
-        gap: '22px', fontVariantNumeric: 'tabular-nums', minWidth: 0,
-    },
-    // Shrinks on phones so a long peso amount isn't cut off
-    bigNumber: { fontSize: 'clamp(34px, 9vw, 52px)', lineHeight: 1.05, fontWeight: 700, letterSpacing: '-.03em', whiteSpace: 'nowrap' },
-    bar: { display: 'flex', height: '64px', borderRadius: '10px', overflow: 'hidden' },
-    segment: {
-        color: C.ink, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        padding: '0 14px', boxSizing: 'border-box', overflow: 'hidden', whiteSpace: 'nowrap',
-    },
-    billPlaceholder: {
-        border: `1px dashed ${C.fieldBorder}`, borderRadius: '10px', padding: '16px',
-        fontSize: '13.5px', lineHeight: 1.5, color: C.muted, background: C.fieldBg,
-    },
-    legend: { display: 'flex', gap: '18px', flexWrap: 'wrap', fontSize: '13px', color: C.body },
+    right: { flex: '2 1 460px', minWidth: 0, margin: 0, padding: '18px 20px 20px', borderLeft: `1px solid ${Q.rowLine}` },
+    caption: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '6px 16px', marginBottom: '4px' },
+    legend: { display: 'flex', flexWrap: 'wrap', gap: '6px 18px', marginTop: '8px', fontSize: '13px', color: Q.body },
     legendItem: { display: 'flex', alignItems: 'center', gap: '6px' },
-    stats: { display: 'flex', flexWrap: 'wrap', gap: '1px', background: C.border, borderTop: `1px solid ${C.border}` },
-    stat: {
-        flex: '1 1 140px', background: '#fff', padding: '18px 28px', display: 'flex', flexDirection: 'column',
-        gap: '2px', fontVariantNumeric: 'tabular-nums',
+    // Lines up with the plot area (x 56–584 of 600, y 14–226 of 250)
+    hits: {
+        position: 'absolute', left: `${((L - (R - L) / 50) / 600) * 100}%`, right: `${((600 - R - (R - L) / 50) / 600) * 100}%`,
+        top: 0, bottom: '10%', display: 'grid', gridTemplateColumns: `repeat(${SYSTEM_LIFE_YEARS + 1}, minmax(0, 1fr))`,
     },
-    // The "Estimate only" reminder, green like the other calculator reminders
+    hit: { padding: 0, border: 'none', background: 'transparent', cursor: 'crosshair' },
+    tip: {
+        position: 'absolute', top: '-6px', background: '#FFFFFF', border: `1px solid ${Q.line}`, borderRadius: '6px',
+        boxShadow: '0 4px 12px rgba(15,61,46,0.12)', padding: '8px 10px', fontSize: '12px', whiteSpace: 'nowrap', pointerEvents: 'none',
+    },
+    stats: {
+        margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        borderTop: `1px solid ${Q.line}`, overflow: 'hidden',
+    },
     footer: {
-        padding: '16px 28px', background: C.reminderBg, borderTop: `1px solid ${C.reminderBorder}`,
-        fontSize: '13px', lineHeight: 1.6, color: C.green,
+        margin: 0, padding: '12px 20px', borderTop: `1px solid ${Q.rowLine}`, background: Q.headBg,
+        borderRadius: '0 0 6px 6px', fontSize: '13px', color: Q.muted,
     },
 };

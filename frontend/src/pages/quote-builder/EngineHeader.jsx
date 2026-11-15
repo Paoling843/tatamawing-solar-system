@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
 import BrandLogo from '../../components/BrandLogo';
 import { C, NUM, SANS } from './engineStyles';
-import EngineStepNav from './EngineStepNav';
 
-// Sticky top bar: logo, engine name, and either the "Get Started" button
-// (on the landing screen) or the 01 · 02 · 03 step indicator.
+// Sticky top bar: logo, engine name, and the "Get Started" button on the
+// landing screen. (The step progress is in each step's green banner.)
 export default function EngineHeader({ screen, user, onLogoClick, onGetStarted }) {
     const onLanding = screen === 'landing';
 
@@ -20,8 +19,6 @@ export default function EngineHeader({ screen, user, onLogoClick, onGetStarted }
             <div className="se-header-tagline" style={styles.tagline}>SOLAR COMPUTATION ENGINE</div>
 
             <div className="se-header-right" style={styles.right}>
-                {!onLanding && <EngineStepNav screen={screen} />}
-
                 {onLanding && (
                     <Link to="/faqs" className="se-link" style={styles.dashboardLink}>
                         FAQs

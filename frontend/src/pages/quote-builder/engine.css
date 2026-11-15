@@ -206,3 +206,12 @@
         justify-content: flex-start !important;
     }
 }
+
+/* Redesigned steps: keep the browser's dropdown arrow (the old steps hid it) */
+.se-root .se-step select { appearance: auto; -webkit-appearance: menulist; }
+
+/* Home page and guest page: the calculator runs the full page width there,
+   so it is kept narrower and centred, so the eye does not have to travel
+   far between a label and its number (inside the customer layout the
+   sidebar already narrows it) */
+.se-calc-pad .se-step { max-width: 1080px !important; }

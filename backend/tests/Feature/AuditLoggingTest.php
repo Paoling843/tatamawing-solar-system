@@ -40,8 +40,9 @@ class AuditLoggingTest extends TestCase
                 'target_label' => 'Quotation Request #42',
             ])
             // The User column shows who did it by name, not an id
-            ->assertJsonPath('0.actor_name', 'Maria Santos')
-            ->assertJsonPath('0.actor_role', 'admin');
+            // Paginated: the rows are under "data"
+            ->assertJsonPath('data.0.actor_name', 'Maria Santos')
+            ->assertJsonPath('data.0.actor_role', 'admin');
     }
 
     public function test_admin_rejection_creates_missing_admin_profile_and_succeeds(): void

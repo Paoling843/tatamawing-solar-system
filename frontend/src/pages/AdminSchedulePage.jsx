@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
-import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import AdminHero, { FilterTiles } from '../components/AdminHero';
+import { adminTokens, adminUi, adminStatus } from '../styles/adminTheme';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import {
     CalendarIcon,
     ClockIcon,
-    SunIcon,
-    LocationIcon,
     EditIcon,
     ChevronDownIcon,
     CheckIcon,
@@ -20,7 +19,7 @@ import ScheduleModal from '../components/ScheduleModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
-import { colors, statusColors, smallGreenButton, sunButton, whiteButton } from '../styles/theme';
+import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
 import { formatPeso } from '../utils/quotationDisplay';
 import { formatPhone } from '../utils/phone';
@@ -30,7 +29,7 @@ const STATUSES = ['scheduled', 'in_progress', 'completed', 'delayed'];
 
 const STATUS_LABELS = {
     scheduled: 'Scheduled',
-    in_progress: 'In Progress',
+    in_progress: 'In progress',
     completed: 'Completed',
     delayed: 'Delayed',
 };
@@ -365,6 +364,31 @@ export default function AdminSchedulePage() {
 
     const closeModal = () => setModalSchedule(null);
 
+    // Landed here from an installation in the Overview's "Upcoming installations"
+    // card: once the schedules load, go to its day and open its details
+    const openOnArrival = useRef(location.state?.openScheduleId ?? null);
+    useEffect(() => {
+        if (!openOnArrival.current || loading) return;
+        const id = openOnArrival.current;
+        openOnArrival.current = null;
+        const schedule = schedules.find((s) => s.id === id);
+
+        Promise.resolve().then(() => {
+            if (schedule) {
+                const [y, m] = getDateKey(schedule).split('-').map(Number);
+                setViewYear(y);
+                setViewMonth(m - 1);
+                openModal(schedule);
+            } else if (!error) {
+                setError('That installation is no longer on the schedule.');
+            }
+            // Clear the router state so a refresh or back/forward doesn't reopen it
+            navigate(location.pathname, { replace: true });
+        });
+        // Runs once, when the first load finishes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, schedules]);
+
     const handleStatusChange = async (newStatus) => {
         if (!modalSchedule) return;
         setStatusUpdating(true);
@@ -424,20 +448,45 @@ export default function AdminSchedulePage() {
         });
     };
 
+    // "Saturday, November 14" for the selected-day panel
+    const formatDateShort = (dateKey) => {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    };
+
+    // Installations in the month on screen, for the banner
+    const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-`;
+    const monthCount = schedules.filter((s) => getDateKey(s).startsWith(monthPrefix)).length;
+
     return (
         <AdminLayout active="Schedule">
-            <div style={styles.pageHeader}>
-                <div>
-                    <h1 style={styles.pageTitle}>Installation Schedule</h1>
-                    <p style={styles.pageSubtitle}>
-                        View and manage all scheduled solar installations.
-                    </p>
-                </div>
-                <button className="btn-primary" style={styles.newScheduleBtn} onClick={openCreateModal}>
-                    <PlusIcon size={14} color={adminTokens.green} />
-                    <span>New Schedule</span>
-                </button>
-            </div>
+            <AdminHero
+                eyebrow={`${MONTHS[viewMonth]} ${viewYear} · ${monthCount} installation${monthCount === 1 ? '' : 's'}`}
+                title="Installation schedule"
+                subtitle="All scheduled solar installations"
+                actions={
+                    <button className="btn-primary" style={styles.newScheduleBtn} onClick={openCreateModal}>
+                        <PlusIcon size={16} color="currentColor" />
+                        <span>New schedule</span>
+                    </button>
+                }
+            >
+                <FilterTiles
+                    label="Filter by status"
+                    minWidth={140}
+                    options={[
+                        { key: 'all', label: 'All', dot: '#FFFFFF', count: schedules.length },
+                        ...STATUSES.map((status) => ({
+                            key: status,
+                            label: STATUS_LABELS[status],
+                            dot: adminStatus[status].darkDot,
+                            count: statusCounts[status],
+                        })),
+                    ]}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                />
+            </AdminHero>
 
             {success && <div style={styles.success}>{success}</div>}
             {error && <div style={styles.error}>{error}</div>}
@@ -453,72 +502,57 @@ export default function AdminSchedulePage() {
                     onAction={openCreateModal}
                 />
             ) : (
-                <div className="content-grid-sidebar cal-layout" style={styles.contentGrid}>
+                <div className="cal-layout" style={styles.contentGrid}>
 
-                    <div className="cal-card" style={styles.calendarCard}>
+                    <section className="cal-card" style={styles.calendarCard}>
 
                         <div style={styles.calendarHeader}>
                             <h2 style={styles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</h2>
                             <div style={styles.monthNav}>
                                 <button onClick={() => shiftMonth(-1)} className="m-tap" style={styles.navBtn} aria-label="Previous month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}>
-                                        <ChevronDownIcon size={14} color={adminTokens.green} />
+                                        <ChevronDownIcon size={16} color={adminTokens.ink} />
                                     </span>
                                 </button>
                                 <button onClick={goToToday} style={styles.todayBtn}>Today</button>
                                 <button onClick={() => shiftMonth(1)} className="m-tap" style={styles.navBtn} aria-label="Next month">
                                     <span style={{ display: 'inline-flex', transform: 'rotate(-90deg)' }}>
-                                        <ChevronDownIcon size={14} color={adminTokens.green} />
+                                        <ChevronDownIcon size={16} color={adminTokens.ink} />
                                     </span>
                                 </button>
                             </div>
                         </div>
 
-                        <div style={styles.legend}>
-                            <button
-                                onClick={() => setStatusFilter('all')}
-                                style={{ ...styles.legendItem, ...(statusFilter === 'all' ? styles.legendItemActive : {}) }}
-                            >
-                                All
-                                <span style={styles.legendCount}>{schedules.length}</span>
-                            </button>
-                            {STATUSES.map((status) => (
-                                <button
-                                    key={status}
-                                    onClick={() => setStatusFilter(status)}
-                                    style={{ ...styles.legendItem, ...(statusFilter === status ? styles.legendItemActive : {}) }}
-                                >
-                                    <span style={{ ...styles.legendDot, backgroundColor: statusColors[status].text }} />
-                                    {STATUS_LABELS[status]}
-                                    <span style={styles.legendCount}>{statusCounts[status]}</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="cal-grid" style={styles.weekdayRow}>
-                            {WEEKDAYS.map((w) => (
-                                <div key={w} style={styles.weekdayLabel}>{w}</div>
+                        <div className="cal-grid" aria-hidden="true" style={styles.weekdayRow}>
+                            {WEEKDAYS.map((w, i) => (
+                                <div key={w} style={{ ...styles.weekdayLabel, color: i === 0 || i === 6 ? adminTokens.subtle : adminTokens.muted }}>{w}</div>
                             ))}
                         </div>
 
                         <div className="cal-grid" style={styles.cellGrid}>
-                            {cells.map((cell) => (
+                            {cells.map((cell, i) => (
                                 <div
                                     key={cell.key}
                                     className="cal-cell"
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-pressed={cell.isSelected}
+                                    aria-label={`${formatDateLong(cell.key)}, ${cell.shown.length + cell.moreCount} installation${cell.shown.length + cell.moreCount === 1 ? '' : 's'}`}
                                     onClick={() => selectDay(cell.key)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectDay(cell.key); } }}
                                     style={{
                                         ...styles.dayCell,
-                                        backgroundColor: cell.isSelected ? adminTokens.greenTint : 'white',
-                                        boxShadow: cell.isSelected
-                                            ? `inset 0 0 0 1.5px ${adminTokens.green}`
-                                            : `inset 0 0 0 1px ${adminTokens.hairline}`,
-                                        opacity: !cell.inMonth ? 0.4 : 1,
-                                        cursor: 'pointer',
+                                        ...(i % 7 ? styles.dayCellDivider : {}),
+                                        backgroundColor: cell.isSelected ? adminTokens.greenTint : (cell.inMonth ? '#FFFFFF' : adminTokens.headBg),
+                                        boxShadow: cell.isSelected ? `inset 0 0 0 2px ${adminTokens.green}` : 'none',
                                     }}
                                 >
                                     <div style={styles.dayCellHeader}>
-                                        <span style={{ ...styles.dayNumber, ...(cell.isToday ? styles.dayNumberToday : {}) }}>
+                                        <span style={{
+                                            ...styles.dayNumber,
+                                            ...(cell.inMonth ? {} : { color: '#A3AAA6' }),
+                                            ...(cell.isToday ? styles.dayNumberToday : {}),
+                                        }}>
                                             {cell.day}
                                         </span>
                                         {cell.moreCount > 0 && (
@@ -529,109 +563,125 @@ export default function AdminSchedulePage() {
                                     {/* Phones: a dot instead of the chips, which are unreadable at that size */}
                                     {cell.shown.length > 0 && <span className="cal-dot" aria-hidden="true" />}
                                     <div className="cal-chips" style={styles.chipList}>
-                                        {cell.shown.map((s) => (
-                                            <div
-                                                key={s.id}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openModal(s);
-                                                }}
-                                                style={{
-                                                    ...styles.chip,
-                                                    backgroundColor: statusColors[s.status]?.bg || adminTokens.hairline,
-                                                    color: statusColors[s.status]?.text || adminTokens.muted,
-                                                }}
-                                            >
-                                                {isNew(s) && <span style={styles.newDot} title="New" aria-label="New" />}
-                                                {s.scheduled_time && (
-                                                    <span style={styles.chipTime}>{formatTime(s.scheduled_time)}</span>
-                                                )}
-                                                <span style={styles.chipName}>{getCustomerName(s)}</span>
-                                            </div>
-                                        ))}
+                                        {cell.shown.map((s) => {
+                                            const tone = adminStatus[s.status] || adminStatus.scheduled;
+                                            return (
+                                                <div
+                                                    key={s.id}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openModal(s);
+                                                    }}
+                                                    style={{
+                                                        ...styles.chip,
+                                                        backgroundColor: tone.bg,
+                                                        color: tone.fg,
+                                                        borderLeft: `3px solid ${tone.dot}`,
+                                                    }}
+                                                >
+                                                    {isNew(s) && <span style={styles.newDot} title="New" aria-label="New" />}
+                                                    {s.scheduled_time && (
+                                                        <span style={styles.chipTime}>{formatTime(s.scheduled_time).replace(/ [AP]M$/, '')}</span>
+                                                    )}
+                                                    {getCustomerName(s)}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
+
+                        <div style={styles.legend}>
+                            {STATUSES.map((status) => (
+                                <span key={status} style={styles.legendItem}>
+                                    <span style={{ ...styles.legendDot, backgroundColor: adminStatus[status].dot }} />
+                                    {STATUS_LABELS[status]}
+                                </span>
+                            ))}
+                        </div>
+                    </section>
 
                     <div ref={sidePanelRef} className="m-static" style={styles.sideColumn}>
 
                         {newSchedules.length > 0 && (
-                            <div style={{ ...styles.sidePanel, ...styles.newPanel }}>
-                                <div style={styles.sidePanelEyebrow}>New since your last visit</div>
-                                <div style={styles.selectedCountLabel}>
-                                    {newSchedules.length} new installation{newSchedules.length === 1 ? '' : 's'}
+                            <aside aria-label="New schedules" style={{ ...styles.sidePanel, ...styles.newPanel }}>
+                                <div style={styles.sidePanelHead}>
+                                    <span style={styles.sidePanelEyebrow}>New since your last visit</span>
+                                    <h2 style={styles.selectedDateLabel}>
+                                        {newSchedules.length} new installation{newSchedules.length === 1 ? '' : 's'}
+                                    </h2>
                                 </div>
-                                <div style={styles.newList}>
+                                <ul style={styles.newList}>
                                     {newSchedules.map((s) => (
-                                        <button key={s.id} type="button" onClick={() => showSchedule(s)} style={styles.newItem}>
-                                            <span style={styles.newDot} aria-hidden="true" />
-                                            <span style={{ minWidth: 0, flex: 1 }}>
-                                                <span style={styles.newItemName}>{getCustomerName(s)}</span>
-                                                <span style={styles.newItemWhen}>
-                                                    {formatDateLong(getDateKey(s))}{s.scheduled_time ? ` · ${formatTime(s.scheduled_time)}` : ''}
+                                        <li key={s.id}>
+                                            <button type="button" onClick={() => showSchedule(s)} style={styles.newItem}>
+                                                <span style={styles.newDot} aria-hidden="true" />
+                                                <span style={{ minWidth: 0, flex: 1 }}>
+                                                    <span style={styles.newItemName}>{getCustomerName(s)}</span>
+                                                    <span style={styles.newItemWhen}>
+                                                        {formatDateLong(getDateKey(s))}{s.scheduled_time ? ` · ${formatTime(s.scheduled_time)}` : ''}
+                                                    </span>
                                                 </span>
-                                            </span>
-                                        </button>
+                                            </button>
+                                        </li>
                                     ))}
-                                </div>
-                            </div>
+                                </ul>
+                            </aside>
                         )}
 
-                        <div style={styles.sidePanel}>
-                            <div style={styles.sidePanelEyebrow}>Selected day</div>
-                            <div style={styles.selectedDateLabel}>{formatDateLong(selectedDate)}</div>
-                            <div style={styles.selectedCountLabel}>
-                                {selectedDaySchedules.length === 0
-                                    ? 'Nothing scheduled'
-                                    : `${selectedDaySchedules.length} installation${selectedDaySchedules.length === 1 ? '' : 's'}`}
+                        <aside aria-label="Selected day" style={styles.sidePanel}>
+                            <div style={styles.sidePanelHead}>
+                                <span style={styles.sidePanelEyebrow}>{selectedDate === TODAY_KEY ? 'Today' : 'Selected day'}</span>
+                                <h2 style={styles.selectedDateLabel}>{formatDateShort(selectedDate)}</h2>
+                                <p style={styles.selectedCountLabel}>
+                                    {selectedDaySchedules.length === 0
+                                        ? 'Nothing scheduled'
+                                        : `${selectedDaySchedules.length} installation${selectedDaySchedules.length === 1 ? '' : 's'}`}
+                                </p>
                             </div>
 
                             {selectedDaySchedules.length === 0 ? (
                                 <div style={styles.emptyDay}>
-                                    <div style={styles.emptyDayTitle}>No installations booked</div>
-                                    <div style={styles.emptyDayDesc}>Nothing is scheduled for this day.</div>
+                                    <p style={{ margin: '0 0 12px' }}>No installations on this day.</p>
+                                    <button type="button" style={styles.smallOutlineBtn} onClick={openCreateModal}>Schedule one</button>
                                 </div>
                             ) : (
-                                <div style={styles.dayEventList}>
-                                    {selectedDaySchedules.map((s) => (
-                                        <div key={s.id} onClick={() => openModal(s)} style={styles.dayEventCard}>
-                                            <div style={styles.dayEventTop}>
-                                                <span style={styles.dayEventTime}>
-                                                    <ClockIcon size={12} color={adminTokens.muted} />
-                                                    {formatTime(s.scheduled_time) || 'Time TBD'}
-                                                </span>
-                                                <span style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                                                    {isNew(s) && <span style={styles.newPill}>New</span>}
-                                                    <span style={{
-                                                        ...styles.statusPill,
-                                                        backgroundColor: statusColors[s.status]?.bg,
-                                                        color: statusColors[s.status]?.text,
-                                                    }}>
-                                                        {STATUS_LABELS[s.status] || s.status}
+                                <ul style={styles.dayEventList}>
+                                    {selectedDaySchedules.map((s) => {
+                                        const tone = adminStatus[s.status] || adminStatus.scheduled;
+                                        const kw = getCapacityKw(s);
+                                        return (
+                                            <li key={s.id} style={{ ...styles.dayEventCard, borderLeft: `3px solid ${tone.dot}` }}>
+                                                <div style={styles.dayEventTop}>
+                                                    <span style={styles.dayEventTime}>
+                                                        <ClockIcon size={15} color="currentColor" />
+                                                        {formatTime(s.scheduled_time) || 'Time TBD'}
                                                     </span>
-                                                </span>
-                                            </div>
-                                            <div style={styles.dayEventName}>{getCustomerName(s)}</div>
-                                            <div style={styles.dayEventMetaRow}>
-                                                <span style={styles.metaChip}>
-                                                    <SunIcon size={12} color="currentColor" />
-                                                    {getSystemType(s)}
-                                                </span>
-                                                {getCapacityKw(s) && (
-                                                    <span style={styles.metaChip}>{getCapacityKw(s)} kW</span>
-                                                )}
-                                                <span style={styles.metaChip}>
-                                                    <LocationIcon size={12} color="currentColor" />
-                                                    {getLocation(s)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                                    <span style={{ display: 'inline-flex', gap: '6px' }}>
+                                                        {isNew(s) && <span style={styles.newPill}>New</span>}
+                                                        <span style={{ ...styles.statusPill, backgroundColor: tone.bg, color: tone.fg }}>
+                                                            {STATUS_LABELS[s.status] || s.status}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div style={styles.dayEventName}>{getCustomerName(s)}</div>
+                                                <dl style={styles.dayEventDetails}>
+                                                    <dt style={styles.dayEventDt}>System</dt>
+                                                    <dd style={styles.dayEventDd}>{getSystemType(s)}{kw ? ` · ${kw} kW` : ''}</dd>
+                                                    <dt style={styles.dayEventDt}>Address</dt>
+                                                    <dd style={styles.dayEventDd}>{getLocation(s)}</dd>
+                                                </dl>
+                                                <div style={{ display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' }}>
+                                                    <button type="button" style={styles.smallOutlineBtn} onClick={() => openModal(s)}>View details</button>
+                                                    <button type="button" style={styles.smallOutlineBtn} onClick={() => openEdit(s)}>Reschedule</button>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
                             )}
-                        </div>
+                        </aside>
                     </div>
                 </div>
             )}
@@ -847,25 +897,8 @@ export default function AdminSchedulePage() {
 
 const styles = {
     modalError: { ...adminUi.errorBanner, margin: '0 1.25rem 0.75rem' },
-    pageHeader: {
-        ...adminUi.hero,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-    },
-    newScheduleBtn: sunButton,
-    pageTitle: adminText.pageTitle,
-    pageSubtitle: adminText.pageSubtitle,
-    success: {
-        backgroundColor: colors.successTint,
-        color: colors.success,
-        padding: '1rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
-    },
+    newScheduleBtn: adminUi.goldBtn,
+    success: adminUi.successBanner,
     error: adminUi.errorBanner,
     field: {
         marginBottom: '1rem',
@@ -875,13 +908,13 @@ const styles = {
         display: 'block',
         marginBottom: '0.25rem',
         fontSize: '0.875rem',
-        color: '#293530',
+        color: adminTokens.body,
         fontWeight: '500',
     },
     linkedQuotationBox: {
         border: `1px solid ${colors.primaryBorder}`,
         backgroundColor: adminTokens.greenTint,
-        borderRadius: '8px',
+        borderRadius: '6px',
         padding: '0.625rem 0.75rem',
     },
     linkedQuotationRef: {
@@ -903,183 +936,165 @@ const styles = {
     input: {
         width: '100%',
         padding: '0.625rem',
-        border: '1px solid #dcdfd8',
-        borderRadius: '8px',
+        border: `1px solid ${adminTokens.control}`,
+        borderRadius: '6px',
         fontSize: '1rem',
         boxSizing: 'border-box',
     },
+    // Calendar (wide) and the selected day (narrow); they stack on phones (.cal-layout)
     contentGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 340px',
-        gap: '1.5rem',
-        alignItems: 'start',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '20px',
+        alignItems: 'flex-start',
     },
     calendarCard: {
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
+        ...adminUi.card,
+        flex: '999 1 620px',
         minWidth: 0,
-        ...adminUi.cardAccent,
+        overflow: 'hidden',
     },
     calendarHeader: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '1rem',
         flexWrap: 'wrap',
-        gap: '0.75rem',
+        gap: '12px',
+        padding: '16px 20px',
     },
     monthLabel: {
-        fontSize: '1.15rem',
-        fontWeight: '700',
-        color: '#16211c',
+        fontSize: '18px',
+        fontWeight: 700,
+        color: adminTokens.ink,
         margin: 0,
     },
     monthNav: {
         display: 'flex',
         alignItems: 'center',
-        gap: '2px',
-        padding: '3px',
-        borderRadius: '10px',
-        backgroundColor: adminTokens.hairline,
+        gap: '6px',
     },
     navBtn: {
-        width: '30px',
-        height: '30px',
+        width: '36px',
+        height: '36px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
+        border: `1px solid ${adminTokens.control}`,
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#FFFFFF',
         cursor: 'pointer',
+        padding: 0,
     },
     todayBtn: {
-        padding: '0.4rem 0.75rem',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
-        color: adminTokens.green,
-        fontSize: '0.8rem',
-        fontWeight: '600',
+        height: '36px',
+        padding: '0 14px',
+        border: `1px solid ${adminTokens.control}`,
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#FFFFFF',
+        color: adminTokens.ink,
+        fontSize: '14px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
         cursor: 'pointer',
-    },
-    legend: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '4px',
-        padding: '4px',
-        borderRadius: '10px',
-        backgroundColor: adminTokens.hairline,
-        marginBottom: '1.25rem',
-        width: 'fit-content',
-        maxWidth: '100%',
-    },
-    legendItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.5rem 0.75rem',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
-        color: adminTokens.muted,
-        fontSize: '0.8rem',
-        fontWeight: '500',
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-    },
-    legendItemActive: {
-        backgroundColor: 'white',
-        color: '#16211c',
-        fontWeight: '600',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    },
-    legendDot: {
-        width: '7px',
-        height: '7px',
-        borderRadius: '50%',
-    },
-    legendCount: {
-        fontSize: '0.7rem',
-        color: '#5d6862',
     },
     weekdayRow: {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gap: '6px',
-        marginBottom: '6px',
-        // Vertical padding only, so the labels stay over their day columns
-        padding: '6px 0',
-        ...adminUi.tableHead,
+        borderTop: `1px solid ${adminTokens.line}`,
+        borderBottom: `1px solid ${adminTokens.line}`,
+        backgroundColor: adminTokens.headBg,
     },
     weekdayLabel: {
-        fontSize: '0.7rem',
-        fontWeight: '600',
-        letterSpacing: '0.05em',
+        padding: '8px 10px',
+        fontSize: '12px',
+        fontWeight: 600,
+        letterSpacing: '0.04em',
         textTransform: 'uppercase',
-        padding: '0 8px',
     },
     cellGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gap: '6px',
     },
     dayCell: {
-        minHeight: '96px',
-        borderRadius: '10px',
-        padding: '6px 7px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        minHeight: '104px',
+        padding: '8px',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
         cursor: 'pointer',
         overflow: 'hidden',
+        minWidth: 0,
     },
+    dayCellDivider: { borderLeft: `1px solid ${adminTokens.rowLine}` },
     dayCellHeader: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '4px',
     },
     dayNumber: {
-        fontSize: '0.75rem',
-        color: '#293530',
-        width: '20px',
-        height: '20px',
+        height: '26px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
+        padding: '0 2px',
+        fontSize: '13px',
+        fontWeight: 600,
+        color: adminTokens.ink,
     },
     dayNumberToday: {
+        width: '26px',
+        padding: 0,
+        justifyContent: 'center',
         backgroundColor: adminTokens.green,
-        color: 'white',
+        color: '#FFFFFF',
         borderRadius: '50%',
-        fontWeight: '600',
+        fontWeight: 700,
     },
     moreLabel: {
-        fontSize: '0.65rem',
-        color: '#5d6862',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: adminTokens.muted,
     },
     chipList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '3px',
     },
     chip: {
-        padding: '3px 5px',
-        borderRadius: '5px',
-        fontSize: '0.65rem',
-        lineHeight: 1.3,
-        cursor: 'pointer',
-        overflow: 'hidden',
-    },
-    chipTime: {
-        fontWeight: '600',
-        marginRight: '4px',
-    },
-    chipName: {
+        display: 'block',
+        width: '100%',
+        boxSizing: 'border-box',
+        marginTop: '4px',
+        padding: '3px 6px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        textAlign: 'left',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
+        cursor: 'pointer',
+    },
+    chipTime: {
+        fontWeight: 700,
+        marginRight: '4px',
+    },
+    legend: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px 16px',
+        padding: '12px 20px',
+        borderTop: `1px solid ${adminTokens.line}`,
+        fontSize: '13px',
+        color: adminTokens.muted,
+    },
+    legendItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+    },
+    legendDot: {
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
     },
     // Marks a schedule added since the last visit (gold, like the sidebar dot)
     newDot: {
@@ -1087,137 +1102,130 @@ const styles = {
         width: '7px',
         height: '7px',
         borderRadius: '50%',
-        backgroundColor: '#e0a800',
+        backgroundColor: '#D49A23',
         marginRight: '4px',
         flexShrink: 0,
         verticalAlign: 'middle',
     },
     newPill: {
-        padding: '0.2rem 0.55rem',
-        borderRadius: '999px',
-        fontSize: '0.7rem',
-        fontWeight: '700',
-        backgroundColor: '#fdf3d0',
-        color: '#7a5600',
+        padding: '2px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 700,
+        backgroundColor: '#FBEBC4',
+        color: '#6B4500',
     },
-    newPanel: { borderTop: '3px solid #e0a800' },
-    newList: { display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' },
+    newPanel: { borderTop: `3px solid ${adminTokens.gold}` },
+    newList: { listStyle: 'none', margin: 0, padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: '8px' },
     newItem: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
+        gap: '8px',
         width: '100%',
-        padding: '0.65rem 0.75rem',
-        border: '1px solid #f1e3b0',
-        borderRadius: '10px',
-        backgroundColor: '#fffbeb',
+        padding: '10px 12px',
+        border: '1px solid #F1E3B0',
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#FFFBEB',
         textAlign: 'left',
         fontFamily: 'inherit',
         cursor: 'pointer',
     },
-    newItemName: { display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#16211c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    newItemWhen: { display: 'block', fontSize: '0.75rem', color: '#5d6862' },
+    newItemName: { display: 'block', fontSize: '14px', fontWeight: 600, color: adminTokens.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+    newItemWhen: { display: 'block', fontSize: '13px', color: adminTokens.muted },
     sideColumn: {
+        flex: '1 1 300px',
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.5rem',
+        gap: '20px',
     },
     sidePanel: {
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '1.25rem 1.25rem 1.5rem',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        border: '1px solid #eef0ec',
-        ...adminUi.cardAccent,
+        ...adminUi.card,
+        overflow: 'hidden',
+    },
+    sidePanelHead: {
+        padding: '16px 20px',
+        borderBottom: `1px solid ${adminTokens.line}`,
     },
     sidePanelEyebrow: {
-        fontSize: '0.7rem',
-        fontWeight: '600',
+        display: 'block',
+        fontSize: '12px',
+        fontWeight: 600,
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
-        color: adminTokens.green,
-        marginBottom: '0.5rem',
+        color: adminTokens.muted,
     },
     selectedDateLabel: {
-        fontSize: '1.05rem',
-        fontWeight: '700',
-        color: '#16211c',
-        marginBottom: '0.2rem',
+        margin: '2px 0 0',
+        fontSize: '18px',
+        fontWeight: 700,
+        color: adminTokens.ink,
     },
     selectedCountLabel: {
-        fontSize: '0.8rem',
-        color: '#5d6862',
-        marginBottom: '1rem',
+        margin: '2px 0 0',
+        fontSize: '13px',
+        color: adminTokens.muted,
     },
     emptyDay: {
-        padding: '1.5rem 1rem',
-        borderRadius: '12px',
-        backgroundColor: adminTokens.hairline,
+        padding: '28px 20px',
         textAlign: 'center',
-    },
-    emptyDayTitle: {
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        color: '#293530',
-        marginBottom: '0.25rem',
-    },
-    emptyDayDesc: {
-        fontSize: '0.75rem',
-        color: '#5d6862',
+        color: adminTokens.muted,
     },
     dayEventList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
+        listStyle: 'none',
+        margin: 0,
+        padding: 0,
     },
     dayEventCard: {
-        padding: '0.875rem',
-        borderRadius: '10px',
-        border: '1px solid #eef0ec',
-        cursor: 'pointer',
+        padding: '16px 20px',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
     },
     dayEventTop: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '0.5rem',
-        gap: '0.5rem',
+        gap: '8px',
     },
     dayEventTime: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.3rem',
-        fontSize: '0.8rem',
-        fontWeight: '600',
-        color: '#293530',
+        gap: '6px',
+        fontWeight: 600,
+        color: adminTokens.body,
     },
     statusPill: {
-        padding: '0.2rem 0.6rem',
-        borderRadius: '999px',
-        fontSize: '0.7rem',
-        fontWeight: '700',
+        padding: '2px 8px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        fontWeight: 700,
         whiteSpace: 'nowrap',
     },
     dayEventName: {
-        fontSize: '0.9rem',
-        fontWeight: '600',
-        color: '#16211c',
-        marginBottom: '0.35rem',
+        marginTop: '8px',
+        fontSize: '16px',
+        fontWeight: 700,
+        color: adminTokens.ink,
     },
-    dayEventMetaRow: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.4rem',
+    dayEventDetails: {
+        margin: '10px 0 0',
+        display: 'grid',
+        gridTemplateColumns: '70px 1fr',
+        gap: '6px 10px',
+        fontSize: '13px',
     },
-    metaChip: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.3rem',
-        backgroundColor: adminTokens.hairline,
-        color: '#5d6862',
-        padding: '0.2rem 0.5rem',
-        borderRadius: '999px',
-        fontSize: '0.7rem',
+    dayEventDt: { color: adminTokens.muted },
+    dayEventDd: { margin: 0, minWidth: 0, overflowWrap: 'anywhere' },
+    smallOutlineBtn: {
+        height: '32px',
+        padding: '0 12px',
+        border: `1px solid ${adminTokens.control}`,
+        borderRadius: adminTokens.radius,
+        backgroundColor: '#FFFFFF',
+        color: adminTokens.ink,
+        fontSize: '13px',
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        cursor: 'pointer',
     },
     modalOverlay: {
         position: 'fixed',
@@ -1232,7 +1240,7 @@ const styles = {
     },
     modalCard: {
         backgroundColor: 'white',
-        borderRadius: '20px',
+        borderRadius: '8px',
         maxWidth: '480px',
         width: '100%',
         maxHeight: '90vh',
@@ -1334,7 +1342,7 @@ const styles = {
         ...smallGreenButton,
         minHeight: '40px',
         padding: '10px 16px',
-        borderRadius: '10px',
+        borderRadius: '6px',
         fontSize: '14px',
         marginLeft: 'auto',
     },
@@ -1354,7 +1362,7 @@ const styles = {
         gap: '0.3rem',
         minHeight: '40px',
         padding: '0.55rem 0.5rem',
-        borderRadius: '10px',
+        borderRadius: '6px',
         fontSize: '0.8rem',
         fontWeight: '600',
         fontFamily: 'inherit',

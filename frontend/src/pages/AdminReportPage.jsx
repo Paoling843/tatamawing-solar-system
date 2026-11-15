@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import LoadingState from '../components/LoadingState';
-import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import { Link } from 'react-router-dom';
+import AdminHero, { HeroStrip } from '../components/AdminHero';
+import { adminTokens, adminUi } from '../styles/adminTheme';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { DownloadIcon, DocumentIcon } from '../components/Icons';
@@ -15,25 +17,26 @@ import { DownloadIcon, DocumentIcon } from '../components/Icons';
 
 const ACCENT = adminTokens.green;
 
+// compare: what the period is compared with (KPI deltas, banner subtitle)
 const RANGES = [
-    { days: 7, label: '7 days', long: '7 days' },
-    { days: 30, label: '30 days', long: '30 days' },
-    { days: 90, label: '90 days', long: '90 days' },
-    { days: 365, label: 'Year', long: '12 months' },
+    { days: 7, label: '7 days', long: '7 days', compare: 'previous 7 days' },
+    { days: 30, label: '30 days', long: '30 days', compare: 'previous 30 days' },
+    { days: 90, label: '90 days', long: '90 days', compare: 'previous 90 days' },
+    { days: 365, label: 'Year', long: '12 months', compare: 'year before' },
 ];
 
 // The three groups the panel asked for, with their chart colours
 const GROUPS = [
-    { key: 'guest_not_continued', label: 'Guest quotation', color: '#F5C04A', note: 'did not continue the quotation request' },
-    { key: 'guest_signed_in', label: 'Signed in to continue', color: '#FFFFFF', note: 'made a quotation as a guest, then signed in' },
-    { key: 'external_requests', label: 'External quotation', color: '#8EC5F2', note: 'asked to schedule an installation for an outside quotation' },
+    { key: 'guest_not_continued', label: 'Guest quotation', short: 'Guest', color: '#F2C14E', note: "Didn't go on to request a quotation" },
+    { key: 'guest_signed_in', label: 'Signed in to continue', short: 'Signed in', color: '#FFFFFF', note: 'Started as a guest, then signed in' },
+    { key: 'external_requests', label: 'External quotation', short: 'External', color: '#8EC1EE', note: 'Wants an installation based on a quote from elsewhere' },
 ];
 
 const REPORTS = [
-    { key: 'quote-sessions', title: 'Guest vs signed-in quotations', sub: 'Every quote-builder visit and whether the user signed in', file: 'guest-vs-signed-in-quotations.pdf' },
-    { key: 'external-requests', title: 'External quotation requests', sub: 'Schedule requests for outside quotations', file: 'external-quotation-requests.pdf' },
-    { key: 'quotation-history', title: 'Quotation history', sub: 'All requests with statuses', file: 'quotation-history-report.pdf' },
-    { key: 'quotation-material', title: 'Material report', sub: 'Materials per approved project', file: 'quotation-material-report.pdf' },
+    { key: 'quote-sessions', title: 'Guest vs signed-in quotations', sub: 'Each quote-builder visit and whether the user signed in', file: 'guest-vs-signed-in-quotations.pdf' },
+    { key: 'external-requests', title: 'External quotation requests', sub: 'Installation requests based on outside quotations', file: 'external-quotation-requests.pdf' },
+    { key: 'quotation-history', title: 'Quotation history', sub: 'All requests and their current status', file: 'quotation-history-report.pdf' },
+    { key: 'quotation-material', title: 'Material report', sub: 'Materials needed for each approved project', file: 'quotation-material-report.pdf' },
 ];
 
 // ₱3,900,000 → "₱3.9M", ₱595,680 → "₱596K"
@@ -43,25 +46,56 @@ function compactPeso(n) {
     return `₱${Math.round(n).toLocaleString('en-PH')}`;
 }
 
-// "+14% vs previous 30 days" / "−2 vs previous 30 days" / "Same as previous 30 days"
-function delta({ value, previous }, kind, rangeLong) {
-    const suffix = `vs previous ${rangeLong}`;
+// The pill under a KPI and the words after it:
+// "Up 150%" from the previous 30 days / "4 more" than the previous 30 days
+function delta({ value, previous }, kind, compare) {
+    const from = `from the ${compare}`;
+    const than = `than the ${compare}`;
     if (kind === 'percent') {
         if (previous === 0) {
             return value > 0
-                ? { text: `New — none in the previous ${rangeLong}`, tone: 'up' }
-                : { text: `Same as previous ${rangeLong}`, tone: 'flat' };
+                ? { pill: 'New', rest: `none in the ${compare}`, tone: 'up' }
+                : { pill: 'Same', rest: `as the ${compare}`, tone: 'flat' };
         }
         const pct = Math.round(((value - previous) / previous) * 100);
-        if (pct === 0) return { text: `Same as previous ${rangeLong}`, tone: 'flat' };
-        return { text: `${pct > 0 ? '+' : '−'}${Math.abs(pct)}% ${suffix}`, tone: pct > 0 ? 'up' : 'down' };
+        if (pct === 0) return { pill: 'Same', rest: `as the ${compare}`, tone: 'flat' };
+        return { pill: `${pct > 0 ? 'Up' : 'Down'} ${Math.abs(pct)}%`, rest: from, tone: pct > 0 ? 'up' : 'down' };
     }
     const diff = value - previous;
-    if (diff === 0) return { text: `Same as previous ${rangeLong}`, tone: 'flat' };
-    return { text: `${diff > 0 ? '+' : '−'}${Math.abs(diff)} ${suffix}`, tone: diff > 0 ? 'up' : 'down' };
+    if (diff === 0) return { pill: 'Same', rest: `as the ${compare}`, tone: 'flat' };
+    return { pill: `${Math.abs(diff)} ${diff > 0 ? 'more' : 'fewer'}`, rest: than, tone: diff > 0 ? 'up' : 'down' };
 }
 
-const TONE_COLOR = { up: '#15803D', down: '#B45309', flat: '#5d6862' };
+// "June to September" for the months with no activity at all (null if none)
+function quietMonths(monthly, totals) {
+    const names = monthly.map((m) => new Date(`${m.month}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long' }));
+    const empty = names.filter((_, i) => totals[i] === 0);
+    if (empty.length === 0) return null;
+    if (empty.length === 1) return empty[0];
+    // A single run of months reads "June to September"; otherwise list them
+    const idx = totals.map((t, i) => (t === 0 ? i : -1)).filter((i) => i >= 0);
+    const contiguous = idx.every((v, i) => i === 0 || v === idx[i - 1] + 1);
+    return contiguous ? `${empty[0]} to ${empty[empty.length - 1]}` : empty.join(', ');
+}
+
+// Delta pills under each KPI (each text colour is 4.5:1+ on its background)
+const TONE_PILL = {
+    up: { background: '#E3F1E8', color: '#1F6B45' },
+    down: { background: '#FBE9DD', color: '#8A3A0C' },
+    flat: { background: '#EEEFEC', color: '#3A4440' },
+};
+
+// "Oct 16 – Nov 14, 2026" for the last `days` days, today included
+function rangeLabel(days) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (days - 1));
+    const md = { month: 'short', day: 'numeric' };
+    const startText = start.getFullYear() === end.getFullYear()
+        ? start.toLocaleDateString('en-US', md)
+        : start.toLocaleDateString('en-US', { ...md, year: 'numeric' });
+    return `${startText} – ${end.toLocaleDateString('en-US', { ...md, year: 'numeric' })}`;
+}
 
 export default function AdminReportPage() {
     const [days, setDays] = useState(30);
@@ -139,39 +173,43 @@ export default function AdminReportPage() {
     return (
         <AdminLayout active="Analytics">
             <div style={styles.page}>
-                {/* ----- Header ----- */}
-                <div style={styles.headerRow}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <h1 style={styles.title}>Detailed Analytics</h1>
-                        <p style={styles.subtitle}>Quotations, sign-ins and installations at a glance.</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div role="group" aria-label="Date range" style={styles.rangeGroup}>
-                            {RANGES.map((r) => {
-                                const active = r.days === days;
-                                return (
-                                    <button
-                                        key={r.days}
-                                        type="button"
-                                        aria-pressed={active}
-                                        onClick={() => setDays(r.days)}
-                                        style={{ ...styles.rangeBtn, ...(active ? styles.rangeBtnActive : {}) }}
-                                    >
-                                        {r.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => download('summary', `/admin/reports/analytics-summary?days=${days}`, `analytics-summary-${days}-days.pdf`)}
-                            disabled={downloading === 'summary'}
-                            style={styles.primaryBtn}
-                        >
-                            {downloading === 'summary' ? 'Preparing…' : 'Export PDF'}
-                        </button>
-                    </div>
-                </div>
+                <AdminHero
+                    style={{ marginBottom: 0 }}
+                    eyebrow={`Reporting period · ${rangeLabel(days)}`}
+                    title="Analytics"
+                    subtitle={`Quotations, sign-ins and installations, compared with the ${range.compare}`}
+                    actions={
+                        <>
+                            <div role="group" aria-label="Date range" style={styles.rangeGroup}>
+                                {RANGES.map((r) => {
+                                    const active = r.days === days;
+                                    return (
+                                        <button
+                                            key={r.days}
+                                            type="button"
+                                            aria-pressed={active}
+                                            onClick={() => setDays(r.days)}
+                                            style={{ ...styles.rangeBtn, ...(active ? styles.rangeBtnActive : {}) }}
+                                        >
+                                            {r.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => download('summary', `/admin/reports/analytics-summary?days=${days}`, `analytics-summary-${days}-days.pdf`)}
+                                disabled={downloading === 'summary'}
+                                style={styles.primaryBtn}
+                            >
+                                <DownloadIcon size={16} color="currentColor" />
+                                {downloading === 'summary' ? 'Preparing…' : 'Export PDF'}
+                            </button>
+                        </>
+                    }
+                >
+                    {data && <ReviewStrip queue={data.review_queue} />}
+                </AdminHero>
 
                 {error && <div style={styles.error}>{error}</div>}
 
@@ -180,70 +218,71 @@ export default function AdminReportPage() {
                         {loading ? <LoadingState label="Loading analytics…" /> : 'No analytics data.'}
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', opacity: loading ? 0.55 : 1, transition: 'opacity .2s' }}>
-                        <UsersSection data={data} rangeLong={range.long} />
-                        <KpiCards kpis={data.kpis} rangeLong={range.long} />
-                        <FunnelSection funnel={data.funnel} external={data.users.external_requests} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', opacity: loading ? 0.55 : 1, transition: 'opacity .2s' }}>
+                        <KpiStrip kpis={data.kpis} compare={range.compare} />
+                        <PipelineSection funnel={data.funnel} times={data.step_times} external={data.users.external_requests} />
+                        <DemandSection data={data} />
 
-                        <div style={styles.threeUp}>
-                            <StepTimes times={data.step_times} />
-                            <SizesCard sizes={data.sizes} />
-                            <LocationsCard places={data.locations} />
-                        </div>
-
-                        <div style={styles.twoUp}>
-                            <SavingsCard savings={data.savings} />
-                            <ReviewQueueCard queue={data.review_queue} />
-                        </div>
+                        <section style={{ ...styles.card, ...styles.panes }}>
+                            <SizesPane sizes={data.sizes} />
+                            <LocationsPane places={data.locations} />
+                            <SavingsPane savings={data.savings} />
+                        </section>
 
                         {/* ----- Reports ----- */}
                         <section style={styles.card}>
-                            <SectionTitle title="Download reports" sub={`PDF exports for the last ${range.long}`} />
-                            <div style={styles.reportGrid}>
+                            <div style={{ padding: '20px 24px 12px' }}>
+                                <SectionTitle title="Reports" sub="PDF downloads for the selected period" />
+                            </div>
+                            <ul style={styles.reportList}>
                                 {REPORTS.map((r) => (
-                                    <button
-                                        key={r.key}
-                                        type="button"
-                                        aria-label={`Download ${r.title}`}
-                                        onClick={() => downloadReport(r)}
-                                        disabled={downloading === r.key}
-                                        style={styles.reportBtn}
-                                    >
-                                        <ReportIcons busy={downloading === r.key} />
-                                        <span style={{ fontSize: '15px', fontWeight: 600, color: '#16211c' }}>{r.title}</span>
-                                        <span style={{ fontSize: '13px', color: '#4f5a54', lineHeight: 1.4 }}>{r.sub}</span>
-                                    </button>
+                                    <li key={r.key} style={styles.reportRow}>
+                                        <span style={styles.reportIconBox}><DocumentIcon size={17} color={ACCENT} /></span>
+                                        <span style={styles.reportTitle}>{r.title}</span>
+                                        <span style={styles.reportNote}>{r.sub}</span>
+                                        <button
+                                            type="button"
+                                            aria-label={`Download ${r.title}`}
+                                            onClick={() => downloadReport(r)}
+                                            disabled={downloading === r.key}
+                                            style={styles.secondaryBtn}
+                                        >
+                                            <DownloadIcon size={14} color="currentColor" />
+                                            {downloading === r.key ? 'Preparing…' : 'Download'}
+                                        </button>
+                                    </li>
                                 ))}
 
                                 {/* Individual quotation: pick one, then download (not period-based) */}
-                                <div style={{ ...styles.reportBtn, cursor: 'default' }}>
-                                    <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                        <span style={styles.reportIconBox}><DocumentIcon size={18} color={ACCENT} /></span>
+                                <li style={{ ...styles.reportRow, paddingBottom: '16px' }}>
+                                    <span style={{ ...styles.reportIconBox, background: '#FBEBC4' }}><DocumentIcon size={17} color="#7A4F00" /></span>
+                                    <label htmlFor="pick-quotation" style={styles.reportTitle}>Single quotation</label>
+                                    <span style={{ ...styles.reportNote, display: 'flex' }}>
+                                        <select
+                                            id="pick-quotation"
+                                            value={selectedQuotationId}
+                                            onChange={(e) => setSelectedQuotationId(e.target.value)}
+                                            style={styles.select}
+                                        >
+                                            <option value="">Choose an approved quotation</option>
+                                            {approvedQuotations.map((q) => (
+                                                <option key={q.quotation.id} value={q.quotation.id}>
+                                                    {q.customer?.user?.name} — #{q.quotation.id}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </span>
-                                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#16211c' }}>Individual quotation</span>
-                                    <select
-                                        aria-label="Quotation to export"
-                                        value={selectedQuotationId}
-                                        onChange={(e) => setSelectedQuotationId(e.target.value)}
-                                        style={styles.select}
-                                    >
-                                        <option value="">Pick an approved quotation…</option>
-                                        {approvedQuotations.map((q) => (
-                                            <option key={q.quotation.id} value={q.quotation.id}>
-                                                {q.customer?.user?.name} — #{q.quotation.id}
-                                            </option>
-                                        ))}
-                                    </select>
                                     <button
                                         type="button"
                                         onClick={downloadQuotation}
                                         disabled={downloading === 'quotation'}
-                                        style={{ ...styles.secondaryBtn, height: '38px', width: '100%' }}
+                                        style={styles.greenBtn}
                                     >
-                                        {downloading === 'quotation' ? 'Preparing…' : 'Download PDF'}
+                                        <DownloadIcon size={14} color="currentColor" />
+                                        {downloading === 'quotation' ? 'Preparing…' : 'Download'}
                                     </button>
-                                </div>
-                            </div>
+                                </li>
+                            </ul>
                         </section>
                     </div>
                 )}
@@ -256,216 +295,332 @@ export default function AdminReportPage() {
 // Sections
 // ---------------------------------------------------------------------
 
-function UsersSection({ data, rangeLong }) {
+// The banner's bottom strip: the review queue in one line
+function ReviewStrip({ queue }) {
+    const clear = queue.pending === 0;
+    const oldest = queue.oldest_pending_days === null
+        ? '—'
+        : `${queue.oldest_pending_days} ${queue.oldest_pending_days === 1 ? 'day' : 'days'}`;
+
+    return (
+        <HeroStrip style={styles.reviewStrip}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: clear ? '#A8D5C2' : adminTokens.gold }} />
+                {clear ? 'Review queue is clear' : `${queue.pending} waiting for review`}
+            </span>
+            <span style={styles.reviewItem}>Oldest request <strong style={styles.reviewValue}>{oldest}</strong></span>
+            <span style={styles.reviewItem}>
+                Approval rate <strong style={styles.reviewValue}>{queue.approval_rate_percent === null ? '—' : `${queue.approval_rate_percent}%`}</strong>
+            </span>
+            <span style={styles.reviewItem}>Rejected <strong style={styles.reviewValue}>{queue.rejected}</strong></span>
+            <Link to="/admin/quotations" style={styles.reviewLink}>View queue →</Link>
+        </HeroStrip>
+    );
+}
+
+function KpiStrip({ kpis, compare }) {
+    const cards = [
+        { label: 'New quotations', value: String(kpis.quotations_created.value), d: delta(kpis.quotations_created, 'percent', compare) },
+        { label: 'Quotations approved', value: String(kpis.approved_projects.value), d: delta(kpis.approved_projects, 'count', compare) },
+        // Contract value of approved quotations — the system doesn't track payments
+        { label: 'Total value of approved projects', value: compactPeso(kpis.revenue.value), d: delta(kpis.revenue, 'percent', compare) },
+        { label: 'Installations finished', value: String(kpis.installations_completed.value), d: delta(kpis.installations_completed, 'count', compare) },
+    ];
+
+    return (
+        <section aria-label="Key metrics" style={{ ...styles.card, ...styles.kpiGrid }}>
+            {cards.map((c) => (
+                <div key={c.label} style={styles.kpiCell}>
+                    <span style={{ fontSize: '13px', color: adminTokens.muted }}>{c.label}</span>
+                    <span style={{ fontSize: '30px', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em' }}>{c.value}</span>
+                    <span style={{ fontSize: '13px', color: adminTokens.muted }}>
+                        <span style={{ ...styles.deltaPill, ...TONE_PILL[c.d.tone] }}>{c.d.pill}</span> {c.d.rest}
+                    </span>
+                </div>
+            ))}
+        </section>
+    );
+}
+
+function PipelineSection({ funnel, times, external }) {
+    const base = Math.max(1, funnel[0].count);
+    const last = funnel[funnel.length - 1].count;
+    const madeIt = funnel[0].count > 0 ? Math.round((last / funnel[0].count) * 100) : null;
+    // The slowest step gets a label (only when there's more than one to compare)
+    const known = times.filter((t) => t.days !== null);
+    const slowest = known.length > 1 ? known.reduce((a, b) => (b.days > a.days ? b : a)).key : null;
+
+    return (
+        <section style={{ ...styles.card, ...styles.panes }}>
+            <div style={{ ...styles.pane, flex: '999 1 620px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
+                    <h2 style={styles.h2}>Quotation to installation</h2>
+                    {madeIt !== null && (
+                        <span style={{ fontSize: '13px', color: adminTokens.muted }}>
+                            <strong style={{ color: adminTokens.ink }}>{madeIt}%</strong> made it to installation
+                        </span>
+                    )}
+                </div>
+                <p style={{ ...styles.sub, margin: '0 0 16px', maxWidth: '720px' }}>
+                    How far this period's quotations got. Newer ones may still be in progress, so switch to 90 days or Year for a fuller view.{' '}
+                    {external
+                        ? `The ${external} external request${external === 1 ? ' skips' : 's skip'} to scheduling and ${external === 1 ? "isn't" : "aren't"} counted.`
+                        : "External requests skip to scheduling and aren't counted."}
+                </p>
+                <div className="scroll-x">
+                    <table style={styles.funnelTable}>
+                        <thead>
+                            <tr style={styles.funnelHead}>
+                                <th scope="col" style={{ ...styles.funnelTh, width: '190px' }}>Step</th>
+                                <th scope="col" style={styles.funnelTh}><span style={styles.srOnly}>Progress</span></th>
+                                <th scope="col" style={{ ...styles.funnelTh, textAlign: 'right', width: '60px', padding: '0 12px 8px' }}>Count</th>
+                                <th scope="col" style={{ ...styles.funnelTh, textAlign: 'right', width: '110px', padding: '0 0 8px 12px' }}>Drop-off</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {funnel.map((f, i) => {
+                                const prev = i > 0 ? funnel[i - 1].count : null;
+                                const dropPct = prev ? Math.round(((prev - f.count) / prev) * 100) : null;
+                                const high = dropPct !== null && dropPct >= 50;
+                                const width = f.count > 0 ? Math.max(1, Math.round((f.count / base) * 100)) : 0;
+                                const fill = i === 0 ? '#A8D5C2' : i === funnel.length - 1 ? '#2E8B5E' : ACCENT;
+
+                                return (
+                                    <tr key={f.key}>
+                                        <td style={{ ...styles.funnelTd, whiteSpace: 'nowrap' }}>{f.label}</td>
+                                        <td style={styles.funnelTd}>
+                                            <div style={{ height: '16px', background: '#F0F0EC', borderRadius: '3px' }}>
+                                                <div style={{ height: '100%', width: `${width}%`, background: fill, borderRadius: '3px' }} />
+                                            </div>
+                                        </td>
+                                        <td style={{ ...styles.funnelTd, padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{f.count}</td>
+                                        <td style={{
+                                            ...styles.funnelTd, padding: '10px 0 10px 12px', textAlign: 'right',
+                                            color: high ? '#B4410F' : adminTokens.muted, fontWeight: high ? 600 : 400,
+                                        }}>
+                                            {i === 0 ? 'Starting point' : prev ? `${dropPct}%` : '—'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style={{ ...styles.pane, ...styles.paneDivider, flex: '1 1 300px', background: '#F3F8F5' }}>
+                <SectionTitle title="Time between steps" sub="Average number of days" />
+                <dl style={{ margin: '16px 0 0' }}>
+                    {times.map((t) => (
+                        <div key={t.key} style={styles.timeRow}>
+                            <dt style={{ color: '#3A4440' }}>{t.label}</dt>
+                            <dd style={{ margin: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                {t.key === slowest && <span style={styles.slowChip}>Slowest</span>}
+                                <span style={{ fontSize: '20px', fontWeight: 700 }}>{t.days === null ? '—' : t.days}</span>
+                                {t.days !== null && <span style={{ color: adminTokens.muted }}>{t.days === 1 ? 'day' : 'days'}</span>}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            </div>
+        </section>
+    );
+}
+
+function DemandSection({ data }) {
+    // Which month's tooltip is open (mouse over or keyboard focus)
+    const [hover, setHover] = useState(null);
+
     const counts = GROUPS.map((g) => data.users[g.key]);
     const total = counts.reduce((a, b) => a + b, 0);
     const pct = (n) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
-    const max = Math.max(1, ...data.monthly.flatMap((m) => GROUPS.map((g) => m[g.key])));
-    const BAR_MAX = 150;
+    // Stacked monthly bars on a rounded-up scale with 3 gridline steps
+    const monthTotals = data.monthly.map((m) => GROUPS.reduce((sum, g) => sum + m[g.key], 0));
+    const top = Math.max(3, Math.ceil(Math.max(...monthTotals) / 3) * 3);
+    const ticks = [top, (top / 3) * 2, top / 3, 0];
+    const CHART = 180;
+    const px = (v) => (v ? Math.max(3, Math.round((v / top) * CHART)) : 0);
+    const quiet = quietMonths(data.monthly, monthTotals);
+    const fullName = (m) => new Date(`${m.month}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long' });
 
     return (
-        <section style={styles.hero}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', minWidth: 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Who's using the system</h2>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#C9DDD2' }}>
-                        {/* Visits are counted per browser tab, not per person */}
-                        {total} quotation{total === 1 ? '' : 's'} and request{total === 1 ? '' : 's'} in the last {rangeLong}
-                    </p>
-                </div>
-
-                <div style={styles.groupGrid}>
-                    {GROUPS.map((g, i) => (
-                        <div key={g.key} style={styles.groupCard}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#E3EEE8', lineHeight: 1.3 }}>
-                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: g.color, flexShrink: 0 }} />
-                                {g.label}
-                            </span>
-                            <span style={{ fontSize: '36px', fontWeight: 700, letterSpacing: '-0.02em' }}>{counts[i]}</span>
-                            <span style={{ fontSize: '13px', color: '#C9DDD2', lineHeight: 1.4 }}>{pct(counts[i])}% · {g.note}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <div style={{ display: 'flex', height: '12px', borderRadius: '6px', overflow: 'hidden', gap: total ? '2px' : 0, background: 'rgba(255,255,255,0.15)' }}>
+        <section style={styles.demand}>
+            <div style={{ ...styles.pane, flex: '1 1 320px', borderRight: '1px solid rgba(255,255,255,0.12)' }}>
+                <h2 style={{ ...styles.h2, color: '#FFFFFF' }}>Who's using the system</h2>
+                <p style={{ margin: '4px 0 16px', fontSize: '13px', color: adminTokens.stripText }}>
+                    {/* Visits are counted per browser tab, not per person */}
+                    {total} quotation{total === 1 ? '' : 's'} and request{total === 1 ? '' : 's'} this period
+                </p>
+                <div
+                    role="img"
+                    aria-label={`${GROUPS.map((g, i) => `${counts[i]} ${g.label.toLowerCase()}`).join(', ')}, of ${total}`}
+                    style={{ display: 'flex', height: '10px', gap: total ? '2px' : 0, marginBottom: '8px', borderRadius: '3px', overflow: 'hidden', background: 'rgba(255,255,255,0.15)' }}
+                >
                     {GROUPS.map((g, i) => counts[i] > 0 && (
-                        <div key={g.key} style={{ width: `${pct(counts[i])}%`, background: g.color }} title={`${g.label}: ${counts[i]}`} />
+                        <div key={g.key} style={{ flex: counts[i], background: g.color }} />
                     ))}
                 </div>
-
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <tbody>
+                        {GROUPS.map((g, i) => (
+                            <tr key={g.key}>
+                                <td style={styles.whoTd}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: g.color, flex: 'none' }} />
+                                        {g.label}
+                                    </div>
+                                    <div style={{ color: adminTokens.stripText, fontSize: '13px', paddingLeft: '18px' }}>{g.note}</div>
+                                </td>
+                                <td style={{ ...styles.whoTd, paddingLeft: '12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                    <strong style={{ fontSize: '18px' }}>{counts[i]}</strong>{' '}
+                                    <span style={{ color: adminTokens.stripText, display: 'inline-block', width: '36px' }}>{pct(counts[i])}%</span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
                 {data.users.signed_in_customers > 0 && (
-                    <span style={{ fontSize: '13px', color: '#C9DDD2' }}>
-                        Plus {data.users.signed_in_customers} customer{data.users.signed_in_customers === 1 ? ' who was' : 's who were'} already signed in when they made their quotation.
-                    </span>
+                    <p style={{ margin: '12px 0 0', fontSize: '13px', color: adminTokens.stripText }}>
+                        {data.users.signed_in_customers} more customer{data.users.signed_in_customers === 1 ? ' was' : 's were'} already signed in when they made a quotation.
+                    </p>
                 )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#E3EEE8' }}>Last 6 months</span>
-                <div
-                    role="img"
-                    aria-label={data.monthly.map((m) => `${m.label}: ${GROUPS.map((g) => `${m[g.key]} ${g.label.toLowerCase()}`).join(', ')}`).join('; ')}
-                    style={{ ...styles.monthGrid, height: '190px', alignItems: 'end', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
-                >
-                    {data.monthly.map((m) => (
-                        <div key={m.month} style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 'clamp(1px, 0.6vw, 4px)', height: '100%', minWidth: 0 }}>
-                            {GROUPS.map((g) => (
-                                <div key={g.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', height: '100%' }}>
-                                    <span style={{ fontSize: 'clamp(8px, 2.2vw, 11px)', color: g.color }}>{m[g.key]}</span>
-                                    <div style={{ width: 'clamp(5px, 2vw, 14px)', height: `${Math.round((m[g.key] / max) * BAR_MAX)}px`, background: g.color, borderRadius: '4px 4px 0 0' }} />
-                                </div>
-                            ))}
+            <div style={{ ...styles.pane, flex: '999 1 520px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px 16px' }}>
+                    <div>
+                        <h2 style={{ ...styles.h2, color: '#FFFFFF' }}>Monthly activity</h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: adminTokens.stripText }}>Last 6 months. Hover over a bar for details.</p>
+                    </div>
+                    <ul aria-label="Legend" style={styles.legend}>
+                        {GROUPS.map((g) => (
+                            <li key={g.key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: g.color }} />
+                                {g.short}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+                    <div aria-hidden="true" style={{ ...styles.yAxis, height: `${CHART}px` }}>
+                        {ticks.map((t) => <span key={t}>{Math.round(t)}</span>)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                        <div aria-hidden="true" style={{ ...styles.gridLines, height: `${CHART}px` }}>
+                            <div style={styles.gridDashed} /><div style={styles.gridDashed} /><div style={styles.gridDashed} />
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.35)' }} />
                         </div>
-                    ))}
+                        <div style={styles.monthGrid}>
+                            {data.monthly.map((m, i) => {
+                                const open = hover === i;
+                                const stack = GROUPS.reduce((sum, g) => sum + px(m[g.key]), 0);
+                                return (
+                                    // A button so keyboard users can open the same tooltip with Tab
+                                    <button
+                                        key={m.month}
+                                        type="button"
+                                        aria-label={`${fullName(m)}: ${monthTotals[i]} total, ${GROUPS.map((g) => `${m[g.key]} ${g.short.toLowerCase()}`).join(', ')}`}
+                                        onMouseEnter={() => setHover(i)}
+                                        onMouseLeave={() => setHover(null)}
+                                        onFocus={() => setHover(i)}
+                                        onBlur={() => setHover(null)}
+                                        style={{ ...styles.monthBtn, background: open ? 'rgba(255,255,255,0.07)' : 'transparent' }}
+                                    >
+                                        <div style={{ height: `${CHART}px`, width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                            <div style={{ width: '40%', maxWidth: '44px', minWidth: '10px', display: 'flex', flexDirection: 'column-reverse', gap: '2px' }}>
+                                                {GROUPS.map((g) => m[g.key] > 0 && (
+                                                    <div key={g.key} style={{ height: `${px(m[g.key])}px`, background: g.color, borderRadius: '2px' }} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <span style={{ marginTop: '8px', fontSize: '13px', color: adminTokens.stripText }}>{m.label}</span>
+                                        {open && (
+                                            <div role="tooltip" style={{ ...styles.tooltip, bottom: `${30 + stack + 8}px` }}>
+                                                <div style={{ fontWeight: 700, marginBottom: '2px' }}>{fullName(m)} · {monthTotals[i]} total</div>
+                                                {GROUPS.map((g) => <div key={g.key}>{g.short} {m[g.key]}</div>)}
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
-                <div style={{ ...styles.monthGrid, fontSize: '12px', color: '#C9DDD2', textAlign: 'center' }}>
-                    {data.monthly.map((m) => <span key={m.month}>{m.label}</span>)}
-                </div>
+                {quiet && <p style={{ margin: '12px 0 0 30px', fontSize: '13px', color: adminTokens.stripText }}>No activity {quiet.includes(" to ") ? "from" : "in"} {quiet}.</p>}
             </div>
         </section>
     );
 }
 
-function KpiCards({ kpis, rangeLong }) {
-    const cards = [
-        { label: 'Quotations created', value: String(kpis.quotations_created.value), d: delta(kpis.quotations_created, 'percent', rangeLong) },
-        { label: 'Approved quotations', value: String(kpis.approved_projects.value), d: delta(kpis.approved_projects, 'count', rangeLong) },
-        // Contract value of approved quotations — the system doesn't track payments
-        { label: 'Value of approved projects', value: compactPeso(kpis.revenue.value), d: delta(kpis.revenue, 'percent', rangeLong) },
-        { label: 'Installations completed', value: String(kpis.installations_completed.value), d: delta(kpis.installations_completed, 'count', rangeLong) },
-    ];
+function SizesPane({ sizes }) {
+    const max = Math.max(1, ...sizes.packages.map((p) => p.count));
 
     return (
-        <div style={styles.kpiGrid}>
-            {cards.map((c) => (
-                <div key={c.label} style={styles.kpiCard}>
-                    <span style={{ fontSize: '14px', color: '#4f5a54' }}>{c.label}</span>
-                    <span style={{ fontSize: '28px', fontWeight: 700, letterSpacing: '-0.02em' }}>{c.value}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: TONE_COLOR[c.d.tone] }}>{c.d.text}</span>
-                </div>
-            ))}
+        <div style={{ ...styles.pane, flex: '1 1 300px' }}>
+            <SectionTitle title="Quoted system sizes" sub="Hybrid systems, by inverter size" />
+            <div style={styles.barList}>
+                {sizes.packages.map((p) => (
+                    <BarRow key={p.kw} label={`${p.kw} kW`} count={p.count} max={max} labelWidth="56px" />
+                ))}
+            </div>
+            <p style={{ margin: '16px 0 0', fontSize: '14px', color: adminTokens.muted }}>
+                Average quoted size:{' '}
+                <strong style={{ color: adminTokens.ink, fontWeight: 700 }}>
+                    {sizes.average_kw === null ? '—' : `${sizes.average_kw} kW`}
+                </strong>
+            </p>
         </div>
     );
 }
 
-function FunnelSection({ funnel, external }) {
-    const base = Math.max(1, funnel[0].count);
-
-    return (
-        <section style={{ ...styles.card, gap: '18px' }}>
-            <SectionTitle
-                title="From quotation to installation"
-                sub={`Quote-builder visits from this period, followed to installation. Recent visits may not have reached installation yet — use 90 days or Year for the full picture. ${external ?`The ${external} external-quotation request${external === 1 ? '' : 's'} go${external === 1 ? 'es' : ''} straight to scheduling and ${external === 1 ? "isn't" : "aren't"} counted here.` : 'External-quotation requests go straight to scheduling and aren\'t counted here.'}`}
-            />
-            <div style={styles.funnelGrid}>
-                {funnel.map((f, i) => {
-                    const prev = i > 0 ? funnel[i - 1].count : null;
-                    const dropPct = prev ? Math.round(((prev - f.count) / prev) * 100) : null;
-                    const height = f.count > 0 ? Math.max(4, Math.round((f.count / base) * 100)) : 0;
-
-                    return (
-                        <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ height: '120px', background: '#F1F3F2', borderRadius: '10px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
-                                <div style={{ width: '100%', height: `${height}%`, background: i === 0 ? '#A8D3BE' : ACCENT }} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <span style={{ fontSize: '22px', fontWeight: 700 }}>{f.count}</span>
-                                <span style={{ fontSize: '13px', color: '#293530', lineHeight: 1.35 }}>{f.label}</span>
-                                <span style={{
-                                    fontSize: '12px', fontWeight: 600,
-                                    color: i === 0 ? '#5d6862' : dropPct >= 50 ? '#B45309' : '#4f5a54',
-                                }}>
-                                    {i === 0 ? 'Starting point' : prev ? `${dropPct}% dropped off` : '—'}
-                                </span>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </section>
-    );
-}
-
-function StepTimes({ times }) {
-    return (
-        <section style={{ ...styles.card, gap: '16px' }}>
-            <SectionTitle title="Average time between steps" sub="Where the process slows down" />
-            <div>
-                {times.map((t) => (
-                    <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0', borderBottom: '1px solid #F0F1F0', gap: '12px' }}>
-                        <span style={{ fontSize: '14px', color: '#293530' }}>{t.label}</span>
-                        <span style={{ fontSize: '20px', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            {t.days === null ? '—' : t.days}{' '}
-                            {t.days !== null && <span style={{ fontSize: '13px', fontWeight: 500, color: '#4f5a54' }}>{t.days === 1 ? 'day' : 'days'}</span>}
-                        </span>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}
-
-function SizesCard({ sizes }) {
-    const max = Math.max(1, ...sizes.packages.map((p) => p.count));
-
-    return (
-        <section style={{ ...styles.card, gap: '14px' }}>
-            <SectionTitle title="Quoted system sizes" sub="Hybrid systems by inverter package" />
-            {sizes.packages.map((p) => (
-                <BarRow key={p.kw} label={`${p.kw} kW`} count={p.count} max={max} labelWidth="56px" />
-            ))}
-            <span style={styles.cardFoot}>
-                Average quoted size:{' '}
-                <strong style={{ color: '#16211c', fontWeight: 600 }}>{sizes.average_kw === null ? '—' : `${sizes.average_kw} kW`}</strong>
-            </span>
-        </section>
-    );
-}
-
-function LocationsCard({ places }) {
+function LocationsPane({ places }) {
     const max = Math.max(1, ...places.map((p) => p.count));
 
     return (
-        <section style={{ ...styles.card, gap: '14px' }}>
-            <SectionTitle title="Top locations" sub="Where the systems will be installed" />
-            {places.length === 0 ? (
-                <span style={{ fontSize: '14px', color: '#5d6862' }}>No quotations in this period.</span>
-            ) : (
-                places.map((p) => <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="minmax(0, 40%)" />)
-            )}
-        </section>
+        <div style={{ ...styles.pane, ...styles.paneDivider, flex: '1 1 300px' }}>
+            <SectionTitle title="Top locations" sub="Where systems will be installed" />
+            <div style={styles.barList}>
+                {places.length === 0 ? (
+                    <span style={{ fontSize: '14px', color: adminTokens.muted }}>No quotations in this period.</span>
+                ) : (
+                    places.map((p, i) => (
+                        <BarRow key={p.name} label={p.name} count={p.count} max={max} labelWidth="minmax(0, 45%)" fill={i === 0 ? '#E0A82E' : '#A8D5C2'} />
+                    ))
+                )}
+            </div>
+        </div>
     );
 }
 
-function SavingsCard({ savings }) {
-    const rows = [
-        ['Average monthly savings', savings.avg_monthly_savings === null ? '—' : `₱${Math.round(savings.avg_monthly_savings).toLocaleString('en-PH')}`],
-        ['Average payback period', savings.avg_payback_years === null ? '—' : `${savings.avg_payback_years} years`],
-        ['Entered their own rate (bill + kWh)', savings.own_rate_percent === null ? '—' : `${savings.own_rate_percent}%`],
-    ];
-
+function SavingsPane({ savings }) {
     return (
-        <section style={{ ...styles.card, gap: '12px' }}>
-            <SectionTitle title="Estimated savings of quoted systems" sub={`Across ${savings.count} quotation${savings.count === 1 ? '' : 's'} in this period`} />
-            <StatRows rows={rows} />
-        </section>
-    );
-}
-
-function ReviewQueueCard({ queue }) {
-    const rows = [
-        ['Waiting for review now', String(queue.pending)],
-        ['Oldest waiting request', queue.oldest_pending_days === null ? '—' : `${queue.oldest_pending_days} ${queue.oldest_pending_days === 1 ? 'day' : 'days'}`],
-        ['Approval rate', queue.approval_rate_percent === null ? '—' : `${queue.approval_rate_percent}%`],
-        ['Rejected this period', String(queue.rejected)],
-    ];
-
-    return (
-        <section style={{ ...styles.card, gap: '12px' }}>
-            <SectionTitle title="Review queue" sub="Quotation requests waiting for an admin" />
-            <StatRows rows={rows} />
-        </section>
+        <div style={{ ...styles.pane, ...styles.paneDivider, flex: '1 1 300px' }}>
+            <SectionTitle title="Estimated customer savings" sub={`Based on ${savings.count} quotation${savings.count === 1 ? '' : 's'} this period`} />
+            <dl style={{ margin: '14px 0 0' }}>
+                <div style={styles.savingsHighlight}>
+                    <dt style={{ color: '#1F4D3A' }}>Average monthly savings</dt>
+                    <dd style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: ACCENT }}>
+                        {savings.avg_monthly_savings === null ? '—' : `₱${Math.round(savings.avg_monthly_savings).toLocaleString('en-PH')}`}
+                    </dd>
+                </div>
+                <div style={styles.savingsRow}>
+                    <dt>Average payback period</dt>
+                    <dd style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>
+                        {savings.avg_payback_years === null ? '—' : (
+                            <>{savings.avg_payback_years} <span style={{ fontSize: '14px', fontWeight: 400, color: adminTokens.muted }}>years</span></>
+                        )}
+                    </dd>
+                </div>
+                <div style={{ ...styles.savingsRow, paddingBottom: 0 }}>
+                    <dt>Used their own electricity rate</dt>
+                    <dd style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>
+                        {savings.own_rate_percent === null ? '—' : `${savings.own_rate_percent}%`}
+                    </dd>
+                </div>
+            </dl>
+        </div>
     );
 }
 
@@ -475,113 +630,141 @@ function ReviewQueueCard({ queue }) {
 
 function SectionTitle({ title, sub }) {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#16211c' }}>{title}</h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#4f5a54', lineHeight: 1.45, paddingLeft: '13px' }}>{sub}</p>
-        </div>
-    );
-}
-
-function BarRow({ label, count, max, labelWidth }) {
-    return (
-        <div style={{ display: 'grid', gridTemplateColumns: `${labelWidth} minmax(0, 1fr) 32px`, gap: '10px', alignItems: 'center', fontSize: '14px' }}>
-            <span style={{ color: '#293530', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</span>
-            <div style={{ height: '10px', borderRadius: '5px', background: '#F1F3F2', display: 'flex' }}>
-                <div style={{ height: '10px', borderRadius: '5px', width: `${(count / max) * 100}%`, background: ACCENT }} />
-            </div>
-            <span style={{ textAlign: 'right', fontWeight: 600 }}>{count}</span>
-        </div>
-    );
-}
-
-function StatRows({ rows }) {
-    return (
         <div>
-            {rows.map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', padding: '10px 0', borderBottom: '1px solid #F0F1F0' }}>
-                    <span style={{ fontSize: '14px', color: '#293530' }}>{label}</span>
-                    <span style={{ fontSize: '18px', fontWeight: 700, whiteSpace: 'nowrap' }}>{value}</span>
-                </div>
-            ))}
+            <h2 style={styles.h2}>{title}</h2>
+            <p style={{ ...styles.sub, margin: '4px 0 0' }}>{sub}</p>
         </div>
     );
 }
 
-function ReportIcons({ busy }) {
+function BarRow({ label, count, max, labelWidth, fill = ACCENT }) {
     return (
-        <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <span style={styles.reportIconBox}><DocumentIcon size={18} color={ACCENT} /></span>
-            <span style={{ fontSize: '12px', color: '#4f5a54', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {busy ? 'Preparing…' : <DownloadIcon size={18} color="#4f5a54" />}
-            </span>
-        </span>
+        <div style={{ display: 'grid', gridTemplateColumns: `${labelWidth} minmax(0, 1fr) 28px`, gap: '12px', alignItems: 'center', fontSize: '14px' }}>
+            <span style={{ color: adminTokens.body, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={label}>{label}</span>
+            <div style={{ height: '8px', borderRadius: '4px', background: '#F0F0EC', display: 'flex' }}>
+                <div style={{ height: '8px', borderRadius: '4px', width: `${(count / max) * 100}%`, background: fill }} />
+            </div>
+            <span style={{ textAlign: 'right', fontWeight: 600, color: count ? adminTokens.ink : adminTokens.faint }}>{count}</span>
+        </div>
     );
 }
 
 const styles = {
     page: {
-        display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1240px', color: '#16211c',
+        display: 'flex', flexDirection: 'column', gap: '20px', color: adminTokens.ink,
         fontVariantNumeric: 'tabular-nums',
     },
-    headerRow: { ...adminUi.hero, marginBottom: 0, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' },
-    title: adminText.pageTitle,
-    subtitle: { ...adminText.pageSubtitle, margin: 0 },
-    rangeGroup: { display: 'flex', flexWrap: 'wrap', maxWidth: '100%', background: '#FFFFFF', border: '1px solid #dcdfd8', borderRadius: '10px', padding: '3px', gap: '2px' },
-    rangeBtn: {
-        height: '36px', padding: '0 14px', borderRadius: '8px', border: 'none', background: 'transparent',
-        fontSize: '14px', fontWeight: 500, color: '#293530', cursor: 'pointer', fontFamily: 'inherit',
+    // On the green banner: translucent outline, white pill for the chosen range
+    rangeGroup: {
+        display: 'flex', flexWrap: 'wrap', maxWidth: '100%', border: '1px solid rgba(255,255,255,0.22)',
+        borderRadius: adminTokens.radius, padding: '3px', gap: '2px',
     },
-    rangeBtnActive: { background: ACCENT, color: '#FFFFFF', fontWeight: 600 },
+    rangeBtn: {
+        height: '36px', padding: '0 14px', borderRadius: '4px', border: 'none', background: 'transparent',
+        fontSize: '14px', fontWeight: 500, color: '#DDE7E2', cursor: 'pointer', fontFamily: 'inherit',
+    },
+    rangeBtnActive: { background: '#FFFFFF', color: ACCENT, fontWeight: 700 },
     primaryBtn: {
-        height: '44px', padding: '0 18px', borderRadius: '10px', border: 'none', background: '#f4c542',
-        fontSize: '15px', fontWeight: 600, color: '#0f3b2c', cursor: 'pointer', fontFamily: 'inherit',
+        height: '42px', padding: '0 16px', borderRadius: adminTokens.radius, border: 'none', background: adminTokens.gold,
+        fontSize: '14px', fontWeight: 700, color: '#14261F', cursor: 'pointer', fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', gap: '6px',
     },
     secondaryBtn: {
-        padding: '0 16px', borderRadius: '10px', border: '1px solid #dcdfd8', background: '#FFFFFF',
-        fontSize: '14px', fontWeight: 600, color: '#16211c', cursor: 'pointer', fontFamily: 'inherit',
+        height: '34px', minWidth: '44px', padding: '0 12px', borderRadius: adminTokens.radius, border: '1px solid #D6D6D0',
+        background: '#FFFFFF', fontSize: '13px', fontWeight: 600, color: adminTokens.ink, cursor: 'pointer',
+        fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px',
+    },
+    greenBtn: {
+        height: '34px', padding: '0 12px', borderRadius: adminTokens.radius, border: 'none', background: ACCENT,
+        fontSize: '13px', fontWeight: 600, color: '#FFFFFF', cursor: 'pointer', fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', gap: '6px',
     },
     // The page lays its blocks out with a gap, so no bottom margin here
     error: { ...adminUi.errorBanner, marginBottom: 0 },
-    loadingCard: {
-        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: '48px',
-        textAlign: 'center', color: '#5d6862', fontSize: '15px',
+    loadingCard: { ...adminUi.card, padding: '48px', textAlign: 'center', color: adminTokens.muted, fontSize: '15px' },
+
+    reviewStrip: {
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 28px', padding: '12px 24px', fontSize: '14px',
     },
-    hero: {
-        background: ACCENT, borderRadius: '18px', padding: 'clamp(18px, 4vw, 28px)', color: '#FFFFFF', display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '28px',
+    reviewItem: { color: adminTokens.stripText },
+    reviewValue: { color: '#FFFFFF', fontWeight: 600 },
+    reviewLink: { marginLeft: 'auto', fontWeight: 600, textDecoration: 'none', color: adminTokens.gold },
+
+    card: { ...adminUi.card, minWidth: 0 },
+    kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', overflow: 'hidden' },
+    kpiCell: {
+        padding: '18px 20px', borderLeft: `1px solid ${adminTokens.line}`, marginLeft: '-1px',
+        display: 'flex', flexDirection: 'column', gap: '6px',
     },
-    groupGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' },
-    groupCard: {
-        background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '14px',
-        padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px',
+    deltaPill: { fontWeight: 600, borderRadius: '4px', padding: '1px 6px', marginRight: '4px' },
+
+    panes: { display: 'flex', flexWrap: 'wrap', overflow: 'hidden' },
+    pane: { minWidth: 0, padding: '20px 24px 24px', boxSizing: 'border-box' },
+    // Left border pulled 1px out so it disappears when the pane wraps to the start of a row
+    paneDivider: { borderLeft: `1px solid ${adminTokens.line}`, marginLeft: '-1px' },
+    h2: { margin: 0, fontSize: '16px', fontWeight: 700, color: adminTokens.ink },
+    sub: { fontSize: '13px', color: adminTokens.muted, lineHeight: 1.45 },
+
+    funnelTable: { width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '14px' },
+    funnelHead: { color: adminTokens.muted, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' },
+    funnelTh: { textAlign: 'left', fontWeight: 600, padding: '0 12px 8px 0', borderBottom: `1px solid ${adminTokens.line}` },
+    funnelTd: { padding: '10px 12px 10px 0', borderBottom: `1px solid ${adminTokens.rowLine}` },
+    srOnly: { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)' },
+    timeRow: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px',
+        padding: '12px 0', borderTop: '1px solid #E8E8E3',
     },
-    // Bars and gaps shrink on phones so a month's three bars stay inside its column
-    monthGrid: { display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 'clamp(4px, 1.5vw, 12px)' },
-    kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '16px' },
-    kpiCard: {
-        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '14px', padding: '18px 20px',
-        display: 'flex', flexDirection: 'column', gap: '4px',
+    slowChip: { fontSize: '12px', fontWeight: 700, color: '#7A4F00', background: '#FBEBC4', borderRadius: '4px', padding: '1px 6px' },
+
+    demand: {
+        background: ACCENT, color: '#FFFFFF', borderRadius: adminTokens.heroRadius,
+        display: 'flex', flexWrap: 'wrap', overflow: 'hidden',
     },
-    card: {
-        background: '#FFFFFF', border: '1px solid #e6e8e2', borderRadius: '16px', padding: 'clamp(16px, 4vw, 24px)',
-        display: 'flex', flexDirection: 'column', minWidth: 0, ...adminUi.cardAccent,
+    whoTd: { padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.12)', verticalAlign: 'top' },
+    legend: {
+        listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: '14px',
+        fontSize: '13px', color: '#E4ECE8',
     },
-    cardFoot: { fontSize: '13px', color: '#4f5a54', borderTop: '1px solid #F0F1F0', paddingTop: '12px', marginTop: 'auto' },
-    funnelGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))', gap: '10px' },
-    threeUp: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '16px' },
-    twoUp: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: '16px' },
-    reportGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '12px', marginTop: '16px' },
-    reportBtn: {
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '16px',
-        border: '1px solid #e6e8e2', borderRadius: '12px', background: '#FFFFFF', cursor: 'pointer',
-        textAlign: 'left', fontFamily: 'inherit',
+    yAxis: {
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '12px',
+        color: '#A9BDB3', textAlign: 'right', width: '24px', marginTop: '-8px', flexShrink: 0,
+    },
+    gridLines: { position: 'absolute', left: 0, right: 0, top: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+    gridDashed: { borderTop: '1px dashed rgba(255,255,255,0.12)' },
+    monthGrid: { position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' },
+    monthBtn: {
+        position: 'relative', height: '210px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'default',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#FFFFFF', fontFamily: 'inherit', minWidth: 0,
+    },
+    tooltip: {
+        position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 2, background: '#FFFFFF',
+        color: adminTokens.ink, boxShadow: '0 2px 8px rgba(0,0,0,0.18)', borderRadius: '4px', padding: '8px 10px',
+        fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap', lineHeight: 1.6, pointerEvents: 'none',
+    },
+
+    barList: { display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '14px' },
+    savingsHighlight: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px',
+        padding: '12px 14px', marginBottom: '8px', background: '#E3F1E8', borderRadius: adminTokens.radius,
+    },
+    savingsRow: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px',
+        padding: '10px 0', borderTop: `1px solid ${adminTokens.rowLine}`,
+    },
+
+    reportList: { listStyle: 'none', margin: 0, padding: 0 },
+    reportRow: {
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px',
+        padding: '12px 24px', borderTop: `1px solid ${adminTokens.rowLine}`,
     },
     reportIconBox: {
-        width: '36px', height: '36px', borderRadius: '10px', background: '#EAF3EE', display: 'flex',
-        alignItems: 'center', justifyContent: 'center',
+        width: '32px', height: '32px', borderRadius: adminTokens.radius, background: '#E3F1E8', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', flex: 'none',
     },
+    reportTitle: { flex: '0 1 280px', fontWeight: 600 },
+    reportNote: { flex: '1 1 240px', color: adminTokens.muted, minWidth: 0 },
     select: {
-        width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcdfd8', padding: '0 10px',
-        fontSize: '13px', fontFamily: 'inherit', background: '#FFFFFF', color: '#16211c',
+        height: '34px', flex: '0 1 320px', minWidth: 0, width: '100%', padding: '0 8px', borderRadius: adminTokens.radius,
+        border: '1px solid #D6D6D0', background: '#FFFFFF', fontSize: '13px', color: adminTokens.ink, fontFamily: 'inherit',
     },
 };

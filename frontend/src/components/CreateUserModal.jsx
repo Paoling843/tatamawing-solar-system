@@ -202,7 +202,7 @@ const styles = {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
     },
     card: {
-        backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', width: '100%', maxWidth: '460px',
+        backgroundColor: 'white', borderRadius: '6px', padding: '1.5rem', width: '100%', maxWidth: '460px',
         maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
         display: 'flex', flexDirection: 'column', gap: '0.85rem', fontFamily: 'inherit', boxSizing: 'border-box',
     },
@@ -210,11 +210,11 @@ const styles = {
     lead: { fontSize: '0.85rem', color: adminTokens.muted, margin: '-0.4rem 0 0', lineHeight: 1.5 },
     formError: {
         backgroundColor: '#fbeae7', color: '#a4302a', border: '1px solid #f0d0cb',
-        padding: '10px 12px', borderRadius: '10px', fontSize: '0.85rem',
+        padding: '10px 12px', borderRadius: '6px', fontSize: '0.85rem',
     },
-    segmented: { display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f2f4f0', borderRadius: '10px' },
+    segmented: { display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f2f4f0', borderRadius: '6px' },
     segment: {
-        flex: 1, padding: '8px 10px', border: 'none', borderRadius: '8px', backgroundColor: 'transparent',
+        flex: 1, padding: '8px 10px', border: 'none', borderRadius: '6px', backgroundColor: 'transparent',
         fontSize: '0.875rem', fontWeight: 600, color: adminTokens.muted, fontFamily: 'inherit', cursor: 'pointer',
     },
     segmentOn: { backgroundColor: 'white', color: adminTokens.green, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' },
@@ -223,13 +223,13 @@ const styles = {
     label: { fontSize: '0.8rem', fontWeight: 600, color: adminTokens.body },
     input: (invalid) => ({
         width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '0.9rem', fontFamily: 'inherit',
-        border: `1px solid ${invalid ? '#e3a59d' : '#dcdfd8'}`, borderRadius: '10px',
+        border: `1px solid ${invalid ? '#e3a59d' : '#dcdfd8'}`, borderRadius: '6px',
         backgroundColor: invalid ? '#fdf6f4' : 'white', color: adminTokens.ink, outline: 'none',
     }),
     fieldError: { fontSize: '0.78rem', color: adminTokens.danger },
     mobileWrap: { display: 'flex', alignItems: 'center', gap: '8px' },
     prefix: {
-        padding: '10px 12px', borderRadius: '10px', backgroundColor: '#f2f4f0', fontSize: '0.9rem',
+        padding: '10px 12px', borderRadius: '6px', backgroundColor: '#f2f4f0', fontSize: '0.9rem',
         fontWeight: 600, color: adminTokens.body,
     },
     eyeBtn: {
@@ -241,5 +241,5 @@ const styles = {
     hint: { fontSize: '0.78rem', color: adminTokens.muted, marginTop: '-0.5rem' },
     actions: { display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem' },
     cancelBtn: { ...whiteButton, minHeight: '40px' },
-    submitBtn: { ...smallGreenButton, minHeight: '40px', padding: '10px 18px', borderRadius: '10px', fontSize: '14px' },
+    submitBtn: { ...smallGreenButton, minHeight: '40px', padding: '10px 18px', borderRadius: '6px', fontSize: '14px' },
 };

@@ -6,20 +6,18 @@ import LoadingState from '../components/LoadingState';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
-import {
-    DocumentIcon, ClockIcon, CalendarIcon, PesoIcon,
-    EyeIcon,
-} from '../components/Icons';
-import { colors, statusColors, smallGreenButton } from '../styles/theme';
+import { adminStatus, statusLabel } from '../styles/adminTheme';
 
 const SORT_OPTIONS = ['Newest first', 'Oldest first', 'Highest value', 'Lowest value'];
 
-// Dashboard colours
-const GREEN = '#0f3b2c';
-const SUN = '#f4c542';
-const INK = '#14201a';
-const MUTED = '#5a6a62';
-const LINE = '#e3e8e2';
+// Colours from the "Customer · Overview" mockup
+const GREEN = '#0F3D2E';
+const GOLD = '#F2C14E';
+const INK = '#1B2420';
+const BODY = '#3A4440';
+const MUTED = '#5F6A65';
+const LINE = '#E3E3DE';
+const STRIP_TEXT = '#C3D3CB';
 
 export default function CustomerDashboardPage() {
     const { user } = useAuth();
@@ -99,11 +97,12 @@ export default function CustomerDashboardPage() {
         });
     };
 
+    // ₱1.38M, ₱205.2K, ₱0
     const formatCompact = (amount) => {
         const n = parseFloat(amount) || 0;
-        if (n >= 1000000) return { value: (n / 1000000).toFixed(1), unit: 'million ₱' };
-        if (n >= 1000) return { value: (n / 1000).toFixed(1), unit: 'thousand ₱' };
-        return { value: String(Math.round(n)), unit: '₱' };
+        if (n >= 1000000) return `₱${(n / 1000000).toFixed(2)}M`;
+        if (n >= 1000) return `₱${(n / 1000).toFixed(1)}K`;
+        return `₱${Math.round(n)}`;
     };
 
     const formatReference = (id, createdAt) => {
@@ -119,12 +118,13 @@ export default function CustomerDashboardPage() {
         });
     };
 
+    // "hybrid" → "Hybrid"
     const systemLabel = (type) => {
-        if (!type) return 'Solar System';
+        if (!type) return 'Solar';
         return type
             .split('-')
             .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-            .join('-') + ' System';
+            .join('-');
     };
 
     const rowValue = (qr) =>
@@ -158,265 +158,236 @@ export default function CustomerDashboardPage() {
         .reduce((sum, q) => sum + rowValue(q), 0);
     const approvedCompact = formatCompact(approvedValue);
 
-    const today = new Date().toLocaleDateString('en-PH', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    }).toUpperCase();
+    const today = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    });
+    const firstName = user?.name?.split(' ')[0];
 
-    const solarQuote = '';
+    const approvedCount = quotationRequests.filter((q) => q.status === 'approved').length;
+    const scheduleDate = schedule?.scheduled_date ? formatDate(schedule.scheduled_date) : null;
 
-    // tint: the icon's square; tone: the icon and the number
+    // The four numbers along the bottom of the banner
     const stats = [
+        { label: 'Total quotations', dot: '#FFFFFF', value: totalCount, note: 'All requests you sent' },
         {
-            label: 'Total Quotations', tint: '#e3f1ea', tone: '#1d6b4f',
-            icon: <DocumentIcon size={20} color="#1d6b4f" />,
-            value: totalCount, unit: '', note: 'All requests submitted',
+            label: 'Waiting for review', dot: GOLD, value: pendingCount,
+            note: pendingCount ? 'We’ll get back to you soon' : 'Nothing pending',
         },
         {
-            label: 'Pending Quotations', tint: '#fdf0d2', tone: '#a15c07',
-            icon: <ClockIcon size={20} color="#a15c07" />,
-            value: pendingCount, unit: '', note: 'Awaiting review',
+            label: 'Installations scheduled', dot: '#8EC1EE', value: scheduleCount,
+            note: !scheduleDate ? 'None yet'
+                : schedule.status === 'completed' ? `Installed on ${scheduleDate}` : `Site visit on ${scheduleDate}`,
         },
         {
-            label: 'Scheduled Installations', tint: '#e0ecfb', tone: '#1f5fae',
-            icon: <CalendarIcon size={20} color="#1f5fae" />,
-            value: scheduleCount, unit: '', note: 'Upcoming site visits',
-        },
-        {
-            // The one solid green card, so the total stands out
-            label: 'Approved Value', tint: SUN, tone: '#ffffff', solid: true,
-            icon: <PesoIcon size={20} color={GREEN} />,
-            value: approvedCompact.value, unit: approvedCompact.unit,
-            note: 'Across approved quotations',
+            label: 'Approved value', dot: '#A8D5C2', value: approvedCompact,
+            note: `Across ${approvedCount} approved quotation${approvedCount === 1 ? '' : 's'}`,
         },
     ];
 
+    const statusTabs = ['all', 'approved', 'pending', 'rejected', 'cancelled'];
+
     return (
         <CustomerLayout active="Overview">
-        <div style={styles.page}>
-
-            <div style={styles.welcomeSection}>
-                <div style={styles.eyebrow}>{today}</div>
-                <h1 style={styles.welcomeTitle}>
-                    Welcome back, {user?.name?.split(' ')[0]}.
-                </h1>
-                <p style={styles.welcomeQuote}>{solarQuote}</p>
-            </div>
-
-            {error && <div style={styles.error}>{error}</div>}
-
-            {loading ? (
-                <LoadingState label="Loading dashboard..." />
-            ) : (
-                <>
-                    <div className="responsive-grid-4" style={styles.statStrip}>
-                        {stats.map((s) => (
-                            <div key={s.label} className="m-pad" style={{ ...styles.statCell, ...(s.solid ? styles.statCellSolid : {}) }}>
-                                <div style={styles.statTop}>
-                                    <span style={{ ...styles.statLabel, ...(s.solid ? styles.onGreen : {}) }}>{s.label}</span>
-                                    <span style={{ ...styles.statIcon, backgroundColor: s.tint }}>{s.icon}</span>
-                                </div>
-                                <div style={styles.statValueRow}>
-                                    <span style={{ ...styles.statValue, color: s.tone }}>{s.value}</span>
-                                    {s.unit && <span style={{ ...styles.statUnit, ...(s.solid ? styles.onGreen : {}) }}>{s.unit}</span>}
-                                </div>
-                                <div style={{ ...styles.statNote, ...(s.solid ? styles.onGreen : {}) }}>{s.note}</div>
+            <div style={styles.page}>
+                {/* ---- Banner: greeting, then the four numbers ---- */}
+                <section aria-label="Summary" style={styles.hero}>
+                    <div style={styles.heroTop}>
+                        <div style={{ minWidth: 0 }}>
+                            <span style={styles.eyebrow}>{today}</span>
+                            <h1 style={styles.heroTitle}>Welcome back{firstName ? `, ${firstName}` : ''}</h1>
+                            <p style={styles.heroSub}>Your quotations and installation at a glance</p>
+                        </div>
+                        <Link to="/quotation/new" className="c-btn c-btn-gold" style={styles.heroBtn}>
+                            Request a quotation
+                        </Link>
+                    </div>
+                    <dl style={styles.stats}>
+                        {stats.map((s, i) => (
+                            <div key={s.label} style={{ ...styles.stat, ...(i ? styles.statDivider : {}) }}>
+                                <dt style={styles.statLabel}>
+                                    <span aria-hidden="true" style={{ ...styles.statDot, background: s.dot }} />
+                                    {s.label}
+                                </dt>
+                                <dd style={styles.statValue}>{loading ? '—' : s.value}</dd>
+                                <dd style={styles.statNote}>{loading ? ' ' : s.note}</dd>
                             </div>
                         ))}
-                    </div>
+                    </dl>
+                </section>
 
-                    <div style={styles.tableCard}>
+                {error && <div role="alert" style={styles.error}>{error}</div>}
 
-                        <div style={styles.tableCardHeader}>
-                            <div>
-                                <h2 style={styles.tableTitle}>Recent Quotations</h2>
-                                <div style={styles.tableSubtitle}>
-                                    {totalCount} total
-                                    {statusFilter !== 'all' &&
-                                        ` · ${filteredQuotations.length} ${statusFilter}`}
-                                </div>
+                {/* ---- Recent quotations ---- */}
+                <section style={styles.card}>
+                    <div style={styles.cardHead}>
+                        <div>
+                            <h2 style={styles.cardTitle}>Recent quotations</h2>
+                            <p style={styles.cardSub}>
+                                {totalCount} quotation{totalCount === 1 ? '' : 's'}
+                                {statusFilter !== 'all' && ` · ${filteredQuotations.length} ${statusFilter}`}
+                            </p>
+                        </div>
+
+                        <div style={styles.controls}>
+                            <div role="group" aria-label="Filter by status" style={styles.segments}>
+                                {statusTabs.map((tab) => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        className="c-seg"
+                                        aria-pressed={statusFilter === tab}
+                                        onClick={() => setStatusFilter(tab)}
+                                    >
+                                        {tab === 'all' ? 'All' : statusLabel(tab)}
+                                    </button>
+                                ))}
                             </div>
 
-                            <div style={styles.headerControls}>
-                                <div style={styles.filterTabs}>
-                                    {['all', 'approved', 'pending', 'rejected', 'cancelled'].map((tab) => (
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    type="button"
+                                    className="c-btn c-btn-secondary"
+                                    style={{ height: '38px' }}
+                                    aria-haspopup="true"
+                                    aria-expanded={sortOpen}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSortOpen(!sortOpen);
+                                    }}
+                                >
+                                    <SortGlyph />
+                                    {sortBy}
+                                </button>
+
+                                <div
+                                    className={`menu-pop c-sort-menu${sortOpen ? ' menu-open' : ''}`}
+                                    style={styles.sortDropdown}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {SORT_OPTIONS.map((option) => (
                                         <button
-                                            key={tab}
-                                            onClick={() => setStatusFilter(tab)}
-                                            style={{
-                                                ...styles.filterTab,
-                                                ...(statusFilter === tab
-                                                    ? styles.filterTabActive : {}),
+                                            key={option}
+                                            type="button"
+                                            className="account-item"
+                                            style={{ ...styles.dropdownItem, fontWeight: sortBy === option ? 700 : 500 }}
+                                            onClick={() => {
+                                                setSortBy(option);
+                                                setSortOpen(false);
                                             }}
                                         >
-                                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                            <span>{option}</span>
+                                            {sortBy === option && <span style={styles.checkMark}>✓</span>}
                                         </button>
                                     ))}
                                 </div>
-
-                                <div style={styles.sortWrap}>
-                                    <button
-                                        style={{
-                                            ...styles.sortBtn,
-                                            backgroundColor: sortOpen
-                                                ? colors.bgSubtle : colors.bgCard,
-                                        }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSortOpen(!sortOpen);
-                                        }}
-                                    >
-                                        <span style={styles.sortTag}>SORT</span>
-                                        <span>{sortBy}</span>
-                                        <span style={styles.caret}>▾</span>
-                                    </button>
-
-                                    <div
-                                        className={`menu-pop${sortOpen ? ' menu-open' : ''}`}
-                                        style={styles.sortDropdown}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {SORT_OPTIONS.map((option) => (
-                                            <button
-                                                key={option}
-                                                style={{
-                                                    ...styles.dropdownItem,
-                                                    fontWeight: sortBy === option ? 600 : 500,
-                                                }}
-                                                onClick={() => {
-                                                    setSortBy(option);
-                                                    setSortOpen(false);
-                                                }}
-                                            >
-                                                <span>{option}</span>
-                                                {sortBy === option && (
-                                                    <span style={styles.checkMark}>✓</span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Scrolls sideways inside the card on narrow screens */}
-                        <div className="scroll-x">
-                            <div style={{ minWidth: '820px' }}>
-                                <div style={styles.tableHeader}>
-                                    <div>Reference</div>
-                                    <div>System</div>
-                                    <div>Submitted</div>
-                                    <div style={{ textAlign: 'right' }}>Value</div>
-                                    <div />
-                                </div>
-
-                                {visibleQuotations.length === 0 ? (
-                                    <div style={styles.emptyState}>
-                                        No quotations found. Submit your first quotation request!
-                                    </div>
-                                ) : (
-                                    visibleQuotations.map((qr) => {
-                                        const { bg: badgeBg, text: badgeText } = statusColors[qr.status] || statusColors.draft;
-                                        const kw = qr.solar_computation?.panel_capacity_kw;
-
-                                        return (
-                                            <div key={qr.id}>
-                                                {/* Clicking anywhere on the row opens the details
-                                                    (with the PDF download and any rejection reason) */}
-                                                <div
-                                                    className="mq-row-toggle"
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    aria-label={`View details of ${formatReference(qr.id, qr.created_at)}`}
-                                                    onClick={() => openDetails(qr)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.target !== e.currentTarget) return;
-                                                        if (e.key === 'Enter' || e.key === ' ') {
-                                                            e.preventDefault();
-                                                            openDetails(qr);
-                                                        }
-                                                    }}
-                                                    style={{ ...styles.tableRow, cursor: 'pointer' }}
-                                                >
-                                                    <div style={styles.refCell}>
-                                                        <span style={styles.referenceText}>
-                                                            {formatReference(qr.id, qr.created_at)}
-                                                        </span>
-                                                        <span style={{
-                                                            ...styles.statusBadge,
-                                                            backgroundColor: badgeBg,
-                                                            color: badgeText,
-                                                        }}>
-                                                            <span style={{ ...styles.statusDot, backgroundColor: badgeText }} />
-                                                            {qr.status.charAt(0).toUpperCase() +
-                                                                qr.status.slice(1)}
-                                                        </span>
-                                                    </div>
-
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={styles.systemName}>
+                    {loading ? (
+                        <LoadingState label="Loading your quotations..." />
+                    ) : (
+                        <>
+                            {/* Scrolls sideways inside the card on narrow screens */}
+                            <div className="scroll-x">
+                                <table style={styles.table}>
+                                    <thead>
+                                        <tr style={styles.headRow}>
+                                            <th scope="col" style={{ ...styles.th, paddingLeft: '20px' }}>Quotation</th>
+                                            <th scope="col" style={styles.th}>System</th>
+                                            <th scope="col" style={styles.th}>Submitted</th>
+                                            <th scope="col" style={{ ...styles.th, textAlign: 'right' }}>Total</th>
+                                            <th scope="col" style={{ ...styles.th, paddingRight: '20px' }}>
+                                                <span style={styles.srOnly}>Actions</span>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {visibleQuotations.map((qr) => {
+                                            const ref = formatReference(qr.id, qr.created_at);
+                                            const tone = adminStatus[qr.status] || adminStatus.cancelled;
+                                            const kw = qr.solar_computation?.panel_capacity_kw;
+                                            return (
+                                                // Clicking anywhere on the row opens the details (with the
+                                                // PDF download and any rejection reason); the View button
+                                                // does the same for keyboards
+                                                <tr key={qr.id} className="c-row" onClick={() => openDetails(qr)}>
+                                                    <td style={{ ...styles.td, paddingLeft: '20px' }}>
+                                                        <div style={styles.refCell}>
+                                                            <span style={{ fontWeight: 700 }}>{ref}</span>
+                                                            <span style={{ ...styles.badge, background: tone.bg, color: tone.fg }}>
+                                                                {statusLabel(qr.status)}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={styles.td}>
+                                                        <div style={{ fontWeight: 600 }}>
                                                             {systemLabel(qr.solar_system_type)}
+                                                            {kw ? ` · ${kw} kW` : ''}
                                                         </div>
-                                                        <div style={styles.systemSpec}>
-                                                            {kw
-                                                                ? <><span style={styles.systemKw}>{kw} kW</span> array</>
-                                                                : 'Awaiting computation'}
-                                                            {qr.monthly_bill
-                                                                ? ` · ₱${parseFloat(qr.monthly_bill).toLocaleString('en-PH')} monthly bill`
-                                                                : ''}
-                                                        </div>
-                                                    </div>
-
-                                                    <div style={styles.dateCell}>
-                                                        {formatDate(qr.submission_date || qr.created_at)}
-                                                    </div>
-
-                                                    <div style={styles.valueCell}>
-                                                        {formatCurrency(
-                                                            qr.quotation?.total_amount ||
-                                                            qr.solar_computation?.estimated_cost
+                                                        {!kw && <div style={styles.subText}>Awaiting computation</div>}
+                                                        {qr.monthly_bill && (
+                                                            <div style={styles.subText}>
+                                                                ₱{parseFloat(qr.monthly_bill).toLocaleString('en-PH', { maximumFractionDigits: 0 })} monthly bill
+                                                            </div>
                                                         )}
-                                                    </div>
-
-                                                    {/* Looks like a button, but the whole row is the
-                                                        button, so this is only a visual cue */}
-                                                    <div style={styles.actionCell}>
-                                                        <span className="qd-view" style={styles.viewBtn} aria-hidden="true">
-                                                            <EyeIcon size={16} color={GREEN} />
+                                                    </td>
+                                                    <td style={{ ...styles.td, color: BODY, whiteSpace: 'nowrap' }}>
+                                                        {formatDate(qr.submission_date || qr.created_at)}
+                                                    </td>
+                                                    <td style={{
+                                                        ...styles.td,
+                                                        textAlign: 'right',
+                                                        fontWeight: 700,
+                                                        whiteSpace: 'nowrap',
+                                                        color: qr.status === 'cancelled' ? '#7A837E' : INK,
+                                                    }}>
+                                                        {formatCurrency(qr.quotation?.total_amount || qr.solar_computation?.estimated_cost)}
+                                                    </td>
+                                                    <td style={{ ...styles.td, paddingRight: '20px', textAlign: 'right' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="c-btn c-btn-secondary"
+                                                            aria-label={`View ${ref}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openDetails(qr);
+                                                            }}
+                                                        >
                                                             View
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
 
-                        <div className="m-wrap" style={styles.tableFooter}>
-                            <span style={styles.tableFooterText}>
-                                Showing {visibleQuotations.length} of {totalCount}
-                            </span>
-                            <Link to="/customer/my-quotations" className="btn-primary m-tap" style={smallGreenButton}>
-                                All quotations →
-                            </Link>
-                        </div>
-                    </div>
+                            {visibleQuotations.length === 0 && (
+                                <p style={styles.empty}>
+                                    {totalCount === 0
+                                        ? 'No quotations yet. Request your first one to get started.'
+                                        : 'No quotations with this status.'}
+                                </p>
+                            )}
 
-                    <div className="m-wrap" style={styles.footer}>
-                        <div className="m-wrap" style={styles.footerLeft}>
-                            <span style={styles.footerText}>
-                                © {new Date().getFullYear()} TataMawing Solar. All rights reserved.
-                            </span>
-                            <div style={styles.footerLinks}>
-                                <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
-                                <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
+                            <div style={styles.cardFoot}>
+                                <span style={{ fontSize: '13px', color: MUTED }}>
+                                    Showing {visibleQuotations.length} of {totalCount}
+                                </span>
+                                <Link to="/customer/my-quotations" style={styles.textLink}>All quotations →</Link>
                             </div>
-                        </div>
-                    </div>
-                </>
-            )}
-        </div>
+                        </>
+                    )}
+                </section>
+
+                <footer style={styles.footer}>
+                    <span style={{ flex: 1 }}>© {new Date().getFullYear()} TataMawing Solar. All rights reserved.</span>
+                    <Link to="/privacy" style={styles.footerLink}>Privacy Policy</Link>
+                    <Link to="/terms" style={styles.footerLink}>Terms of Service</Link>
+                </footer>
+            </div>
 
             {detailsFor && (
                 <QuotationDetailsModal
@@ -435,359 +406,104 @@ export default function CustomerDashboardPage() {
     );
 }
 
+// Up-and-down arrows on the sort button
+function SortGlyph() {
+    return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7 4v16" /><path d="m3 16 4 4 4-4" /><path d="M17 20V4" /><path d="m13 8 4-4 4 4" />
+        </svg>
+    );
+}
+
 const styles = {
-    // Keeps the cards from stretching too far on very wide screens
-    page: { maxWidth: '1240px', width: '100%' },
+    page: { display: 'flex', flexDirection: 'column', gap: '20px' },
 
-    welcomeSection: {
-        backgroundColor: GREEN,
-        color: '#ffffff',
-        borderRadius: '18px',
-        padding: 'clamp(1.5rem, 4vw, 2rem) clamp(1.25rem, 4vw, 2.25rem)',
-        marginBottom: '1.5rem',
+    hero: { background: GREEN, color: '#FFFFFF', borderRadius: '8px' },
+    heroTop: {
+        display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between',
+        gap: '16px 24px', padding: '22px 24px 20px',
     },
-    eyebrow: {
-        fontSize: '0.7rem',
-        fontWeight: 600,
-        letterSpacing: '0.12em',
-        color: SUN,
-        marginBottom: '0.5rem',
+    eyebrow: { display: 'block', fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD },
+    heroTitle: { margin: '4px 0 0', fontSize: '26px', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 },
+    heroSub: { margin: '2px 0 0', fontSize: '14px', color: STRIP_TEXT },
+    heroBtn: { height: '42px', padding: '0 16px', fontSize: '14px' },
+    stats: {
+        margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        borderTop: '1px solid rgba(255,255,255,0.14)', background: '#0B3326',
+        borderRadius: '0 0 8px 8px', overflow: 'hidden',
     },
-    welcomeTitle: {
-        margin: 0,
-        fontSize: '1.75rem',
-        fontWeight: 700,
-        lineHeight: 1.2,
-        color: '#ffffff',
-    },
-    welcomeQuote: {
-        fontSize: '0.875rem',
-        color: '#d3e2d9',
-        margin: 0,
-    },
+    // marginLeft -1px hides the divider of whichever cell starts a wrapped row
+    stat: { padding: '14px 24px', marginLeft: '-1px' },
+    statDivider: { borderLeft: '1px solid rgba(255,255,255,0.12)' },
+    statLabel: { display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: STRIP_TEXT },
+    statDot: { width: '8px', height: '8px', borderRadius: '50%', flex: 'none' },
+    statValue: { margin: '2px 0 0', fontSize: '24px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+    statNote: { margin: 0, fontSize: '13px', color: STRIP_TEXT, minHeight: '19px' },
+
     error: {
-        backgroundColor: colors.dangerTint,
-        color: colors.danger,
-        padding: '0.75rem',
-        borderRadius: '8px',
-        marginBottom: '1rem',
-        fontSize: '0.875rem',
+        padding: '10px 14px', borderRadius: '6px', border: '1px solid #F0D0CB',
+        background: '#FBEAE7', color: '#A4302A', fontSize: '14px',
     },
 
-    statStrip: {
-        gap: '1rem',
-        marginBottom: '1.5rem',
+    card: { background: '#FFFFFF', border: `1px solid ${LINE}`, borderRadius: '6px' },
+    cardHead: {
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center',
+        gap: '12px', padding: '16px 20px',
     },
-    statCell: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '14px',
-        minWidth: 0,
-        backgroundColor: '#ffffff',
-        border: `1px solid ${LINE}`,
-        borderRadius: '16px',
-        padding: '1.5rem',
-    },
-    statCellSolid: {
-        backgroundColor: GREEN,
-        borderColor: GREEN,
-    },
-    statTop: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '0.5rem',
-    },
-    statLabel: {
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        color: '#3d4d45',
-    },
-    onGreen: {
-        color: '#cfe0d6',
-    },
-    statIcon: {
-        width: '44px',
-        height: '44px',
-        flexShrink: 0,
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statValueRow: {
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: '0.5rem',
-        flexWrap: 'wrap',
-    },
-    statUnit: {
-        fontSize: '0.75rem',
-        color: MUTED,
-    },
-    statValue: {
-        fontSize: 'clamp(1.5rem, 6vw, 2rem)',
-        fontWeight: 700,
-        lineHeight: 1.1,
-        fontVariantNumeric: 'tabular-nums',
-    },
-    statNote: {
-        fontSize: '0.75rem',
-        color: MUTED,
-    },
-
-    tableCard: {
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        marginBottom: '1.5rem',
-        border: `1px solid ${LINE}`,
-    },
-    tableCardHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '1rem',
-        flexWrap: 'wrap',
-        padding: '1.5rem 1.75rem',
-    },
-    tableTitle: {
-        margin: 0,
-        fontSize: '1.125rem',
-        fontWeight: 700,
-        color: INK,
-    },
-    tableSubtitle: {
-        fontSize: '0.8rem',
-        color: MUTED,
-        marginTop: '4px',
-    },
-    headerControls: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        flexWrap: 'wrap',
-    },
-    filterTabs: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        maxWidth: '100%',
-        gap: '4px',
-        backgroundColor: '#eef2ec',
-        borderRadius: '12px',
-        padding: '4px',
-    },
-    filterTab: {
-        padding: '0.375rem 0.875rem',
-        border: 'none',
-        borderRadius: '9px',
-        backgroundColor: 'transparent',
-        color: '#4a5a52',
-        fontSize: '0.8rem',
-        fontFamily: 'inherit',
-        cursor: 'pointer',
-    },
-    filterTabActive: {
-        backgroundColor: GREEN,
-        color: '#ffffff',
-        fontWeight: 600,
-    },
-    sortWrap: {
-        position: 'relative',
-    },
-    sortBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 0.75rem',
-        border: '1px solid #dfe5de',
-        borderRadius: '10px',
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        fontFamily: 'inherit',
-        color: INK,
-        cursor: 'pointer',
-    },
-    sortTag: {
-        fontSize: '0.65rem',
-        letterSpacing: '0.1em',
-        color: MUTED,
-        fontWeight: 600,
-    },
-    caret: {
-        fontSize: '0.6rem',
-        color: MUTED,
+    cardTitle: { margin: 0, fontSize: '16px', fontWeight: 700, color: INK },
+    cardSub: { margin: '2px 0 0', fontSize: '13px', color: MUTED },
+    controls: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' },
+    segments: {
+        display: 'flex', flexWrap: 'wrap', maxWidth: '100%', border: '1px solid #D6D6D0',
+        borderRadius: '6px', padding: '3px', gap: '2px',
     },
     sortDropdown: {
         position: 'absolute',
-        top: '2.5rem',
-        // Opens to the right of the button, so it stays on screen when the
-        // controls wrap to the left edge on phones
-        left: 0,
-        width: '210px',
+        top: '44px',
+        // Lines up with the button's right edge; on phones, where the button
+        // wraps to the left, .c-sort-menu (App.css) lines it up on the left
+        right: 0,
+        width: '200px',
         maxWidth: 'calc(100vw - 2rem)',
-        backgroundColor: colors.bgCard,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '11px',
+        backgroundColor: '#FFFFFF',
+        border: `1px solid ${LINE}`,
+        borderRadius: '6px',
         boxShadow: '0 12px 28px rgba(0,0,0,0.12)',
-        padding: '6px',
+        padding: '4px',
         zIndex: 20,
     },
     dropdownItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.625rem',
-        width: '100%',
-        padding: '0.55rem 0.625rem',
-        border: 'none',
-        borderRadius: '8px',
-        backgroundColor: 'transparent',
-        color: colors.textBody,
-        fontSize: '0.825rem',
-        fontWeight: 500,
-        fontFamily: 'inherit',
-        textAlign: 'left',
-        cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 10px',
+        border: 'none', borderRadius: '4px', backgroundColor: 'transparent', color: INK,
+        fontSize: '13px', fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
     },
-    checkMark: {
-        marginLeft: 'auto',
-        color: GREEN,
-        fontSize: '0.75rem',
-    },
+    checkMark: { marginLeft: 'auto', color: GREEN, fontSize: '12px' },
 
-    tableHeader: {
-        display: 'grid',
-        gridTemplateColumns: '200px minmax(0, 1fr) 160px 160px 110px',
-        gap: '1rem',
-        padding: '0.75rem 1.75rem',
-        backgroundColor: GREEN,
-        fontSize: '0.65rem',
-        color: '#cfe0d6',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.1em',
+    table: { width: '100%', minWidth: '720px', borderCollapse: 'collapse', fontSize: '14px' },
+    headRow: {
+        fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em', color: MUTED, background: '#FAFAF8',
     },
-    tableRow: {
-        display: 'grid',
-        gridTemplateColumns: '200px minmax(0, 1fr) 160px 160px 110px',
-        gap: '1rem',
-        alignItems: 'center',
-        padding: '1.25rem 1.75rem',
-        borderBottom: '1px solid #edf1ec',
-        color: INK,
-        position: 'relative',
-        fontSize: '0.875rem',
+    th: {
+        textAlign: 'left', fontWeight: 600, padding: '9px 12px',
+        borderTop: `1px solid ${LINE}`, borderBottom: `1px solid ${LINE}`,
     },
-    refCell: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: '0.5rem',
+    td: { padding: '12px', borderBottom: '1px solid #EFEFEA', verticalAlign: 'middle' },
+    refCell: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+    badge: {
+        display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700,
+        borderRadius: '4px', padding: '1px 8px', whiteSpace: 'nowrap',
     },
-    referenceText: {
-        fontWeight: 600,
-        color: INK,
+    subText: { fontSize: '13px', color: MUTED },
+    srOnly: {
+        position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap',
     },
-    statusBadge: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '0.15rem 0.5rem',
-        borderRadius: '999px',
-        fontSize: '0.7rem',
-        fontWeight: 600,
-    },
-    statusDot: {
-        width: '6px',
-        height: '6px',
-        borderRadius: '50%',
-    },
-    systemName: {
-        fontSize: '0.875rem',
-        fontWeight: 600,
-        color: INK,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-    },
-    systemSpec: {
-        fontSize: '0.75rem',
-        color: MUTED,
-        marginTop: '4px',
-    },
-    systemKw: {
-        fontWeight: 600,
-        color: '#1d6b4f',
-    },
-    dateCell: {
-        fontSize: '0.8rem',
-        color: '#3d4d45',
-    },
-    valueCell: {
-        fontSize: '0.9rem',
-        color: GREEN,
-        textAlign: 'right',
-        fontVariantNumeric: 'tabular-nums',
-    },
-    actionCell: {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        position: 'relative',
-    },
-    viewBtn: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '0.4rem 0.75rem',
-        borderRadius: '10px',
-        border: `1.5px solid ${GREEN}`,
-        color: GREEN,
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-    },
-
-    emptyState: {
-        textAlign: 'center',
-        color: MUTED,
-        padding: '2.5rem 1.75rem',
-        fontSize: '0.875rem',
-    },
-    tableFooter: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '1.125rem 1.75rem',
-    },
-    tableFooterText: {
-        fontSize: '0.8rem',
-        color: MUTED,
-    },
+    empty: { margin: 0, padding: '24px 20px', textAlign: 'center', color: MUTED },
+    cardFoot: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '12px 20px' },
+    textLink: { fontWeight: 600, textDecoration: 'none', color: GREEN },
 
     footer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '1rem 0',
-        borderTop: `1px solid ${colors.border}`,
-        marginTop: '1rem',
+        display: 'flex', flexWrap: 'wrap', gap: '8px 20px', padding: '16px 0 0',
+        fontSize: '13px', color: MUTED,
     },
-    footerLeft: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.25rem',
-    },
-    footerText: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
-    },
-    footerLinks: {
-        display: 'flex',
-        gap: '1rem',
-    },
-    footerLink: {
-        fontSize: '0.75rem',
-        color: colors.textMuted,
-        cursor: 'pointer',
-        textDecoration: 'none',
-    },
+    footerLink: { color: MUTED },
 };

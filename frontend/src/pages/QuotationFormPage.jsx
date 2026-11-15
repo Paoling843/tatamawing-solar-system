@@ -13,7 +13,6 @@ import {
 import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import EngineHeader from './quote-builder/EngineHeader';
-import EngineStepNav from './quote-builder/EngineStepNav';
 import ApplianceLoadStep from './quote-builder/ApplianceLoadStep';
 import ComputationStep from './quote-builder/ComputationStep';
 import PackageStep from './quote-builder/PackageStep';
@@ -358,6 +357,7 @@ export default function QuotationFormPage({ embedded = false }) {
                     rows={rows}
                     load={load}
                     selection={selection}
+                    savings={savings}
                     timeFormat={timeFormat}
                     touched={touched}
                     attempted={attempted}
@@ -377,6 +377,7 @@ export default function QuotationFormPage({ embedded = false }) {
                 <ComputationStep
                     rows={rows}
                     load={load}
+                    timeFormat={timeFormat}
                     onBack={() => goTo('load')}
                     onNext={() => goTo('package')}
                 />
@@ -399,6 +400,7 @@ export default function QuotationFormPage({ embedded = false }) {
                     onPickBattery={handlePickBattery}
                     onSelectCost={setSelectedCost}
                     onBack={() => goTo('compute')}
+                    onEditBills={() => goTo('load')}
                     onRequestQuote={handleRequestQuote}
                 />
             )}
@@ -436,10 +438,7 @@ export default function QuotationFormPage({ embedded = false }) {
     // LandingPage already provides the header and the .se-root wrapper
     if (embedded) {
         return (
-            <section id="calculator" ref={rootRef} className="se-landing-calculator">
-                <div className="se-landing-calculator-nav" style={styles.landingNav}>
-                    <EngineStepNav screen={activeScreen} />
-                </div>
+            <section id="calculator" ref={rootRef} className="se-landing-calculator se-calc-pad" style={styles.padded}>
                 {steps}
                 {dialogs}
             </section>
@@ -451,9 +450,6 @@ export default function QuotationFormPage({ embedded = false }) {
         return (
             <CustomerLayout active="Request Quotation">
                 <div className="se-root se-embedded" style={styles.embedded}>
-                    <div className="se-embedded-nav">
-                        <EngineStepNav screen={activeScreen} />
-                    </div>
                     {steps}
                 </div>
 
@@ -471,7 +467,7 @@ export default function QuotationFormPage({ embedded = false }) {
                 onLogoClick={() => navigate('/')}
             />
 
-            {steps}
+            <main className="se-calc-pad" style={styles.padded}>{steps}</main>
 
             {dialogs}
         </div>
@@ -482,11 +478,9 @@ export default function QuotationFormPage({ embedded = false }) {
 const STAFF_SIGNED_IN = "You're signed in as an admin. Sign in as a customer to send this. Your inputs are kept.";
 
 const styles = {
-    // Step indicator above the calculator on the home page, lined up with Step 1
-    landingNav: {
-        maxWidth: '1480px', margin: '0 auto', padding: '32px 40px 0', width: '100%',
-        display: 'flex', justifyContent: 'flex-end',
-    },
+    // Room around the steps on the home page and the guest page (inside the
+    // customer layout, the layout already pads its content)
+    padded: { padding: '28px 32px 48px', width: '100%', boxSizing: 'border-box' },
     // Inside CustomerLayout the layout already provides the page background
     // and height, so only the engine's font and text colour are set here
     embedded: {

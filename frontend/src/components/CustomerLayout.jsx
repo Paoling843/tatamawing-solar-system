@@ -6,13 +6,28 @@ import {
     HelpIcon, DownloadIcon,
     PlusIcon, MenuIcon,
 } from './Icons';
-import { colors, roundBell } from '../styles/theme';
-import { C } from '../pages/quote-builder/engineStyles';
 import SupportMessagePanel from './SupportMessagePanel';
 import NotificationBell from './NotificationBell';
 import BrandLogo from './BrandLogo';
 import ConfirmDialog from './ConfirmDialog';
 import AccountMenu from './AccountMenu';
+
+// Colours from the customer redesign ("Customer · Overview" mockup), the
+// same palette as the admin pages
+const T = {
+    green: '#0F3D2E',
+    gold: '#F2C14E',
+    onGold: '#14261F',
+    ink: '#1B2420',
+    body: '#3A4440',
+    navText: '#E4ECE8',
+    line: '#E3E3DE',
+    page: '#F5F5F2',
+};
+
+// Pages pass their name as `active`; matched without caring about capitals,
+// so "My Quotations" still lights up "My quotations"
+const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
 
 export default function CustomerLayout({ children, active }) {
     const { user, logout } = useAuth();
@@ -32,138 +47,145 @@ export default function CustomerLayout({ children, active }) {
     const handleNavigate = (path) => {
         navigate(path);
         setSidebarOpen(false);
-    }
+    };
 
     const navItems = [
-        { label: 'Overview', path: '/customer/dashboard', icon: <GridIcon size={16} /> },
-        { label: 'Request Quotation', path: '/quotation/new', icon: <EditIcon size={16} /> },
-        { label: 'My Quotations', path: '/customer/my-quotations', icon: <DocumentIcon size={16} /> },
-        { label: 'Installation Schedule', path: '/customer/schedule', icon: <CalendarIcon size={16} /> },
-        { label: 'FAQs', path: '/faqs', icon: <HelpIcon size={16} /> },
-        { label: 'Downloads', path: '/customer/downloads', icon: <DownloadIcon size={16} /> },
+        { label: 'Overview', path: '/customer/dashboard', icon: <GridIcon size={18} color="currentColor" /> },
+        { label: 'Request quotation', path: '/quotation/new', icon: <EditIcon size={18} color="currentColor" /> },
+        { label: 'My quotations', path: '/customer/my-quotations', icon: <DocumentIcon size={18} color="currentColor" /> },
+        { label: 'Installation schedule', path: '/customer/schedule', icon: <CalendarIcon size={18} color="currentColor" /> },
+        { label: 'FAQs', path: '/faqs', icon: <HelpIcon size={18} color="currentColor" /> },
+        { label: 'Downloads', path: '/customer/downloads', icon: <DownloadIcon size={18} color="currentColor" /> },
     ];
 
-return (
-    <div style={styles.wrapper}>
-        <div
-            className={`sidebar-overlay${sidebarOpen ? ' sidebar-open' : ''}`}
-            onClick={() => setSidebarOpen(false)}
-        />
+    // The page name in the top bar
+    const pageTitle = navItems.find((item) => same(item.label, active))?.label
+        || (same(active, 'My Profile') ? 'My profile' : active);
 
-        <div className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
-            <button className="sidebar-brand" style={styles.sidebarLogo} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to dashboard">
-                <BrandLogo light />
-            </button>
+    return (
+        <div style={styles.wrapper}>
+            <div
+                className={`sidebar-overlay${sidebarOpen ? ' sidebar-open' : ''}`}
+                onClick={() => setSidebarOpen(false)}
+            />
 
-            <nav style={styles.nav}>
-                {navItems.map((item) => (
+            <aside className={`app-sidebar${sidebarOpen ? ' sidebar-open' : ''}`} style={styles.sidebar}>
+                <button className="sidebar-brand" style={styles.brand} onClick={() => handleNavigate('/customer/dashboard')} aria-label="Go to overview">
+                    <BrandLogo light />
+                </button>
+
+                <nav aria-label="Main" style={styles.nav}>
+                    {navItems.map((item) => {
+                        const on = same(active, item.label);
+                        return (
+                            <button
+                                key={item.label}
+                                type="button"
+                                className="admin-nav-item"
+                                onClick={() => handleNavigate(item.path)}
+                                aria-current={on ? 'page' : undefined}
+                                style={{ ...styles.navItem, ...(on ? styles.navItemActive : {}) }}
+                            >
+                                <span style={styles.navIcon}>{item.icon}</span>
+                                <span className="sidebar-label">{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+
+                <div style={styles.sidebarBottom}>
                     <button
-                        key={item.label}
-                        className="admin-nav-item"
-                        onClick={() => handleNavigate(item.path)}
-                        aria-current={active === item.label ? 'page' : undefined}
-                        style={{
-                            ...styles.navItem,
-                            ...(active === item.label ? styles.navItemActive : {}),
-                        }}
+                        type="button"
+                        onClick={() => handleNavigate('/quotation/new')}
+                        className="c-btn c-btn-gold"
+                        style={styles.newQuoteBtn}
                     >
-                        <span style={styles.navIcon}>
-                            {item.icon}
-                        </span>
-                        <span className="sidebar-label">{item.label}</span>
+                        <PlusIcon size={16} color="currentColor" />
+                        <span className="sidebar-label">New quotation</span>
                     </button>
-                ))}
-            </nav>
-            
-            <div style={styles.sidebarBottom}>
-                <button
-                    onClick={() => handleNavigate('/quotation/new')}
-                    className="btn-primary"
-                    style={styles.newProjectBtn}
-                >
-                    <PlusIcon size={14} color={SUN_TEXT} />
-                    <span className="sidebar-label">New Quotation</span>
-                </button>
-            </div>
-        </div>
-
-        <div className="app-main" style={styles.rightSide}>
-            <div className="m-pad-sm" style={styles.topBar}>
-                <button
-                    className="sidebar-hamburger m-tap"
-                    style={styles.hamburgerBtn}
-                    onClick={() => setSidebarOpen((prev) => !prev)}
-                    aria-label="Toggle menu"
-                >
-                    <MenuIcon size={20} color={colors.textBody} />
-                </button>
-
-
-                <div style={styles.topBarRight}>
-                    <SupportMessagePanel />
-
-                    <NotificationBell iconColor={SUN_TEXT} buttonStyle={roundBell} />
-
-                    {/* My Profile and Log out */}
-                    <AccountMenu
-                        user={user}
-                        onProfile={() => navigate('/customer/profile')}
-                        onLogout={() => setConfirmLogout(true)}
-                        avatarColors={{ bg: SUN_TEXT, text: C.yellow }}
-                    />
                 </div>
+            </aside>
+
+            <div className="app-main" style={styles.rightSide}>
+                <header className="m-pad-sm" style={styles.topBar}>
+                    <button
+                        className="sidebar-hamburger m-tap"
+                        style={styles.hamburgerBtn}
+                        onClick={() => setSidebarOpen((prev) => !prev)}
+                        aria-label="Toggle menu"
+                    >
+                        <MenuIcon size={20} color={T.body} />
+                    </button>
+
+                    <span style={styles.pageTitle}>{pageTitle}</span>
+
+                    <div style={styles.topBarRight}>
+                        {/* The floating "Chat with us" button and its panel */}
+                        <SupportMessagePanel />
+
+                        <NotificationBell iconColor={T.body} buttonStyle={styles.bell} />
+
+                        {/* My Profile and Log out */}
+                        <AccountMenu
+                            user={user}
+                            onProfile={() => navigate('/customer/profile')}
+                            onLogout={() => setConfirmLogout(true)}
+                            avatarColors={{ bg: T.green, text: T.gold }}
+                            triggerStyle={styles.accountTrigger}
+                            nameStyle={styles.accountName}
+                        />
+                    </div>
+                </header>
+
+                <main className="m-pad m-chat-space" style={styles.main}>
+                    <div style={styles.mainInner}>{children}</div>
+                </main>
             </div>
 
-            <main className="m-pad m-chat-space" style={styles.main}>
-                {children}
-            </main>
+            <ConfirmDialog
+                open={confirmLogout}
+                title="Log out?"
+                message="Your quotations stay saved on your account. Sign in again any time to check them."
+                confirmLabel={loggingOut ? 'Logging out...' : 'Log out'}
+                danger
+                busy={loggingOut}
+                onConfirm={handleLogout}
+                onCancel={() => setConfirmLogout(false)}
+            />
         </div>
-
-        <ConfirmDialog
-            open={confirmLogout}
-            title="Log out?"
-            message="Your quotations stay saved on your account. Sign in again any time to check them."
-            confirmLabel={loggingOut ? 'Logging out...' : 'Log out'}
-            danger
-            busy={loggingOut}
-            onConfirm={handleLogout}
-            onCancel={() => setConfirmLogout(false)}
-        />
-    </div>
-);
+    );
 }
-
-// Brand green: the sidebar's background, and the text on yellow
-const SUN_TEXT = '#0f3b2c';
 
 const styles = {
     wrapper: {
         display: 'flex',
         minHeight: '100vh',
-        backgroundColor: '#f4f6f2',
+        backgroundColor: T.page,
         width: '100%',
+        fontSize: '14px',
+        lineHeight: 1.45,
+        color: T.ink,
     },
     sidebar: {
         minHeight: '100vh',
-        backgroundColor: SUN_TEXT,
-        color: '#ffffff',
+        backgroundColor: T.green,
+        color: '#FFFFFF',
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
         left: 0,
         top: 0,
         bottom: 0,
-        padding: '0 0 1.5rem',
     },
     // Same height as the top bar, so the logo ends at the top bar's line
-    sidebarLogo: {
+    brand: {
         display: 'flex',
         alignItems: 'center',
-        height: '68px',
+        height: '60px',
         flexShrink: 0,
-        padding: '0 0.75rem',
-        marginBottom: '1.25rem',
+        padding: '0 20px',
         border: 'none',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
         background: 'transparent',
         cursor: 'pointer',
         textAlign: 'left',
@@ -173,28 +195,30 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         gap: '2px',
-        padding: '0 0.75rem',
+        padding: '16px 12px',
         overflowY: 'auto',
     },
     navItem: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.625rem',
-        padding: '0.6rem 0.75rem',
-        borderRadius: '8px',
+        gap: '10px',
+        height: '40px',
+        padding: '0 10px',
+        borderRadius: '6px',
         border: 'none',
         backgroundColor: 'transparent',
-        color: '#dce8e1',
-        fontSize: '0.875rem',
+        color: T.navText,
+        fontSize: '14px',
+        fontWeight: 500,
         fontFamily: 'inherit',
         cursor: 'pointer',
         textAlign: 'left',
         width: '100%',
     },
     navItemActive: {
-        backgroundColor: C.yellow,
-        color: SUN_TEXT,
-        fontWeight: '600',
+        backgroundColor: T.gold,
+        color: T.onGold,
+        fontWeight: 700,
     },
     navIcon: {
         display: 'flex',
@@ -204,44 +228,33 @@ const styles = {
         flexShrink: 0,
     },
     sidebarBottom: {
-        padding: '0 0.75rem',
-        marginTop: '0.5rem',
+        padding: '16px 12px 20px',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
     },
-    newProjectBtn: {
+    newQuoteBtn: {
         width: '100%',
-        padding: '0.75rem',
-        backgroundColor: C.yellow,
-        color: SUN_TEXT,
-        border: 'none',
-        borderRadius: '10px',
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        fontFamily: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.5rem',
-        whiteSpace: 'nowrap',
+        height: '44px',
+        fontSize: '14px',
     },
     rightSide: {
         flex: 1,
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
     },
     topBar: {
-        height: '68px',
-        backgroundColor: colors.bgCard,
-        borderBottom: '1px solid #e3e8e2',
+        height: '60px',
+        backgroundColor: '#FFFFFF',
+        borderBottom: `1px solid ${T.line}`,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 2rem',
+        padding: '0 32px',
         position: 'sticky',
         top: 0,
         zIndex: 50,
         flexShrink: 0,
-        gap: '0.75rem',
+        gap: '16px',
     },
     hamburgerBtn: {
         background: 'none',
@@ -252,17 +265,32 @@ const styles = {
         justifyContent: 'center',
         flexShrink: 0,
     },
+    pageTitle: {
+        flex: 1,
+        minWidth: 0,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+    },
     topBarRight: {
-        // Right-aligned even when the menu button is hidden (desktop)
-        marginLeft: 'auto',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
+        gap: '8px',
         flexShrink: 0,
     },
+    bell: { width: '44px', height: '44px', padding: 0, border: 'none', borderRadius: '6px', background: 'transparent' },
+    accountTrigger: { border: 'none', borderRadius: '6px', background: 'transparent', height: '44px', padding: '0 4px', gap: '8px', color: T.ink },
+    accountName: { fontSize: '14px', fontWeight: 600, color: T.ink },
     main: {
         flex: 1,
-        padding: '1.75rem 2rem 2.5rem',
-        overflowY: 'auto',
+        // The bottom keeps clear of the floating "Chat with us" button (48px tall,
+        // 24px from the bottom), so the last thing on a page can scroll above it
+        padding: '28px 32px 96px',
+    },
+    mainInner: {
+        width: '100%',
+        maxWidth: '1320px',
+        margin: '0 auto',
     },
 };

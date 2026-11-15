@@ -7,7 +7,8 @@ import { LogOutIcon } from './Icons';
 //   onProfile     () → go to My Profile
 //   onLogout      () → ask "Log out?" (the layout shows the confirmation)
 //   avatarColors  { bg, text } for the initials circle
-export default function AccountMenu({ user, onProfile, onLogout, avatarColors }) {
+//   triggerStyle, nameStyle  optional extra look for the button (the admin top bar's is borderless)
+export default function AccountMenu({ user, onProfile, onLogout, avatarColors, triggerStyle, nameStyle }) {
     const [open, setOpen] = useState(false);
     const wrapRef = useRef(null);
 
@@ -46,10 +47,10 @@ export default function AccountMenu({ user, onProfile, onLogout, avatarColors })
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-label={`Account menu for ${user?.name || 'you'}`}
-                style={styles.trigger}
+                style={{ ...styles.trigger, ...triggerStyle }}
             >
                 <span style={{ ...styles.avatar, backgroundColor: avatarColors.bg, color: avatarColors.text }}>{initials}</span>
-                <span className="m-hide" style={styles.triggerName}>{firstName}</span>
+                <span className="m-hide" style={{ ...styles.triggerName, ...nameStyle }}>{firstName}</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
                     style={{ transition: 'transform 150ms ease', transform: open ? 'rotate(180deg)' : 'none' }}>
                     <path d="m6 9 6 6 6-6" />

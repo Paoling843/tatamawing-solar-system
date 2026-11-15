@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
-import { adminText, adminUi } from '../styles/adminTheme';
-import { smallGreenButton } from '../styles/theme';
+import { adminTokens, adminUi } from '../styles/adminTheme';
 import MessengerLinkCard from '../components/MessengerLinkCard';
-import Badge from '../components/Badge';
+import Badge from '../components/StatusPill';
 import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
@@ -18,26 +17,24 @@ import { formatPhone } from '../utils/phone';
 // "Admin inbox redesign/Admin Inbox.dc.html".
 
 const T = {
-    green: '#1f4d3a',
-    greenDark: '#163a2b',
-    greenPale: '#a9bab0',
-    selected: '#eef3ef',
-    ink: '#1b2420',
-    body: '#4a524e',
-    muted: '#5c6560',
-    faint: '#646b67',
-    border: '#e6e6e0',
-    line: '#efefea',
-    soft: '#f5f5f2',
-    threadBg: '#fafaf8',
+    green: adminTokens.green,
+    greenPale: '#A9BAB0',
+    selected: adminTokens.greenTint,
+    ink: adminTokens.ink,
+    body: adminTokens.body,
+    muted: adminTokens.muted,
+    faint: adminTokens.subtle,
+    border: adminTokens.line,
+    line: adminTokens.line,
+    rowLine: adminTokens.rowLine,
+    control: adminTokens.control,
+    threadBg: adminTokens.headBg,
 };
 
 const AVATAR_COLORS = [
-    ['#e3ecfb', '#2f5fb8'],
-    ['#f6e8dc', '#9a5426'],
-    ['#e4efe7', '#1f4d3a'],
-    ['#f3e3f1', '#8a3f7f'],
-    ['#fdf1d6', '#8a6210'],
+    ['#FBEBC4', '#6B4500'],
+    ['#E3F1E8', '#0F3D2E'],
+    ['#E6EFF9', '#1F4E80'],
 ];
 
 // Linked-request label → the shared status colour it uses
@@ -52,7 +49,8 @@ const STATUS = {
 const FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'unread', label: 'Unread' },
-    { key: 'new', label: 'New leads' },
+    // The customer sent the last message and no admin has answered yet
+    { key: 'reply', label: 'Needs reply' },
 ];
 
 const DELAYS = [5, 10, 15, 30];
@@ -88,9 +86,9 @@ const formatDayLabel = (date) => {
     const now = new Date();
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
-    if (isSameDay(d, now)) return 'TODAY';
-    if (isSameDay(d, yesterday)) return 'YESTERDAY';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+    if (isSameDay(d, now)) return 'Today';
+    if (isSameDay(d, yesterday)) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 };
 
 // What the inbox shows about a conversation's customer and linked request
@@ -272,6 +270,9 @@ export default function AdminInboxPage() {
 
     // ----- derived -----
     const unreadConversations = conversations.filter((c) => c.unread_count > 0).length;
+    // The automatic Messenger card doesn't count as an answer
+    const needsReply = (c) => Boolean(c.latest_time) && (!c.latest_from_admin || c.latest_is_auto);
+    const needsReplyCount = conversations.filter(needsReply).length;
     const summary = loadingConversations
         ? 'Loading conversations…'
         : unreadConversations
@@ -281,7 +282,7 @@ export default function AdminInboxPage() {
     const q = query.trim().toLowerCase();
     const visible = conversations.filter((c) => {
         if (filter === 'unread' && !c.unread_count) return false;
-        if (filter === 'new' && c.linked_request?.status !== 'pending') return false;
+        if (filter === 'reply' && !needsReply(c)) return false;
         if (!q) return true;
         const info = describe(c);
         return `${c.user.name} ${info.reference || ''} ${info.location}`.toLowerCase().includes(q);
@@ -317,32 +318,50 @@ export default function AdminInboxPage() {
 
     return (
         <AdminLayout active="Messages">
-            <header style={styles.header}>
+            {/* Slim banner: the inbox needs the height */}
+            <section aria-label="Page summary" style={styles.header}>
                 <h1 style={styles.title}>Messages</h1>
-                <span style={styles.summary}>{summary}</span>
-            </header>
+                <span style={styles.summary}>
+                    {!loadingConversations && unreadConversations > 0 ? (
+                        <><strong style={{ color: adminTokens.gold }}>{unreadConversations} unread</strong> · {conversations.length} conversation{conversations.length === 1 ? '' : 's'}</>
+                    ) : summary}
+                </span>
+            </section>
 
             {/* On phones the card shows the conversation list or the open thread, not both */}
             <section className={`inbox-card${current ? ' inbox-has-thread' : ''}`} style={{ ...styles.card, gridTemplateColumns: columns }}>
                 {/* ---------- Conversations ---------- */}
                 <div className="inbox-list" style={styles.listCol}>
                     <div style={styles.listTop}>
-                        <div style={styles.search}>
+                        <label style={styles.search}>
                             <SearchGlyph />
+                            <span style={adminUi.srOnly}>Search conversations</span>
                             <input
+                                type="search"
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder="Search conversations"
-                                aria-label="Search conversations"
                                 style={styles.searchInput}
                             />
+                        </label>
+                        <div role="group" aria-label="Show" style={styles.tabs}>
+                            {FILTERS.map((f) => {
+                                const on = filter === f.key;
+                                const count = { unread: unreadConversations, reply: needsReplyCount }[f.key] ?? 0;
+                                return (
+                                    <button
+                                        key={f.key}
+                                        type="button"
+                                        aria-pressed={on}
+                                        onClick={() => setFilter(f.key)}
+                                        style={{ ...styles.tab, ...(on ? styles.tabOn : {}) }}
+                                    >
+                                        {f.label}
+                                        {count > 0 && <span style={styles.tabCount}>{count}</span>}
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <Segmented
-                            options={FILTERS.map((f) => ({ value: f.key, label: f.label }))}
-                            value={filter}
-                            onChange={setFilter}
-                            padding="6px 0"
-                        />
                     </div>
 
                     <div style={styles.list}>
@@ -350,7 +369,11 @@ export default function AdminInboxPage() {
                             <div style={styles.listEmpty}>Loading…</div>
                         ) : visible.length === 0 ? (
                             <div style={styles.listEmpty}>
-                                {conversations.length === 0 ? 'No conversations yet.' : 'No conversations match.'}
+                                {conversations.length === 0
+                                    ? 'No conversations yet.'
+                                    : filter === 'reply' && !q
+                                        ? 'Every customer has had a reply.'
+                                        : 'No conversations match.'}
                             </div>
                         ) : (
                             visible.map((c) => {
@@ -365,17 +388,17 @@ export default function AdminInboxPage() {
                                         key={c.user.id}
                                         type="button"
                                         onClick={() => selectConversation(c)}
-                                        style={{ ...styles.row, background: on ? T.selected : 'transparent' }}
+                                        style={{ ...styles.row, ...(on ? styles.rowOn : {}) }}
                                     >
                                         <Avatar id={c.user.id} name={c.user.name} />
                                         <div style={styles.rowText}>
                                             <div style={styles.rowLine}>
-                                                <span style={{ ...styles.rowName, fontWeight: unread ? 700 : 500 }}>{c.user.name}</span>
-                                                <span style={styles.rowTime}>{c.latest_time ? formatListTime(c.latest_time) : ''}</span>
+                                                <span style={{ ...styles.rowName, fontWeight: unread ? 700 : 600 }}>{c.user.name}</span>
+                                                <span style={{ ...styles.rowTime, color: unread ? T.green : T.faint }}>{c.latest_time ? formatListTime(c.latest_time) : ''}</span>
                                             </div>
                                             <div style={styles.rowLine}>
                                                 <span style={{ ...styles.rowPreview, color: unread ? T.ink : T.muted }}>{preview}</span>
-                                                {unread && <span style={styles.unreadPill}>{c.unread_count}</span>}
+                                                {unread && <span style={styles.unreadPill} aria-label={`${c.unread_count} unread`}>{c.unread_count}</span>}
                                             </div>
                                             <span style={styles.rowRef}>{d.reference || 'No quotation yet'}</span>
                                         </div>
@@ -409,7 +432,7 @@ export default function AdminInboxPage() {
                                     </span>
                                 </div>
                                 <button type="button" onClick={() => setShowDetails((v) => !v)} className="m-tap" style={styles.detailsBtn}>
-                                    {showDetails ? 'Hide details' : 'Details'}
+                                    {showDetails ? 'Hide details' : 'Show details'}
                                 </button>
                             </div>
 
@@ -419,7 +442,7 @@ export default function AdminInboxPage() {
                                 ) : (
                                     days.map((day) => (
                                         <div key={day.key} style={styles.day}>
-                                            <div style={styles.dayLabel}>{day.label}</div>
+                                            <div style={styles.dayLabel}><span style={styles.dayLine} />{day.label}<span style={styles.dayLine} /></div>
                                             {day.messages.map((m) => {
                                                 // Every admin shares this inbox: anything the team sent sits
                                                 // on the right, with the name when another admin sent it
@@ -459,7 +482,10 @@ export default function AdminInboxPage() {
                                                         )}
                                                         <div style={mine ? styles.bubbleMine : styles.bubbleTheirs}>{m.message}</div>
                                                         <span style={styles.bubbleTime}>
-                                                            {byOtherAdmin && m.sender?.name ? `${m.sender.name} · ` : ''}{formatClock(m.created_at)}
+                                                            {mine
+                                                                ? (byOtherAdmin && m.sender?.name ? m.sender.name : 'You')
+                                                                : (current.user.name || '').split(' ')[0]}
+                                                            {' · '}{formatClock(m.created_at)}
                                                         </span>
                                                     </div>
                                                 );
@@ -471,6 +497,7 @@ export default function AdminInboxPage() {
 
                             <form onSubmit={sendDraft} style={styles.composer}>
                                 <div style={styles.chips}>
+                                    <span style={styles.chipsLabel}>Quick replies</span>
                                     {quickReplies.map((r) => (
                                         <button key={r.label} type="button" onClick={() => setDraft(r.text)} style={styles.chip}>
                                             {r.label}
@@ -521,7 +548,7 @@ export default function AdminInboxPage() {
                 {showDetails && current && (
                     <aside className="inbox-details" style={styles.detailsCol}>
                         <div style={styles.section}>
-                            <span style={styles.sectionLabel}>CUSTOMER</span>
+                            <h2 style={styles.sectionLabel}>Customer</h2>
                             <div style={styles.facts}>
                                 <span style={styles.factKey}>Email</span>
                                 <span style={styles.factValue} title={info.email}>{info.email}</span>
@@ -533,20 +560,20 @@ export default function AdminInboxPage() {
                         </div>
 
                         <div style={styles.section}>
-                            <span style={styles.sectionLabel}>LINKED REQUEST</span>
+                            <h2 style={styles.sectionLabel}>Linked request</h2>
                             {current.linked_request ? (
                                 <div style={styles.requestCard}>
                                     <div style={styles.requestTop}>
-                                        <span style={{ fontSize: '13px', fontWeight: 600 }}>{info.reference}</span>
+                                        <span style={{ fontWeight: 700 }}>{info.reference}</span>
                                         <Badge status={STATUS[info.status]} label={info.status} />
                                     </div>
                                     {info.system && <span style={{ fontSize: '13px', color: T.body }}>{info.system}</span>}
                                     <Link
                                         to={`/admin/quotation-requests/${current.linked_request.id}`}
                                         className="btn-primary"
-                                        style={{ ...smallGreenButton, alignSelf: 'flex-start' }}
+                                        style={styles.openQuoteBtn}
                                     >
-                                        Open quotation →
+                                        Open quotation
                                     </Link>
                                 </div>
                             ) : (
@@ -556,7 +583,7 @@ export default function AdminInboxPage() {
 
                         <div style={styles.section}>
                             <div style={styles.fallbackTop}>
-                                <span style={styles.sectionLabel}>SLOW-RESPONSE FALLBACK</span>
+                                <h2 style={styles.sectionLabel}>Slow-reply fallback</h2>
                                 <Toggle
                                     on={Boolean(settings?.fallback_enabled)}
                                     disabled={!settings || savingSettings}
@@ -572,13 +599,13 @@ export default function AdminInboxPage() {
                             </span>
 
                             <div style={styles.settingBlock}>
-                                <span style={styles.settingLabel}>Send after no reply for</span>
+                                <span style={styles.settingLabel}>Wait before offering</span>
                                 <Segmented
                                     options={DELAYS.map((n) => ({ value: n, label: `${n}m` }))}
                                     value={settings?.fallback_delay_minutes}
                                     onChange={(n) => saveSettings({ fallback_delay_minutes: n })}
                                     disabled={!settings || savingSettings}
-                                    padding="5px 0"
+                                    padding="0"
                                 />
                             </div>
                             <div style={styles.settingBlock}>
@@ -610,8 +637,8 @@ function Avatar({ id, name }) {
 
 function Segmented({ options, value, onChange, disabled, padding }) {
     return (
-        <div style={styles.segmented}>
-            {options.map((o) => {
+        <div style={{ ...styles.segmented, gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+            {options.map((o, i) => {
                 const on = o.value === value;
                 return (
                     <button
@@ -623,10 +650,11 @@ function Segmented({ options, value, onChange, disabled, padding }) {
                         style={{
                             ...styles.segment,
                             padding,
-                            background: on ? '#fff' : 'transparent',
-                            color: on ? T.ink : T.muted,
-                            boxShadow: on ? '0 1px 2px rgba(0,0,0,.08)' : 'none',
+                            background: on ? '#E3F1E8' : '#FFFFFF',
+                            color: on ? T.green : T.body,
+                            fontWeight: on ? 700 : 500,
                             cursor: disabled ? 'default' : 'pointer',
+                            ...(i ? { borderLeft: `1px solid ${T.control}` } : {}),
                         }}
                     >
                         {o.label}
@@ -648,7 +676,7 @@ function Toggle({ on, onChange, disabled }) {
             disabled={disabled}
             style={{
                 ...styles.toggle,
-                background: on ? T.green : '#d4d6d1',
+                background: on ? T.green : '#C9C9C3',
                 justifyContent: on ? 'flex-end' : 'flex-start',
                 opacity: disabled ? 0.6 : 1,
             }}
@@ -660,7 +688,7 @@ function Toggle({ on, onChange, disabled }) {
 
 function SearchGlyph() {
     return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a918d" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
         </svg>
@@ -676,122 +704,148 @@ function SendGlyph() {
 }
 
 const styles = {
-    header: { ...adminUi.hero, display: 'flex', flexDirection: 'column', gap: '6px' },
-    title: adminText.pageTitle,
-    summary: { fontSize: '13px', color: '#d3e2d9' },
+    header: {
+        ...adminUi.hero,
+        padding: '16px 24px',
+        marginBottom: '16px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'baseline',
+        gap: '6px 14px',
+    },
+    title: { margin: 0, fontSize: '24px', fontWeight: 700, letterSpacing: '-0.01em', color: '#FFFFFF' },
+    summary: { fontSize: '14px', color: adminTokens.stripText },
 
     card: {
         display: 'grid',
-        height: 'calc(100vh - 300px)',
-        minHeight: '520px',
-        background: '#fff',
+        height: 'calc(100vh - 220px)',
+        minHeight: '560px',
+        background: '#FFFFFF',
         border: `1px solid ${T.border}`,
-        borderRadius: '16px',
+        borderRadius: adminTokens.radius,
         overflow: 'hidden',
         color: T.ink,
     },
 
     // conversations
     listCol: { display: 'flex', flexDirection: 'column', borderRight: `1px solid ${T.line}`, minHeight: 0, minWidth: 0 },
-    listTop: { padding: '14px 14px 10px', display: 'flex', flexDirection: 'column', gap: '10px' },
-    search: {
-        display: 'flex', alignItems: 'center', gap: '8px', background: T.soft,
-        borderRadius: '10px', padding: '0 12px', height: '36px',
+    listTop: { padding: '14px 14px 10px', display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: `1px solid ${T.line}` },
+    search: { ...adminUi.searchBox },
+    searchInput: adminUi.searchInput,
+    tabs: { display: 'flex', flexWrap: 'wrap', gap: '4px' },
+    tab: {
+        flex: '1 1 auto', height: '32px', padding: '0 10px', whiteSpace: 'nowrap', borderRadius: adminTokens.radius, fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit',
+        background: '#FFFFFF', color: T.body, border: `1px solid ${T.control}`,
     },
-    searchInput: { border: 0, outline: 0, background: 'transparent', fontSize: '13px', flex: 1, minWidth: 0, fontFamily: 'inherit', color: T.ink },
-    list: { flex: 1, overflow: 'auto', padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: '2px' },
-    listEmpty: { padding: '32px 12px', textAlign: 'center', fontSize: '13px', color: T.faint },
+    tabOn: { background: T.green, color: '#FFFFFF', border: `1px solid ${T.green}` },
+    tabCount: {
+        marginLeft: '6px', fontSize: '11px', fontWeight: 700, color: adminTokens.onGold,
+        background: adminTokens.gold, borderRadius: '8px', padding: '0 6px',
+    },
+    list: { flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' },
+    listEmpty: { padding: '32px 12px', textAlign: 'center', fontSize: '14px', color: T.muted },
     row: {
-        display: 'flex', gap: '11px', alignItems: 'flex-start', textAlign: 'left', border: 0,
-        borderRadius: '10px', padding: '11px 10px', cursor: 'pointer', width: '100%', fontFamily: 'inherit',
+        display: 'flex', gap: '10px', alignItems: 'flex-start', textAlign: 'left', border: 0,
+        borderBottom: `1px solid ${T.rowLine}`, padding: '12px 14px', cursor: 'pointer', width: '100%',
+        fontFamily: 'inherit', fontSize: '14px', color: T.ink, background: '#FFFFFF',
     },
-    rowText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' },
+    rowOn: { background: T.selected, boxShadow: `inset 3px 0 0 ${T.green}` },
+    rowText: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' },
     rowLine: { display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' },
-    rowName: { fontSize: '14px', color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    rowTime: { fontSize: '11px', color: T.faint, flex: 'none' },
-    rowPreview: { fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    rowRef: { fontSize: '11px', color: T.muted, marginTop: '3px' },
+    rowName: { color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    rowTime: { fontSize: '12px', flex: 'none', whiteSpace: 'nowrap' },
+    rowPreview: { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    rowRef: { fontSize: '12px', color: T.faint },
     unreadPill: {
-        flex: 'none', minWidth: '18px', height: '18px', borderRadius: '999px', background: T.green, color: '#fff',
-        fontSize: '11px', fontWeight: 700, display: 'grid', placeItems: 'center', padding: '0 5px', boxSizing: 'border-box',
+        flex: 'none', fontSize: '11px', fontWeight: 700, color: '#FFFFFF', background: T.green,
+        borderRadius: '9px', padding: '0 6px', lineHeight: '18px',
     },
     avatar: {
-        width: '38px', height: '38px', flex: 'none', borderRadius: '50%',
-        display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: 600,
+        width: '36px', height: '36px', flex: 'none', borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700,
     },
 
     // thread
     threadCol: { display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 },
-    threadHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: `1px solid ${T.line}` },
+    threadHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderBottom: `1px solid ${T.line}` },
     threadWho: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
-    threadName: { fontSize: '15px', fontWeight: 600 },
-    threadSub: { fontSize: '12px', color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    threadName: { fontSize: '16px', fontWeight: 700 },
+    threadSub: { fontSize: '13px', color: T.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     backBtn: {
-        border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', fontSize: '16px',
+        border: `1px solid ${T.control}`, background: '#FFFFFF', borderRadius: adminTokens.radius, fontSize: '16px',
         color: T.body, cursor: 'pointer', fontFamily: 'inherit', flex: 'none', alignItems: 'center', justifyContent: 'center',
     },
     detailsBtn: {
-        border: `1px solid ${T.border}`, background: '#fff', borderRadius: '9px', height: '34px', padding: '0 12px',
-        fontSize: '13px', fontWeight: 500, color: T.body, cursor: 'pointer', fontFamily: 'inherit', flex: 'none',
+        border: `1px solid ${T.control}`, background: '#FFFFFF', borderRadius: adminTokens.radius, height: '34px', padding: '0 12px',
+        fontSize: '13px', fontWeight: 600, color: T.ink, cursor: 'pointer', fontFamily: 'inherit', flex: 'none',
     },
     thread: {
-        flex: 1, overflow: 'auto', padding: '20px clamp(12px, 4vw, 24px)', display: 'flex', flexDirection: 'column',
-        gap: '6px', background: T.threadBg,
+        flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column',
+        gap: '14px', background: T.threadBg,
     },
-    threadEmpty: { margin: 'auto', fontSize: '13px', color: T.faint },
-    day: { display: 'flex', flexDirection: 'column', gap: '6px' },
-    dayLabel: { alignSelf: 'center', fontSize: '11px', fontWeight: 600, color: T.faint, letterSpacing: '.04em', padding: '4px 0 10px' },
-    bubbleWrap: { maxWidth: 'min(70%, 520px)', display: 'flex', flexDirection: 'column', gap: '3px' },
+    threadEmpty: { margin: 'auto', fontSize: '14px', color: T.muted },
+    day: { display: 'flex', flexDirection: 'column', gap: '14px' },
+    dayLabel: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', fontWeight: 600, color: T.faint },
+    dayLine: { flex: 1, borderTop: `1px solid ${T.line}` },
+    bubbleWrap: { maxWidth: '70%', display: 'flex', flexDirection: 'column', gap: '4px' },
     bubbleMine: {
-        background: T.green, color: '#fff', padding: '9px 13px', borderRadius: '14px 14px 4px 14px',
-        fontSize: '14px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        background: T.green, color: '#FFFFFF', padding: '10px 14px', borderRadius: '8px 8px 2px 8px',
+        fontSize: '14px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left',
     },
     bubbleTheirs: {
-        background: '#fff', border: '1px solid #ebebe6', padding: '9px 13px', borderRadius: '14px 14px 14px 4px',
+        background: '#FFFFFF', border: `1px solid ${T.line}`, padding: '10px 14px', borderRadius: '8px 8px 8px 2px',
         fontSize: '14px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
     },
-    bubbleTime: { fontSize: '11px', color: T.faint },
+    bubbleTime: { fontSize: '12px', color: T.faint },
     aboutLink: { fontSize: '12px', fontWeight: 600, color: T.green, textDecoration: 'none', padding: '2px 0' },
-    noSelection: { margin: 'auto', fontSize: '14px', color: T.faint, padding: '24px', textAlign: 'center' },
+    noSelection: { margin: 'auto', fontSize: '14px', color: T.muted, padding: '24px', textAlign: 'center' },
 
     // composer
-    composer: { padding: '12px 16px 16px', borderTop: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: '10px' },
-    chips: { display: 'flex', gap: '6px', flexWrap: 'wrap' },
+    composer: { padding: '12px 20px 16px', borderTop: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', gap: '10px' },
+    chips: { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' },
+    chipsLabel: { fontSize: '12px', fontWeight: 600, color: T.muted, marginRight: '2px' },
     chip: {
-        border: '1px solid #e1e6e2', background: '#f4f7f5', color: T.green, borderRadius: '999px',
-        padding: '8px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+        height: '30px', padding: '0 10px', border: `1px solid ${T.control}`, background: '#FFFFFF', color: T.ink,
+        borderRadius: adminTokens.radius, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
     },
-    inputRow: {
-        display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e1e1db',
-        borderRadius: '12px', padding: '6px 6px 6px 14px', background: '#fff',
+    inputRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+    input: {
+        flex: 1, minWidth: 0, height: '44px', padding: '0 12px', border: `1px solid ${T.control}`,
+        borderRadius: adminTokens.radius, outline: 0, fontSize: '14px', background: '#FFFFFF', fontFamily: 'inherit',
+        color: T.ink, boxSizing: 'border-box',
     },
-    input: { border: 0, outline: 0, flex: 1, minWidth: 0, fontSize: '14px', height: '32px', background: 'transparent', fontFamily: 'inherit', color: T.ink },
     sendBtn: {
-        height: '34px', padding: '0 14px', border: 0, borderRadius: '9px', color: '#fff', fontSize: '13px',
+        height: '44px', padding: '0 16px', border: 0, borderRadius: adminTokens.radius, color: '#FFFFFF', fontSize: '14px',
         fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'inherit', flex: 'none',
     },
-    error: { fontSize: '12px', color: '#b4483a' },
+    error: { fontSize: '13px', color: '#A3261B' },
 
     // details
-    detailsCol: { borderLeft: `1px solid ${T.line}`, padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflow: 'auto', minWidth: 0 },
-    section: { display: 'flex', flexDirection: 'column', gap: '12px' },
-    sectionLabel: { fontSize: '11px', letterSpacing: '.08em', color: T.faint, fontWeight: 600 },
-    facts: { display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: '8px 14px', fontSize: '13px' },
+    detailsCol: { borderLeft: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 },
+    section: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 20px', borderBottom: `1px solid ${T.line}` },
+    sectionLabel: { margin: 0, fontSize: '12px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted },
+    facts: { display: 'grid', gridTemplateColumns: '68px minmax(0, 1fr)', gap: '6px 10px', fontSize: '14px' },
     factKey: { color: T.muted },
-    factValue: { textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    requestCard: { border: '1px solid #ebebe6', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' },
+    factValue: { overflowWrap: 'anywhere' },
+    requestCard: { display: 'flex', flexDirection: 'column', gap: '2px' },
     requestTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' },
-    note: { fontSize: '12px', lineHeight: 1.5, color: T.muted, textWrap: 'pretty' },
-    fallbackTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' },
+    openQuoteBtn: {
+        display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', height: '34px', padding: '0 12px',
+        marginTop: '10px', borderRadius: adminTokens.radius, background: T.green, color: '#FFFFFF',
+        fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+    },
+    note: { fontSize: '13px', lineHeight: 1.45, color: T.muted, textWrap: 'pretty' },
+    fallbackTop: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' },
     settingBlock: { display: 'flex', flexDirection: 'column', gap: '6px' },
-    settingLabel: { fontSize: '12px', color: T.body, fontWeight: 500 },
+    settingLabel: { fontSize: '13px', color: T.ink, fontWeight: 600 },
     urlInput: {
-        border: '1px solid #e1e1db', borderRadius: '9px', height: '34px', padding: '0 10px', fontSize: '13px',
+        border: `1px solid ${T.control}`, borderRadius: adminTokens.radius, height: '36px', padding: '0 10px', fontSize: '14px',
         outline: 0, minWidth: 0, fontFamily: 'inherit', color: T.ink,
     },
-    toggle: { width: '36px', height: '20px', border: 0, borderRadius: '999px', padding: '2px', cursor: 'pointer', display: 'flex', flex: 'none' },
-    toggleKnob: { width: '16px', height: '16px', borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.2)' },
+    toggle: { width: '44px', height: '24px', border: 0, borderRadius: '12px', padding: '3px', cursor: 'pointer', display: 'flex', flex: 'none' },
+    toggleKnob: { width: '18px', height: '18px', borderRadius: '50%', background: '#FFFFFF' },
 
-    segmented: { display: 'flex', gap: '4px', background: T.soft, borderRadius: '9px', padding: '3px' },
-    segment: { flex: 1, border: 0, borderRadius: '7px', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit' },
+    segmented: { display: 'grid', border: `1px solid ${T.control}`, borderRadius: adminTokens.radius, overflow: 'hidden' },
+    segment: { height: '34px', border: 0, fontSize: '13px', fontFamily: 'inherit' },
 };

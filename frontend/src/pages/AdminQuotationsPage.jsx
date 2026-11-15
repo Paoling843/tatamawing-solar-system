@@ -2,16 +2,19 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AdminLayout from '../components/AdminLayout';
-import { adminTokens, adminText, adminUi } from '../styles/adminTheme';
+import AdminHero, { FilterTiles } from '../components/AdminHero';
+import { adminTokens, adminUi, adminStatus } from '../styles/adminTheme';
 import { whiteButton } from '../styles/theme';
 import LoadingState from '../components/LoadingState';
-import Badge from '../components/Badge';
+import Badge from '../components/StatusPill';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Pagination from '../components/Pagination';
+import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { formatQuotationRef } from '../utils/references';
 import { formatPeso, quotationPrice, priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
-import { XIcon } from '../components/Icons';
+import { ChevronDownIcon, XIcon } from '../components/Icons';
 
 const APPLIANCE_COLUMNS = 'minmax(0,1.6fr) minmax(36px,0.5fr) minmax(48px,0.7fr) minmax(56px,0.95fr)';
 
@@ -51,21 +54,30 @@ const ageLabelFor = (q) => {
 
 const dailyWh = (item) => (Number(item.wattage) || 0) * (Number(item.quantity) || 0) * (Number(item.usage_hours_per_day) || 0);
 
-function FigureCell({ label, value, mono, color, danger }) {
+function FigureCell({ label, value, color, danger, first }) {
     return (
-        <div style={styles.figureCell}>
-            <div style={styles.figureLabel}>{label}</div>
-            <div style={{
+        <div style={{ ...styles.figureCell, ...(first ? {} : styles.figureCellDivider) }}>
+            <dt style={styles.figureLabel}>{label}</dt>
+            <dd style={{
                 ...styles.figureValue,
-                ...(mono ? styles.figureValueMono : {}),
                 ...(color ? { color } : {}),
-                ...(danger ? { color: adminTokens.danger } : {}),
+                ...(danger ? { color: '#6B4500' } : {}),
             }}>
                 {value}
-            </div>
+            </dd>
         </div>
     );
 }
+
+const FILTERS = [
+    { key: 'all', label: 'All', dot: '#FFFFFF' },
+    ...['pending', 'approved', 'rejected', 'cancelled'].map((key) => ({ key, label: adminStatus[key].label, dot: adminStatus[key].darkDot })),
+];
+const SORTS = [
+    { key: 'newest', label: 'Newest' },
+    { key: 'oldest', label: 'Oldest' },
+    { key: 'capacity', label: 'Capacity' },
+];
 
 export default function AdminQuotationsPage() {
     const navigate = useNavigate();
@@ -197,19 +209,25 @@ export default function AdminQuotationsPage() {
         .filter((q) => statusFilter === 'all' || q.status === statusFilter)
         .sort(sortFn);
 
+    // 10 rows fill the list without scrolling; a new filter or sort starts at page 1
+    const pager = usePagination(filteredSorted, 10, `${statusFilter}|${sortKey}`);
+    const listScrollRef = useRef(null);
+    const changePage = (page) => {
+        pager.setPage(page);
+        if (listScrollRef.current) listScrollRef.current.scrollTop = 0;
+    };
+
     const selected = selectedId
         ? (filteredSorted.find((q) => q.id === selectedId) || filteredSorted[0] || null)
         : null;
 
+    // The ↑ ↓ buttons walk the whole filtered list, turning the page when needed
     const stepSelection = (delta) => {
         if (!filteredSorted.length) return;
-        if (!selected) {
-            setSelectedId(filteredSorted[0].id);
-            return;
-        }
-        const idx = filteredSorted.findIndex((q) => q.id === selected.id);
-        const nextIndex = (idx + delta + filteredSorted.length) % filteredSorted.length;
+        const idx = selected ? filteredSorted.findIndex((q) => q.id === selected.id) : -1;
+        const nextIndex = idx === -1 ? 0 : (idx + delta + filteredSorted.length) % filteredSorted.length;
         setSelectedId(filteredSorted[nextIndex].id);
+        pager.setPage(pager.pageOf(nextIndex));
     };
 
     const totalDailyWh = selected
@@ -221,55 +239,34 @@ export default function AdminQuotationsPage() {
 
     return (
         <AdminLayout active="Quotations">
-            <div style={styles.headerRow}>
-                <div>
-                    <h1 style={styles.pageTitle}>Quotation Requests</h1>
-                    <p style={styles.pageSubtitle}>Review and manage customer quotation requests</p>
-                </div>
-
-                <div style={styles.headerControls}>
-                    <div className="m-wrap" style={styles.segmented}>
-                        {['all', 'pending', 'approved', 'rejected', 'cancelled'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setStatusFilter(tab)}
-                                style={{
-                                    ...styles.segmentBtn,
-                                    ...(statusFilter === tab ? styles.segmentBtnActive : {}),
-                                }}
-                            >
-                                <span>{tab === 'all' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
-                                <span style={{
-                                    ...styles.segmentCount,
-                                    ...(statusFilter === tab ? styles.segmentCountActive : {}),
-                                }}>
-                                    {filterCounts[tab]}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div style={styles.sortBox}>
-                        <span style={styles.sortLabel}>SORT</span>
-                        {[
-                            { key: 'newest', label: 'Newest' },
-                            { key: 'oldest', label: 'Oldest' },
-                            { key: 'capacity', label: 'Capacity' },
-                        ].map((opt) => (
+            <AdminHero
+                eyebrow={`${filterCounts.pending} waiting for review`}
+                title="Quotation requests"
+                subtitle="Review and approve customer requests"
+                actions={
+                    <div role="group" aria-label="Sort by" style={styles.sortBox}>
+                        <span style={styles.sortLabel}>Sort</span>
+                        {SORTS.map((opt) => (
                             <button
                                 key={opt.key}
+                                type="button"
+                                aria-pressed={sortKey === opt.key}
                                 onClick={() => setSortKey(opt.key)}
-                                style={{
-                                    ...styles.sortBtn,
-                                    ...(sortKey === opt.key ? styles.sortBtnActive : {}),
-                                }}
+                                style={{ ...styles.sortBtn, ...(sortKey === opt.key ? styles.sortBtnActive : {}) }}
                             >
                                 {opt.label}
                             </button>
                         ))}
                     </div>
-                </div>
-            </div>
+                }
+            >
+                <FilterTiles
+                    label="Filter by status"
+                    options={FILTERS.map((f) => ({ ...f, count: filterCounts[f.key] }))}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                />
+            </AdminHero>
 
             {error && <div style={styles.error}>{error}</div>}
             {actionError && <div style={styles.error}>{actionError}</div>}
@@ -282,7 +279,7 @@ export default function AdminQuotationsPage() {
                     <div style={styles.listPanel}>
                         <div style={styles.listHeader}>
                             <span style={styles.listCount}>
-                                {filteredSorted.length} OF {totalCount} REQUESTS
+                                {filteredSorted.length} request{filteredSorted.length === 1 ? '' : 's'}
                             </span>
                             {filteredSorted.length > 1 && (
                                 <div style={styles.stepButtons}>
@@ -292,7 +289,7 @@ export default function AdminQuotationsPage() {
                                         onClick={() => stepSelection(-1)}
                                         aria-label="Previous request"
                                     >
-                                        &#8593;
+                                        <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><ChevronDownIcon size={15} color="currentColor" /></span>
                                     </button>
                                     <button
                                         className="m-tap"
@@ -300,17 +297,17 @@ export default function AdminQuotationsPage() {
                                         onClick={() => stepSelection(1)}
                                         aria-label="Next request"
                                     >
-                                        &#8595;
+                                        <ChevronDownIcon size={15} color="currentColor" />
                                     </button>
                                 </div>
                             )}
                         </div>
 
-                        <div style={styles.listScroll}>
+                        <div ref={listScrollRef} style={styles.listScroll}>
                             {filteredSorted.length === 0 ? (
                                 <div style={styles.listEmpty}>No requests match this filter.</div>
                             ) : (
-                                filteredSorted.map((q) => {
+                                pager.pageItems.map((q) => {
                                     const isSelected = selected?.id === q.id;
                                     const staleAge = q.status === 'pending' && daysAgo(q.created_at) >= 3;
                                     return (
@@ -321,26 +318,24 @@ export default function AdminQuotationsPage() {
                                             style={{
                                                 ...styles.listRow,
                                                 ...(isSelected ? styles.listRowSelected : {}),
-                                                borderLeftColor: isSelected ? adminTokens.green : 'transparent',
                                             }}
                                         >
-                                            <div style={styles.listRowMain}>
-                                                <div style={styles.listRowTop}>
+                                            <span style={styles.listRowMain}>
+                                                <span style={styles.listRowTop}>
                                                     <span style={styles.listRowName}>
                                                         {q.customer?.user?.name || 'N/A'}
                                                     </span>
                                                     <Badge status={q.status} />
-                                                </div>
-                                                <div style={styles.listRowMeta}>
-                                                    <span style={styles.listRowCapacity}>{getCapacity(q)}</span>
-                                                    <span style={styles.listRowDivider} />
-                                                    <span style={styles.listRowLocation}>
-                                                        {q.installation_address || q.customer?.install_location || ''}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                                </span>
+                                                <span style={styles.listRowMeta}>
+                                                    <strong style={styles.listRowCapacity}>{getCapacity(q)}</strong>
+                                                    {' · '}
+                                                    {q.installation_address || q.customer?.install_location || ''}
+                                                </span>
+                                            </span>
                                             <span style={{
                                                 ...styles.listRowAge,
+                                                ...(q.status === 'pending' ? styles.listRowAgePending : {}),
                                                 ...(staleAge ? styles.listRowAgeDanger : {}),
                                             }}>
                                                 {ageLabelFor(q)}
@@ -350,68 +345,73 @@ export default function AdminQuotationsPage() {
                                 })
                             )}
                         </div>
+
+                        <Pagination
+                            {...pager}
+                            noun="requests"
+                            onChange={changePage}
+                            style={styles.listPager}
+                        />
                     </div>
 
-                    <div ref={detailRef} className="m-pad m-static" style={styles.detailPanel}>
+                    <div ref={detailRef} className="m-static" style={styles.detailPanel}>
                         {!selected ? (
                             <div style={styles.detailEmpty}>Select a request to review it.</div>
                         ) : (
                             <>
                                 <div style={styles.detailHeader}>
-                                    <div style={{ minWidth: 0 }}>
-                                        <div style={styles.detailRef}>
+                                    <div style={styles.detailRefRow}>
+                                        <span style={styles.detailRef}>
                                             {formatQuotationRef(selected.id, selected.created_at)}
-                                        </div>
-                                        <h2 style={styles.detailName}>
-                                            {selected.customer?.user?.name || 'N/A'}
-                                        </h2>
-                                        <p style={styles.detailMeta}>
-                                            {selected.installation_address || selected.customer?.install_location || 'N/A'} &middot; submitted {formatFullDate(selected.created_at)}
-                                        </p>
+                                        </span>
+                                        <Badge status={selected.status} />
                                     </div>
-                                    <Badge status={selected.status} />
+                                    <h2 style={styles.detailName}>
+                                        {selected.customer?.user?.name || 'N/A'}
+                                    </h2>
+                                    <p style={styles.detailMeta}>
+                                        {selected.installation_address || selected.customer?.install_location || 'N/A'} &middot; submitted {formatFullDate(selected.created_at)}
+                                    </p>
                                 </div>
 
-                                <div style={styles.figureGrid}>
-                                    <FigureCell label="SYSTEM" value={systemTypeLabel(selected.solar_system_type)} />
+                                <dl style={styles.figureGrid}>
+                                    <FigureCell first label="System" value={systemTypeLabel(selected.solar_system_type)} />
                                     <FigureCell
-                                        label="CAPACITY"
+                                        label="Capacity"
                                         value={getCapacity(selected)}
-                                        mono
-                                        color={adminTokens.green}
                                     />
                                     <FigureCell
-                                        label={priceLabel(selected).toUpperCase()}
+                                        label={priceLabel(selected)}
                                         value={formatPeso(quotationPrice(selected))}
-                                        mono
+                                        color={adminTokens.green}
                                     />
                                     {/* Only pending requests are waiting on an admin */}
                                     {selected.status === 'pending' ? (
                                         <FigureCell
-                                            label="WAITING"
+                                            label="Waiting"
                                             value={waitingLabel(selected)}
                                             danger={daysAgo(selected.created_at) >= 3}
                                         />
                                     ) : (
                                         <FigureCell
-                                            label="REQUESTED"
+                                            label="Submitted"
                                             value={daysAgoLabel(daysAgo(selected.created_at))}
                                         />
                                     )}
-                                </div>
+                                </dl>
 
                                 <div style={styles.applianceSection}>
-                                    <div style={styles.sectionLabel}>APPLIANCE LOAD</div>
+                                    <h3 style={styles.sectionLabel}>Appliance load</h3>
                                     <div style={styles.applianceTable}>
                                         <div style={{
                                             ...styles.applianceRow,
                                             ...styles.applianceHeaderRow,
                                             gridTemplateColumns: APPLIANCE_COLUMNS,
                                         }}>
-                                            <span>APPLIANCE</span>
-                                            <span style={styles.numCell}>QTY</span>
-                                            <span style={styles.numCell}>WATTS</span>
-                                            <span style={styles.numCell}>DAILY Wh</span>
+                                            <span>Appliance</span>
+                                            <span style={styles.numCell}>Qty</span>
+                                            <span style={styles.numCell}>Watts</span>
+                                            <span style={styles.numCell}>Wh per day</span>
                                         </div>
 
                                         {(selected.appliance_items || []).map((item) => (
@@ -424,7 +424,7 @@ export default function AdminQuotationsPage() {
                                                     {item.quantity}
                                                 </span>
                                                 <span style={{ ...styles.applianceFigure, ...styles.numCell }}>
-                                                    {item.wattage}W
+                                                    {Number(item.wattage).toLocaleString()} W
                                                 </span>
                                                 <span style={{ ...styles.applianceFigure, ...styles.numCell }}>
                                                     {dailyWh(item).toLocaleString()}
@@ -490,7 +490,9 @@ export default function AdminQuotationsPage() {
                                         </div>
                                     ) : (
                                         <span style={styles.decidedNote}>
-                                            {selected.status === 'approved' ? 'Installation already scheduled.' : 'Already rejected.'}
+                                            {selected.status === 'approved'
+                                                ? 'Installation already scheduled.'
+                                                : `This request was ${(adminStatus[selected.status]?.label || selected.status).toLowerCase()}.`}
                                         </span>
                                     )}
                                 </div>
@@ -563,152 +565,95 @@ export default function AdminQuotationsPage() {
 
 const styles = {
     modalError: { ...adminUi.errorBanner, margin: '0 1.5rem 1rem' },
-    headerRow: {
-        ...adminUi.hero,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '14px',
-    },
-    pageTitle: adminText.pageTitle,
-    pageSubtitle: adminText.pageSubtitle,
-    headerControls: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        flexWrap: 'wrap',
-    },
-    segmented: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '4px',
-        backgroundColor: '#eef2ec',
-        padding: '4px',
-        borderRadius: '12px',
-    },
-    segmentBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '6px 12px',
-        border: 'none',
-        borderRadius: '9px',
-        backgroundColor: 'transparent',
-        color: '#4a5a52',
-        fontSize: '12.5px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
-    },
-    segmentBtnActive: {
-        backgroundColor: adminTokens.green,
-        color: '#ffffff',
-    },
-    segmentCount: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '10.5px',
-        fontWeight: 600,
-        padding: '1px 6px',
-        borderRadius: '999px',
-        backgroundColor: '#e6e8e2',
-        color: adminTokens.muted,
-    },
-    segmentCountActive: {
-        backgroundColor: 'rgba(255,255,255,.2)',
-        color: '#ffffff',
-    },
+    // Sort control on the green banner
     sortBox: {
         display: 'flex',
         alignItems: 'center',
-        gap: '4px',
-        backgroundColor: '#fff',
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '10px',
-        padding: '5px 8px',
+        gap: '2px',
+        border: '1px solid rgba(255,255,255,0.22)',
+        borderRadius: adminTokens.radius,
+        padding: '3px',
     },
     sortLabel: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '9.5px',
-        fontWeight: 500,
+        fontSize: '12px',
+        fontWeight: 600,
+        letterSpacing: '0.06em',
         textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: adminTokens.faint,
-        padding: '0 6px 0 2px',
+        color: adminTokens.stripLabel,
+        padding: '0 8px',
     },
     sortBtn: {
-        padding: '5px 9px',
+        height: '32px',
+        padding: '0 12px',
         border: 'none',
-        borderRadius: '7px',
+        borderRadius: '4px',
         backgroundColor: 'transparent',
-        color: adminTokens.muted,
-        fontSize: '12.5px',
+        color: '#DDE7E2',
+        fontSize: '13px',
         fontWeight: 500,
         cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
+        fontFamily: 'inherit',
     },
     sortBtnActive: {
-        backgroundColor: adminTokens.greenTint,
+        backgroundColor: '#FFFFFF',
         color: adminTokens.green,
         fontWeight: 700,
     },
     error: adminUi.errorBanner,
 
     splitGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
-        gap: '14px',
-        alignItems: 'start',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '20px',
+        alignItems: 'flex-start',
     },
 
     listPanel: {
-        backgroundColor: adminTokens.surface,
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
-        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
+        ...adminUi.card,
+        flex: '1 1 380px',
+        minWidth: 0,
         overflow: 'hidden',
-        ...adminUi.cardAccent,
     },
-    // The list's top bar: same light green as the table headers
     listHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '13px 16px',
-        borderBottom: `1px solid ${adminTokens.hairline}`,
-        ...adminUi.tableHead,
-        borderRadius: 0,
+        gap: '12px',
+        padding: '12px 16px',
+        borderBottom: `1px solid ${adminTokens.line}`,
+        backgroundColor: adminTokens.headBg,
     },
     listCount: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '9.5px',
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: '#cfe0d6',
-    },
-    stepButtons: { display: 'flex', gap: '6px' },
-    stepBtn: {
-        width: '28px',
-        height: '28px',
-        borderRadius: '7px',
-        border: `1px solid ${adminTokens.border}`,
-        backgroundColor: '#fff',
+        fontSize: '13px',
+        fontWeight: 600,
         color: adminTokens.muted,
+    },
+    stepButtons: { display: 'flex', gap: '4px' },
+    stepBtn: {
+        width: '32px',
+        height: '32px',
+        borderRadius: adminTokens.radius,
+        border: `1px solid ${adminTokens.control}`,
+        backgroundColor: '#FFFFFF',
+        color: adminTokens.ink,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        fontSize: '12px',
+        padding: 0,
     },
     listScroll: {
-        maxHeight: '648px',
+        maxHeight: '640px',
         overflowY: 'auto',
+    },
+    listPager: {
+        padding: '10px 16px 12px',
+        borderTop: `1px solid ${adminTokens.line}`,
     },
     listEmpty: {
         padding: '32px 16px',
         textAlign: 'center',
-        fontSize: '13px',
+        fontSize: '14px',
         color: adminTokens.muted,
     },
     listRow: {
@@ -718,177 +663,144 @@ const styles = {
         width: '100%',
         padding: '12px 16px',
         border: 'none',
-        borderBottom: `1px solid ${adminTokens.hairline2}`,
-        borderLeft: '3px solid transparent',
-        backgroundColor: 'transparent',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
+        backgroundColor: '#FFFFFF',
         textAlign: 'left',
         cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
+        fontSize: '14px',
+        color: adminTokens.ink,
+        fontFamily: 'inherit',
     },
     listRowSelected: {
-        backgroundColor: '#f2f6f3',
+        backgroundColor: adminTokens.greenTint,
+        boxShadow: `inset 3px 0 0 ${adminTokens.green}`,
     },
-    listRowMain: { flex: 1, minWidth: 0 },
+    listRowMain: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' },
     listRowTop: {
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        marginBottom: '4px',
+        flexWrap: 'wrap',
     },
     listRowName: {
-        fontSize: '14px',
-        fontWeight: 600,
+        fontSize: '15px',
+        fontWeight: 700,
         color: adminTokens.ink,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
         minWidth: 0,
     },
     listRowMeta: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-    },
-    listRowCapacity: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '12px',
-        color: adminTokens.green,
-        flexShrink: 0,
-    },
-    listRowDivider: {
-        width: '1px',
-        height: '12px',
-        backgroundColor: adminTokens.border,
-        flexShrink: 0,
-    },
-    listRowLocation: {
-        fontSize: '12.5px',
-        color: adminTokens.faint,
+        color: adminTokens.muted,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        minWidth: 0,
+    },
+    listRowCapacity: {
+        color: adminTokens.ink,
+        fontWeight: 600,
     },
     listRowAge: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '12px',
-        color: adminTokens.muted,
+        fontSize: '13px',
+        color: adminTokens.subtle,
+        whiteSpace: 'nowrap',
         flexShrink: 0,
     },
-    listRowAgeDanger: {
-        color: adminTokens.danger,
-        fontWeight: 500,
-    },
+    listRowAgePending: { color: '#6B4500' },
+    listRowAgeDanger: { color: '#A3261B', fontWeight: 600 },
 
     detailPanel: {
-        backgroundColor: adminTokens.surface,
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '16px',
-        boxShadow: '0 1px 2px rgba(16,33,26,.04)',
-        padding: '24px 26px',
+        ...adminUi.card,
+        flex: '999 1 520px',
+        minWidth: 0,
         position: 'sticky',
-        top: '82px',
-        ...adminUi.cardAccent,
+        top: '80px',
     },
     detailEmpty: {
-        padding: '48px 0',
+        padding: '48px 24px',
         textAlign: 'center',
-        fontSize: '13.5px',
+        fontSize: '14px',
         color: adminTokens.muted,
     },
     detailHeader: {
+        padding: '20px 24px 18px',
+        borderBottom: `1px solid ${adminTokens.line}`,
+    },
+    detailRefRow: {
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: '12px',
-        marginBottom: '20px',
     },
     detailRef: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '11.5px',
+        fontSize: '13px',
+        fontWeight: 600,
         color: adminTokens.muted,
-        marginBottom: '4px',
     },
     detailName: {
-        fontSize: '26px',
-        fontWeight: 800,
-        letterSpacing: '-.028em',
+        fontSize: '24px',
+        fontWeight: 700,
+        letterSpacing: '-0.01em',
         color: adminTokens.ink,
-        margin: 0,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        margin: '4px 0 2px',
+        overflowWrap: 'anywhere',
     },
     detailMeta: {
-        fontSize: '13.5px',
+        fontSize: '14px',
         color: adminTokens.muted,
-        margin: '4px 0 0',
+        margin: 0,
     },
 
     figureGrid: {
+        margin: 0,
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))',
-        gap: '12px',
-        marginBottom: '22px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        borderBottom: `1px solid ${adminTokens.line}`,
+        overflow: 'hidden',
     },
     figureCell: {
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '11px',
-        padding: '12px 14px',
+        padding: '14px 24px',
     },
+    figureCellDivider: { borderLeft: `1px solid ${adminTokens.rowLine}`, marginLeft: '-1px' },
     figureLabel: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '9.5px',
-        fontWeight: 500,
+        fontSize: '12px',
+        fontWeight: 600,
+        letterSpacing: '0.04em',
         textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: adminTokens.faint,
-        marginBottom: '8px',
+        color: adminTokens.muted,
     },
     figureValue: {
-        fontSize: '15px',
-        fontWeight: 600,
+        margin: '2px 0 0',
+        fontSize: '18px',
+        fontWeight: 700,
         color: adminTokens.ink,
     },
-    figureValueMono: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '16px',
-    },
 
-    applianceSection: { marginBottom: '22px' },
+    applianceSection: { padding: '18px 24px 8px' },
     sectionLabel: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '9.5px',
-        fontWeight: 500,
+        margin: '0 0 10px',
+        fontSize: '13px',
+        fontWeight: 700,
+        letterSpacing: '0.04em',
         textTransform: 'uppercase',
-        letterSpacing: '.11em',
-        color: adminTokens.green,
-        marginBottom: '8px',
-        paddingLeft: '8px',
+        color: adminTokens.muted,
     },
     applianceTable: {
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '11px',
+        border: `1px solid ${adminTokens.line}`,
         overflow: 'hidden',
     },
     applianceRow: {
         display: 'grid',
         gap: '10px',
-        padding: '9px 12px',
-        borderBottom: `1px solid ${adminTokens.hairline2}`,
+        padding: '10px 14px',
+        borderBottom: `1px solid ${adminTokens.rowLine}`,
         alignItems: 'center',
     },
     applianceHeaderRow: {
-        backgroundColor: '#eef4f0',
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '9.5px',
-        fontWeight: 500,
-        textTransform: 'uppercase',
-        letterSpacing: '.08em',
-        color: adminTokens.green,
+        ...adminUi.tableHead,
+        padding: '9px 14px',
+        borderBottom: `1px solid ${adminTokens.line}`,
     },
     applianceName: {
-        fontSize: '13.5px',
+        fontSize: '14px',
         color: adminTokens.ink,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -896,17 +808,17 @@ const styles = {
         minWidth: 0,
     },
     applianceFigure: {
-        fontFamily: adminTokens.fontUI, fontVariantNumeric: 'tabular-nums',
-        fontSize: '12.5px',
-        color: adminTokens.body,
+        fontSize: '14px',
+        color: adminTokens.ink,
     },
     numCell: { textAlign: 'right' },
     applianceTotalRow: {
-        backgroundColor: '#fafbf9',
+        backgroundColor: '#F3F8F5',
         borderBottom: 'none',
+        fontWeight: 700,
     },
     applianceTotalLabel: {
-        fontSize: '13px',
+        fontSize: '14px',
         fontWeight: 700,
         color: adminTokens.ink,
     },
@@ -917,44 +829,15 @@ const styles = {
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '10px',
-        borderTop: `1px solid ${adminTokens.hairline}`,
-        paddingTop: '20px',
+        borderTop: `1px solid ${adminTokens.line}`,
+        padding: '16px 24px 20px',
+        marginTop: '10px',
     },
     actionBarLeft: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
     actionBarRight: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
-    secondaryBtn: {
-        padding: '9px 14px',
-        backgroundColor: '#fff',
-        border: '1px solid #dcdfd8',
-        borderRadius: '9px',
-        color: adminTokens.ink,
-        fontSize: '13px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
-    },
-    rejectBtn: {
-        padding: '9px 14px',
-        backgroundColor: '#fff',
-        border: '1px solid #f0d0cb',
-        borderRadius: '9px',
-        color: adminTokens.danger,
-        fontSize: '13px',
-        fontWeight: 700,
-        cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
-    },
-    approveBtn: {
-        padding: '9px 16px',
-        backgroundColor: adminTokens.green,
-        border: 'none',
-        borderRadius: '9px',
-        color: '#fff',
-        fontSize: '13px',
-        fontWeight: 700,
-        cursor: 'pointer',
-        fontFamily: adminTokens.fontUI,
-    },
+    secondaryBtn: adminUi.whiteBtn,
+    rejectBtn: adminUi.rejectBtn,
+    approveBtn: adminUi.primaryBtn,
     decidedNote: {
         fontSize: '13px',
         color: adminTokens.muted,
@@ -973,7 +856,7 @@ const styles = {
         width: '100%',
         maxWidth: '480px',
         overflow: 'hidden',
-        borderRadius: '16px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         boxShadow: '0 24px 70px rgba(16,33,26,.24)',
     },
@@ -1063,7 +946,7 @@ const styles = {
         minHeight: '40px',
         padding: '10px 16px',
         border: `1px solid ${adminTokens.danger}`,
-        borderRadius: '10px',
+        borderRadius: '6px',
         backgroundColor: adminTokens.danger,
         color: '#ffffff',
         fontSize: '14px',
