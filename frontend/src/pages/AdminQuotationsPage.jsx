@@ -245,7 +245,7 @@ export default function AdminQuotationsPage() {
                 subtitle="Review and approve customer requests"
                 actions={
                     <div role="group" aria-label="Sort by" style={styles.sortBox}>
-                        <span style={styles.sortLabel}>Sort</span>
+                        <span className="hero-hide-phone" style={styles.sortLabel}>Sort</span>
                         {SORTS.map((opt) => (
                             <button
                                 key={opt.key}

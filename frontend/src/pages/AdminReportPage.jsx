@@ -303,7 +303,7 @@ function ReviewStrip({ queue }) {
         : `${queue.oldest_pending_days} ${queue.oldest_pending_days === 1 ? 'day' : 'days'}`;
 
     return (
-        <HeroStrip style={styles.reviewStrip}>
+        <HeroStrip className="review-strip hero-grid--lead" style={styles.reviewStrip}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: clear ? '#A8D5C2' : adminTokens.gold }} />
                 {clear ? 'Review queue is clear' : `${queue.pending} waiting for review`}

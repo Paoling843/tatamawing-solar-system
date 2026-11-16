@@ -456,9 +456,9 @@ export default function AdminQuotationDetailPage() {
                         </div>
                     </div>
 
-                    <ol aria-label="Progress" style={D.progress}>
+                    <ol aria-label="Progress" className="step-progress" style={D.progress}>
                         {steps.map((step, index) => (
-                            <li key={step.label + index} style={D.progressStep}>
+                            <li key={step.label + index} className="step-progress-item" style={D.progressStep}>
                                 <span
                                     style={{
                                         ...D.progressDot,
@@ -471,7 +471,7 @@ export default function AdminQuotationDetailPage() {
                                         : step.state === 'rejected' ? <XIcon size={14} color="currentColor" />
                                             : index + 1}
                                 </span>
-                                <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
+                                <span className="step-progress-label" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25, minWidth: 0 }}>
                                     <span style={{ fontWeight: 600, color: step.state === 'todo' ? adminTokens.stripText : '#FFFFFF' }}>
                                         {stepLabels[index]}
                                         <span style={adminUi.srOnly}>
@@ -480,7 +480,7 @@ export default function AdminQuotationDetailPage() {
                                     </span>
                                     {stepDates[index] && <span style={{ fontSize: '13px', color: adminTokens.stripText }}>{stepDates[index]}</span>}
                                 </span>
-                                {index < steps.length - 1 && <span aria-hidden="true" style={D.progressLine} />}
+                                {index < steps.length - 1 && <span aria-hidden="true" className="step-progress-line" style={D.progressLine} />}
                             </li>
                         ))}
                     </ol>
@@ -1827,7 +1827,7 @@ const D = {
     },
     progress: {
         listStyle: 'none', margin: 0, padding: '14px 24px 16px', display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px 0',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px 0',
         borderTop: '1px solid rgba(255,255,255,0.14)', background: adminTokens.strip,
         borderRadius: `0 0 ${adminTokens.heroRadius} ${adminTokens.heroRadius}`,
     },

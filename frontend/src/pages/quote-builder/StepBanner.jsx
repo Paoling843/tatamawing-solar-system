@@ -25,11 +25,11 @@ export default function StepBanner({ screen, title, subtitle, aside }) {
                 </div>
                 {aside}
             </div>
-            <ol aria-label="Progress" style={styles.strip}>
+            <ol aria-label="Progress" className="step-progress" style={styles.strip}>
                 {STEPS.map((step, i) => {
                     const state = i < current ? 'done' : i === current ? 'current' : 'todo';
                     return (
-                        <li key={step.screen} aria-current={state === 'current' ? 'step' : undefined} style={styles.step}>
+                        <li key={step.screen} aria-current={state === 'current' ? 'step' : undefined} className="step-progress-item" style={styles.step}>
                             <span style={{ ...styles.dot, ...styles[`dot_${state}`] }}>
                                 {state === 'done' ? (
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -37,7 +37,7 @@ export default function StepBanner({ screen, title, subtitle, aside }) {
                                     </svg>
                                 ) : i + 1}
                             </span>
-                            <span style={{
+                            <span className="step-progress-label" style={{
                                 fontWeight: state === 'todo' ? 500 : state === 'current' ? 700 : 600,
                                 color: state === 'todo' ? Q.stripText : '#FFFFFF',
                                 whiteSpace: 'nowrap',
@@ -45,7 +45,7 @@ export default function StepBanner({ screen, title, subtitle, aside }) {
                                 {step.label}
                             </span>
                             <span style={srOnly}>{state === 'done' ? ' (done)' : state === 'current' ? ' (current step)' : ''}</span>
-                            {i < STEPS.length - 1 && <span aria-hidden="true" style={styles.line} />}
+                            {i < STEPS.length - 1 && <span aria-hidden="true" className="step-progress-line" style={styles.line} />}
                         </li>
                     );
                 })}
@@ -65,7 +65,9 @@ const styles = {
     subtitle: { margin: '2px 0 0', fontSize: '14px', color: Q.stripText },
     strip: {
         listStyle: 'none', margin: 0, padding: '14px 24px', display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px 0',
+        // Always the three steps side by side; on phones each step stacks its
+        // number over its name (App.css .step-progress)
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px 0',
         borderTop: '1px solid rgba(255,255,255,0.14)', background: '#0B3326', borderRadius: '0 0 8px 8px',
     },
     step: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 },

@@ -11,13 +11,13 @@ export default function AdminHero({ eyebrow, title, subtitle, actions, children,
             aria-label="Page summary"
             style={{ ...adminUi.hero, ...(hasStrip ? { padding: 0 } : {}), ...style }}
         >
-            <div style={{ ...styles.top, ...(hasStrip ? styles.topPadded : {}) }}>
+            <div className="hero-top" style={{ ...styles.top, ...(hasStrip ? styles.topPadded : {}) }}>
                 <div style={{ minWidth: 0 }}>
                     {eyebrow && <span style={adminText.eyebrow}>{eyebrow}</span>}
                     {title && <h1 style={adminText.pageTitle}>{title}</h1>}
                     {subtitle && <p style={adminText.pageSubtitle}>{subtitle}</p>}
                 </div>
-                {actions && <div style={styles.actions}>{actions}</div>}
+                {actions && <div className="hero-actions" style={styles.actions}>{actions}</div>}
             </div>
             {hasStrip && children}
         </section>
@@ -25,8 +25,8 @@ export default function AdminHero({ eyebrow, title, subtitle, actions, children,
 }
 
 // The strip on its own, for pages that put something other than stats in it
-export function HeroStrip({ children, style }) {
-    return <div style={{ ...adminUi.heroStrip, ...style }}>{children}</div>;
+export function HeroStrip({ children, style, className = '' }) {
+    return <div className={`hero-grid ${className}`} style={{ ...adminUi.heroStrip, ...style }}>{children}</div>;
 }
 
 // One number in the strip
@@ -48,6 +48,8 @@ export function FilterTiles({ label, options, value, onChange, minWidth = 120 })
         <div
             role="group"
             aria-label={label}
+            // On phones: "All" across the top, the rest two by two (App.css)
+            className="hero-grid hero-grid--lead"
             style={{ ...adminUi.heroStrip, gridTemplateColumns: `repeat(auto-fit, minmax(min(${minWidth}px, 100%), 1fr))` }}
         >
             {options.map((opt) => {

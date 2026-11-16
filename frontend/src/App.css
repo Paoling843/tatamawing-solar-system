@@ -424,6 +424,10 @@ nav[aria-label="Breadcrumb"] a:hover {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
+    /* Keeps absolutely positioned bits inside (e.g. a screen-reader-only
+       column label). Without it they escape the scroll box and widen the
+       whole page on phones, which then zooms out. */
+    position: relative;
 }
 
 @media (max-width: 640px) {
@@ -655,3 +659,70 @@ nav[aria-label="Breadcrumb"] a:hover {
 .c-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 /* Calculator on the home page and the guest page: less room on phones */
 @media (max-width: 760px) { .se-calc-pad { padding: 20px 16px 40px !important; } }
+
+/* Step progress strips (the calculator banner, the admin quotation detail):
+   the three steps always stay in one row. On phones each step stacks its
+   number over its name, and the connecting line runs between the numbers. */
+@media (max-width: 640px) {
+    .step-progress { padding: 14px 8px 16px !important; }
+    .step-progress-item { position: relative; flex-direction: column; text-align: center; gap: 6px !important; }
+    .step-progress-label { white-space: normal !important; font-size: 13px; line-height: 1.25; align-items: center; }
+    .step-progress-label > span { white-space: normal !important; }
+    .step-progress-line {
+        position: absolute; top: 13px; margin: 0 !important; min-width: 0 !important;
+        left: calc(50% + 19px); right: calc(-50% + 19px);
+    }
+}
+
+/* ---- Green banners on phones (the "summary cards on phone" mockups) ----
+   .hero-grid          the strip of numbers or filter tiles: two columns
+   .hero-grid--lead    the first cell ("All", or the review queue) spans the row
+   .hero-grid--3       three short numbers stay in one row (profile)
+   .hero-actions       the banner's buttons go full width */
+@media (max-width: 640px) {
+    .hero-top { padding: 18px 16px 16px !important; }
+    .hero-actions { width: 100%; }
+    .hero-actions > * { flex: 1 1 100%; justify-content: center; }
+    .hero-actions [role="group"] { display: flex; }
+    .hero-actions [role="group"] > button { flex: 1 1 0; justify-content: center; }
+    .hero-hide-phone { display: none !important; }
+    .hero-full-phone { width: 100%; }
+
+    .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .hero-grid > * {
+        margin-left: 0 !important;
+        border-left: none !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+        padding: 12px 16px !important;
+        min-width: 0;
+    }
+    .hero-grid > *:nth-child(-n + 2) { border-top: none !important; }
+    .hero-grid > *:nth-child(even) { border-left: 1px solid rgba(255, 255, 255, 0.12) !important; }
+
+    .hero-grid--lead > *:first-child { grid-column: 1 / -1; }
+    .hero-grid--lead > *:nth-child(2) { border-top: 1px solid rgba(255, 255, 255, 0.12) !important; }
+    .hero-grid--lead > *:nth-child(even) { border-left: none !important; }
+    .hero-grid--lead > *:nth-child(odd):not(:first-child) { border-left: 1px solid rgba(255, 255, 255, 0.12) !important; }
+
+    .hero-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .hero-grid--3 > * { border-top: none !important; padding: 12px 10px !important; }
+    .hero-grid--3 > *:not(:first-child) { border-left: 1px solid rgba(255, 255, 255, 0.12) !important; }
+    .hero-grid--3 dt { font-size: 12px !important; align-items: flex-start !important; }
+    .hero-grid--3 dd { font-size: 20px !important; }
+
+    /* Analytics review strip: each item becomes a cell, label over value */
+    .review-strip { display: grid !important; gap: 0 !important; padding: 0 !important; align-items: stretch !important; }
+    .review-strip > span { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 13px; }
+    .review-strip > span strong { font-size: 20px; }
+    .review-strip > a { display: flex; align-items: center; justify-content: center; margin: 0 !important; }
+    .review-strip > span:first-child { flex-direction: row; align-items: center; font-size: 14px; }
+}
+
+/* Step progress strips on bigger screens: the steps keep their usual
+   spacing (the connecting lines keep a set length) and the whole row is
+   centred in the strip */
+@media (min-width: 641px) {
+    .step-progress { display: flex !important; justify-content: center; }
+    .step-progress-item { flex: 0 0 auto; }
+    .step-progress-line { flex: 0 0 clamp(40px, 16vw, 260px) !important; }
+}
