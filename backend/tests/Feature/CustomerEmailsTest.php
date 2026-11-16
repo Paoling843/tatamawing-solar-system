@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\InstallationRescheduled;
+use App\Mail\InstallationUpdate;
 use App\Mail\QuotationRejected;
 use App\Models\Customer;
 use App\Models\ExternalInstallationRequest;
@@ -134,5 +135,103 @@ class CustomerEmailsTest extends TestCase
         ]);
 
         Mail::assertNotSent(InstallationRescheduled::class);
+    }
+
+    private function setStatus(InstallationSchedule $schedule, string $status)
+    {
+        return $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/schedules/{$schedule->id}/status", ['status' => $status])
+            ->assertOk();
+    }
+
+    public function test_the_customer_is_emailed_when_their_installation_is_booked(): void
+    {
+        $quotation = Quotation::create([
+            'quotation_request_id' => $this->request('approved')->id,
+            'approval_date' => now(),
+            'adjusted_cost' => 300000,
+            'labor_fee' => 0,
+            'transportation_fee' => 0,
+            'total_amount' => 300000,
+        ]);
+        $date = now()->addDays(4);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/admin/schedules', [
+                'quotation_id' => $quotation->id,
+                'scheduled_date' => $date->toDateString(),
+                'scheduled_time' => '09:00',
+                'assigned_technician' => 'James',
+            ])
+            ->assertCreated();
+
+        Mail::assertSent(InstallationUpdate::class, function (InstallationUpdate $mail) use ($date) {
+            $html = $mail->render();
+
+            return $mail->hasTo('johnny@example.com')
+                && $mail->kind === 'scheduled'
+                && $mail->envelope()->subject === 'Your installation is scheduled for ' . $date->format('F j')
+                && str_contains($html, $date->format('F j, Y') . ' · 9:00 AM')
+                && str_contains($html, 'Technician: James')
+                && str_contains($mail->link, '/customer/schedule');
+        });
+    }
+
+    public function test_the_customer_is_emailed_each_status_change(): void
+    {
+        $schedule = $this->scheduleFor(['customer_id' => $this->customer->id]);
+
+        $this->setStatus($schedule, 'in_progress');
+        $this->setStatus($schedule, 'delayed');
+        $this->setStatus($schedule, 'scheduled');
+        $this->setStatus($schedule, 'completed');
+
+        foreach (['in_progress', 'delayed', 'back_on_schedule', 'completed'] as $kind) {
+            Mail::assertSent(InstallationUpdate::class, fn (InstallationUpdate $mail) => $mail->kind === $kind
+                && $mail->hasTo('johnny@example.com')
+                && str_contains($mail->render(), InstallationUpdate::KINDS[$kind]['heading']));
+        }
+        Mail::assertSent(InstallationUpdate::class, 4);
+    }
+
+    public function test_no_email_when_the_status_stays_the_same(): void
+    {
+        $schedule = $this->scheduleFor(['customer_id' => $this->customer->id]);
+
+        $this->setStatus($schedule, 'scheduled');
+
+        Mail::assertNotSent(InstallationUpdate::class);
+    }
+
+    public function test_an_external_visitor_is_emailed_status_changes_with_their_status_link(): void
+    {
+        $schedule = $this->scheduleFor([]);
+        ExternalInstallationRequest::create([
+            'name' => 'Ana Cruz',
+            'email' => 'ana@example.com',
+            'phone' => '09171234567',
+            'address' => 'Brgy. Gate, Bulan, Sorsogon',
+            'preferred_installation_date' => now()->addDays(3)->toDateString(),
+            'other_company_name' => 'Other Solar Co.',
+            'status' => 'confirmed',
+            'installation_schedule_id' => $schedule->id,
+        ]);
+
+        $this->setStatus($schedule, 'completed');
+
+        Mail::assertSent(InstallationUpdate::class, fn (InstallationUpdate $mail) => $mail->hasTo('ana@example.com')
+            && $mail->kind === 'completed'
+            && str_contains($mail->link, '/installation-request/')
+            && str_contains($mail->render(), 'Brgy. Gate, Bulan, Sorsogon'));
+    }
+
+    public function test_a_deleted_account_gets_no_email(): void
+    {
+        $schedule = $this->scheduleFor(['customer_id' => $this->customer->id]);
+        $this->customerUser->forceFill(['account_deleted_at' => now()])->save();
+
+        $this->setStatus($schedule, 'completed');
+
+        Mail::assertNotSent(InstallationUpdate::class);
     }
 }
