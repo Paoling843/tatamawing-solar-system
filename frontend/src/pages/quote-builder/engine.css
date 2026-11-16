@@ -88,6 +88,10 @@
    and scroll sideways inside their card on narrow screens. */
 .se-table-scroll {
     overflow-x: auto;
+    /* Keeps absolutely positioned bits inside (e.g. a screen-reader-only
+       column label). Without it they escape the scroll box and widen the
+       whole page on phones, which then zooms out. */
+    position: relative;
 }
 
 @media (max-width: 1100px) {

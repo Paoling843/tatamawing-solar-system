@@ -104,7 +104,7 @@ function ProfileView({ isAdmin, user, since, stats, summary, summaryError }) {
                             </p>
                         </div>
                     </div>
-                    <dl style={A.stats}>
+                    <dl className="hero-grid hero-grid--3" style={A.stats}>
                         {stats.map((stat, i) => (
                             <div key={stat.label} style={{ ...A.stat, ...(i > 0 ? A.statDivider : {}) }}>
                                 <dt style={A.statLabel}>

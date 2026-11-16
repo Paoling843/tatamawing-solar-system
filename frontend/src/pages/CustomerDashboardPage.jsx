@@ -197,11 +197,11 @@ export default function CustomerDashboardPage() {
                             <h1 style={styles.heroTitle}>Welcome back{firstName ? `, ${firstName}` : ''}</h1>
                             <p style={styles.heroSub}>Your quotations and installation at a glance</p>
                         </div>
-                        <Link to="/quotation/new" className="c-btn c-btn-gold" style={styles.heroBtn}>
+                        <Link to="/quotation/new" className="c-btn c-btn-gold hero-full-phone" style={styles.heroBtn}>
                             Request a quotation
                         </Link>
                     </div>
-                    <dl style={styles.stats}>
+                    <dl className="hero-grid" style={styles.stats}>
                         {stats.map((s, i) => (
                             <div key={s.label} style={{ ...styles.stat, ...(i ? styles.statDivider : {}) }}>
                                 <dt style={styles.statLabel}>

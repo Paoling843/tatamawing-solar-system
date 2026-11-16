@@ -236,7 +236,7 @@ export default function CustomerMyQuotationsPage() {
                         <h1 style={styles.heroTitle}>My quotations</h1>
                         <p style={styles.heroSub}>Open a quotation to see what it includes and how much you could save</p>
                     </div>
-                    <div role="group" aria-label="Filter by status" style={styles.tiles}>
+                    <div role="group" aria-label="Filter by status" className="hero-grid hero-grid--lead" style={styles.tiles}>
                         {TABS.map((tab, i) => {
                             const on = statusFilter === tab.id;
                             return (
