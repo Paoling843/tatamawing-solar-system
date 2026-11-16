@@ -106,6 +106,10 @@ class InstallationScheduleController extends Controller
     {
         $this->authorize('update', $installationSchedule);
 
+        if ($locked = $this->lockedIfCompleted($installationSchedule)) {
+            return $locked;
+        }
+
         // For the email: "Previously October 27, 2026 · 8:00 AM"
         $previous = InstallationRescheduled::formatWhen($installationSchedule->scheduled_date, $installationSchedule->scheduled_time);
 
@@ -155,6 +159,21 @@ class InstallationScheduleController extends Controller
     }
 
     /**
+     * A completed installation is final: its status and date can't change.
+     * Returns the 422 to send back, or null when it can still be edited.
+     */
+    private function lockedIfCompleted(InstallationSchedule $schedule): ?\Illuminate\Http\JsonResponse
+    {
+        if ($schedule->status !== 'completed') {
+            return null;
+        }
+
+        return response()->json([
+            'message' => "This installation is already completed, so it can't be changed.",
+        ], 422);
+    }
+
+    /**
      * Emails a new booking or a status change (InstallationUpdate::KINDS) to
      * whoever the installation is for, the same way as a reschedule.
      */
@@ -195,6 +214,10 @@ class InstallationScheduleController extends Controller
     public function updateStatus(Request $request, InstallationSchedule $installationSchedule)
     {
         $this->authorize('updateStatus', $installationSchedule);
+
+        if ($locked = $this->lockedIfCompleted($installationSchedule)) {
+            return $locked;
+        }
 
         // Returns a 422 with both "message" (shown by the admin page) and "errors"
         $request->validate([
