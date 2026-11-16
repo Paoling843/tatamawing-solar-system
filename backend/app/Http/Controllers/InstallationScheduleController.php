@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreScheduleRequest;
 use App\Http\Requests\UpdateScheduleRequest;
 use App\Mail\InstallationRescheduled;
+use App\Mail\InstallationUpdate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Models\InstallationSchedule;
@@ -52,6 +53,7 @@ class InstallationScheduleController extends Controller
         $schedule = InstallationSchedule::create($scheduleData);
 
         Notifier::installationScheduled($schedule, true);
+        $this->emailUpdate($schedule, 'scheduled');
 
         AuditLogger::log(
             'installation_schedule_created',
@@ -149,6 +151,26 @@ class InstallationScheduleController extends Controller
      */
     private function emailReschedule(InstallationSchedule $schedule, string $previous): void
     {
+        $this->emailRecipient($schedule, fn (string $name, string $link) => new InstallationRescheduled($schedule, $name, $link, $previous));
+    }
+
+    /**
+     * Emails a new booking or a status change (InstallationUpdate::KINDS) to
+     * whoever the installation is for, the same way as a reschedule.
+     */
+    private function emailUpdate(InstallationSchedule $schedule, string $kind): void
+    {
+        $this->emailRecipient($schedule, fn (string $name, string $link) => new InstallationUpdate($schedule, $kind, $name, $link));
+    }
+
+    /**
+     * Sends an installation email to the customer's account (through their
+     * quotation, or booked directly), or to the visitor who sent an external
+     * request (with their status-page link). $makeMail gets their name and the
+     * link to their schedule.
+     */
+    private function emailRecipient(InstallationSchedule $schedule, callable $makeMail): void
+    {
         try {
             $schedule->loadMissing(['quotation.quotationRequest.customer.user', 'customer.user', 'externalInstallationRequest']);
 
@@ -160,18 +182,12 @@ class InstallationScheduleController extends Controller
             }
 
             if ($user) {
-                $to = $user->email;
-                $mail = new InstallationRescheduled($schedule, $user->name, config('app.frontend_url') . '/customer/schedule', $previous);
+                Mail::to($user->email)->send($makeMail($user->name, config('app.frontend_url') . '/customer/schedule'));
             } elseif ($external) {
-                $to = $external->email;
-                $mail = new InstallationRescheduled($schedule, $external->name, $external->statusPageUrl(), $previous);
-            } else {
-                return;
+                Mail::to($external->email)->send($makeMail($external->name, $external->statusPageUrl()));
             }
-
-            Mail::to($to)->send($mail);
         } catch (\Throwable $e) {
-            // The new date is already saved — log the mail failure instead of returning a 500
+            // The schedule is already saved — log the mail failure instead of returning a 500
             report($e);
         }
     }
@@ -193,6 +209,11 @@ class InstallationScheduleController extends Controller
 
         if ($installationSchedule->wasChanged('status')) {
             Notifier::installationStatusChanged($installationSchedule);
+            // Back to "scheduled" (after a delay, say) reads as "back on schedule"
+            $this->emailUpdate(
+                $installationSchedule,
+                $installationSchedule->status === 'scheduled' ? 'back_on_schedule' : $installationSchedule->status,
+            );
         }
 
         AuditLogger::log(
