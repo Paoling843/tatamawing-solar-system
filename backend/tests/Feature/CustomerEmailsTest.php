@@ -225,6 +225,32 @@ class CustomerEmailsTest extends TestCase
             && str_contains($mail->render(), 'Brgy. Gate, Bulan, Sorsogon'));
     }
 
+    public function test_a_completed_installation_can_no_longer_be_changed(): void
+    {
+        $schedule = $this->scheduleFor(['customer_id' => $this->customer->id]);
+        $this->setStatus($schedule, 'completed');
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->patchJson("/api/admin/schedules/{$schedule->id}/status", ['status' => 'in_progress'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', "This installation is already completed, so it can't be changed.");
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson("/api/admin/schedules/{$schedule->id}", [
+                'scheduled_date' => now()->addDays(9)->toDateString(),
+                'scheduled_time' => '10:00',
+                'assigned_technician' => 'James',
+            ])
+            ->assertStatus(422);
+
+        $schedule->refresh();
+        $this->assertSame('completed', $schedule->status);
+        $this->assertSame(now()->addDays(3)->toDateString(), $schedule->scheduled_date->toDateString());
+        // Only the "completed" email went out
+        Mail::assertSent(InstallationUpdate::class, 1);
+        Mail::assertNotSent(InstallationRescheduled::class);
+    }
+
     public function test_a_deleted_account_gets_no_email(): void
     {
         $schedule = $this->scheduleFor(['customer_id' => $this->customer->id]);

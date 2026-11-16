@@ -661,6 +661,7 @@ export default function AdminSchedulePage() {
                                                     <span style={{ display: 'inline-flex', gap: '6px' }}>
                                                         {isNew(s) && <span style={styles.newPill}>New</span>}
                                                         <span style={{ ...styles.statusPill, backgroundColor: tone.bg, color: tone.fg }}>
+                                                            {s.status === 'completed' && <CheckIcon size={12} color="currentColor" />}
                                                             {STATUS_LABELS[s.status] || s.status}
                                                         </span>
                                                     </span>
@@ -674,7 +675,9 @@ export default function AdminSchedulePage() {
                                                 </dl>
                                                 <div style={{ display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' }}>
                                                     <button type="button" style={styles.smallOutlineBtn} onClick={() => openModal(s)}>View details</button>
-                                                    <button type="button" style={styles.smallOutlineBtn} onClick={() => openEdit(s)}>Reschedule</button>
+                                                    {s.status !== 'completed' && (
+                                                        <button type="button" style={styles.smallOutlineBtn} onClick={() => openEdit(s)}>Reschedule</button>
+                                                    )}
                                                 </div>
                                             </li>
                                         );
@@ -743,6 +746,7 @@ export default function AdminSchedulePage() {
                                     backgroundColor: statusColors[modalSchedule.status]?.bg,
                                     color: statusColors[modalSchedule.status]?.text,
                                 }}>
+                                    {modalSchedule.status === 'completed' && <CheckIcon size={12} color="currentColor" />}
                                     {STATUS_LABELS[modalSchedule.status] || modalSchedule.status}
                                 </span>
                             </div>
@@ -768,6 +772,16 @@ export default function AdminSchedulePage() {
 
                         {statusError && <div role="alert" style={styles.modalError}>{statusError}</div>}
                         <div style={styles.modalFooter}>
+                            {/* A completed installation is final (the server refuses changes too) */}
+                            {modalSchedule.status === 'completed' ? (
+                                <div role="status" style={styles.completedBox}>
+                                    <span style={styles.completedCheck} aria-hidden="true">
+                                        <CheckIcon size={18} color="#FFFFFF" />
+                                    </span>
+                                    <span style={{ fontWeight: 700, color: '#1F6B45' }}>Installation Complete</span>
+                                </div>
+                            ) : (
+                            <>
                             <span style={{ ...styles.modalSectionLabel, margin: 0 }}>Update status</span>
                             <div className="status-actions" style={styles.statusActions}>
                                 {STATUSES.map((status) => {
@@ -793,6 +807,8 @@ export default function AdminSchedulePage() {
                                     );
                                 })}
                             </div>
+                            </>
+                            )}
 
                             <div style={styles.footerActions}>
                                 {modalDetails.quotationRequestId && (
@@ -806,10 +822,12 @@ export default function AdminSchedulePage() {
                                         <span>View quotation</span>
                                     </button>
                                 )}
-                                <button type="button" onClick={() => openEdit(modalSchedule)} className="btn-primary" style={styles.rescheduleBtn}>
-                                    <EditIcon size={15} color="#ffffff" />
-                                    <span>Reschedule</span>
-                                </button>
+                                {modalSchedule.status !== 'completed' && (
+                                    <button type="button" onClick={() => openEdit(modalSchedule)} className="btn-primary" style={styles.rescheduleBtn}>
+                                        <EditIcon size={15} color="#ffffff" />
+                                        <span>Reschedule</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -884,7 +902,7 @@ export default function AdminSchedulePage() {
                 open={!!pendingStatus && !!modalSchedule}
                 title={pendingStatus ? `Mark as ${STATUS_LABELS[pendingStatus]}?` : ''}
                 message={pendingStatus === 'completed'
-                    ? 'Only do this once the installation is finished. The customer will see it as completed.'
+                    ? "Only do this once the installation is finished. The customer will see it as completed, and its status and date can't be changed afterwards."
                     : `The customer will see this installation as ${(STATUS_LABELS[pendingStatus] || '').toLowerCase()}.`}
                 confirmLabel={statusUpdating ? 'Updating...' : `Mark as ${STATUS_LABELS[pendingStatus] || ''}`}
                 busy={statusUpdating}
@@ -1194,11 +1212,23 @@ const styles = {
         color: adminTokens.body,
     },
     statusPill: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
         padding: '2px 8px',
         borderRadius: '4px',
         fontSize: '12px',
         fontWeight: 700,
         whiteSpace: 'nowrap',
+    },
+    // Shown in place of the status buttons once an installation is completed
+    completedBox: {
+        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
+        borderRadius: '6px', background: '#E3F1E8', border: '1px solid #C6E3CF',
+    },
+    completedCheck: {
+        width: '32px', height: '32px', borderRadius: '50%', background: '#2E8B5E', flex: 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
     },
     dayEventName: {
         marginTop: '8px',
