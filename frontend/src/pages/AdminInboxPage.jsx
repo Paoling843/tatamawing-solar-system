@@ -119,7 +119,7 @@ const describe = (conversation) => {
     }
 
     return {
-        reference: request ? formatQuotationRef(request.id, request.created_at) : null,
+        reference: request ? formatQuotationRef(request) : null,
         status,
         location,
         system,

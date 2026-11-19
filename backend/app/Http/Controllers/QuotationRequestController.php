@@ -234,7 +234,7 @@ class QuotationRequestController extends Controller
             'Created a quotation request for admin review.',
             QuotationRequest::class,
             $quotationRequest->id,
-            'Quotation Request #' . $quotationRequest->id
+            'Quotation Request ' . $quotationRequest->reference
         );
 
         Notifier::newQuotationRequest($quotationRequest);
@@ -337,7 +337,7 @@ class QuotationRequestController extends Controller
             'Cancelled their quotation request.',
             QuotationRequest::class,
             $quotationRequest->id,
-            'Quotation Request #' . $quotationRequest->id,
+            'Quotation Request ' . $quotationRequest->reference,
             array_filter([
                 'reason' => $reason,
                 'removed_schedule_date' => $schedule?->scheduled_date?->toDateString(),

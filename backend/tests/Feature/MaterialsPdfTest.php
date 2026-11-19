@@ -66,8 +66,7 @@ class MaterialsPdfTest extends TestCase
     public function test_admin_downloads_the_materials_pdf(): void
     {
         $quotation = $this->approvedQuotation();
-        $year = $quotation->quotationRequest->created_at->format('Y');
-        $ref = 'Q-' . $year . '-' . str_pad($quotation->quotationRequest->id, 3, '0', STR_PAD_LEFT);
+        $ref = 'TMS-QT-' . $quotation->quotationRequest->created_at->format('Y') . '-0001';
 
         $response = $this->actingAs($this->admin, 'sanctum')
             ->post("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload());
@@ -83,7 +82,7 @@ class MaterialsPdfTest extends TestCase
 
         // Render the same view the PDF uses, to check its text
         $html = view('reports.materials-request', [
-            'reference' => 'Q-2026-001',
+            'reference' => 'TMS-QT-2026-0001',
             'computation' => null,
             'items' => $this->payload()['items'],
             'deliverToSite' => true,

@@ -60,7 +60,7 @@ class InstallationScheduleController extends Controller
             'Created an installation schedule.',
             InstallationSchedule::class,
             $schedule->id,
-            'Installation Schedule #' . $schedule->id,
+            'Installation Schedule ' . $schedule->reference,
             ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
         );
 
@@ -135,7 +135,7 @@ class InstallationScheduleController extends Controller
             'Updated an installation schedule.',
             InstallationSchedule::class,
             $installationSchedule->id,
-            'Installation Schedule #' . $installationSchedule->id,
+            'Installation Schedule ' . $installationSchedule->reference,
             ['scheduled_date' => $installationSchedule->scheduled_date, 'scheduled_time' => $installationSchedule->scheduled_time]
         );
 
@@ -244,7 +244,7 @@ class InstallationScheduleController extends Controller
             'Updated an installation schedule status.',
             InstallationSchedule::class,
             $installationSchedule->id,
-            'Installation Schedule #' . $installationSchedule->id,
+            'Installation Schedule ' . $installationSchedule->reference,
             ['status' => $installationSchedule->status]
         );
 

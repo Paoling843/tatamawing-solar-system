@@ -58,7 +58,7 @@ const writeCachedCounts = (counts) => {
 };
 
 // crumb: the item being viewed, shown after the page in the breadcrumb,
-// e.g. "#Q-2026-050 · Juan Dela Cruz" on a quotation's details page
+// e.g. "TMS-QT-2026-0050 · Juan Dela Cruz" on a quotation's details page
 export default function AdminLayout({ children, active, title, subtitle, actions, crumb }) {
     const { user, logout } = useAuth();
     // Hover effects for every button on the admin pages

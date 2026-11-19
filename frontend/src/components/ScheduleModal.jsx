@@ -12,7 +12,7 @@ import { colors } from '../styles/theme';
 // into one scrolling column on narrow ones.
 //
 // Props
-//   title, contextLabel, badge   header text ("For quotation" + "#Q-…" pill)
+//   title, contextLabel, badge   header text ("For quotation" + "TMS-QT-…" pill)
 //   schedules                    existing installations — booked-day dots and technician load
 //   excludeScheduleId            the schedule being moved, so it doesn't count against itself
 //   initial                      { scheduled_date, scheduled_time, assigned_technician, notes }

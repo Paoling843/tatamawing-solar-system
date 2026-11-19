@@ -210,7 +210,7 @@ export default function CustomerMyQuotationsPage() {
             });
             const updated = res.data.quotation_request;
             setQuotationRequests((list) => list.map((q) => (q.id === updated.id ? updated : q)));
-            setSuccess(`${formatQuotationRef(cancelTarget.id, cancelTarget.created_at)} was cancelled.`);
+            setSuccess(`${formatQuotationRef(cancelTarget)} was cancelled.`);
         } catch (err) {
             setError(errorMessage(err, "We couldn't cancel this request. Please try again."));
         } finally {
@@ -287,7 +287,7 @@ export default function CustomerMyQuotationsPage() {
                                 onDownload={() => handleDownload(qr.quotation.id)}
                                 onAsk={() => askAbout({
                                     id: qr.id,
-                                    reference: formatQuotationRef(qr.id, qr.created_at),
+                                    reference: formatQuotationRef(qr),
                                     label: `${systemType(qr.solar_system_type)} · ${peso(describe(qr).total)}`,
                                 })}
                                 onSchedule={() => navigate('/customer/schedule')}
@@ -354,7 +354,7 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule, 
                 style={styles.rowButton}
             >
                 <span>
-                    <span style={styles.reference}>{formatQuotationRef(qr.id, qr.created_at)}</span>
+                    <span style={styles.reference}>{formatQuotationRef(qr)}</span>
                     <span style={styles.smallMuted}>Requested {formatDate(qr.created_at)}</span>
                 </span>
                 <span>

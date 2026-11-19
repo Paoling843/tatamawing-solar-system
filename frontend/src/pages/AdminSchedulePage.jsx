@@ -20,7 +20,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
-import { formatQuotationRef, formatExternalRef } from '../utils/references';
+import { formatQuotationRef, formatExternalRef, formatScheduleRef } from '../utils/references';
 import { formatPeso } from '../utils/quotationDisplay';
 import { formatPhone } from '../utils/phone';
 import { readSeenCounts } from '../utils/adminSeen';
@@ -170,7 +170,7 @@ export default function AdminSchedulePage() {
                 ? `${c.battery_qty > 1 ? `${c.battery_qty} × ` : ''}${c.battery_ah} Ah${c.extra_battery_ah ? ` + ${c.extra_battery_ah} Ah` : ''} battery`
                 : null;
             return {
-                reference: formatQuotationRef(request.id, request.created_at),
+                reference: formatQuotationRef(request),
                 quotationRequestId: request.id,
                 rows: [
                     ['System', [
@@ -187,7 +187,7 @@ export default function AdminSchedulePage() {
         const external = schedule.external_installation_request;
         if (external) {
             return {
-                reference: formatExternalRef(external.id),
+                reference: formatExternalRef(external),
                 rows: [
                     ['Quoted by', external.other_company_name],
                     ['Contact number', formatPhone(external.phone)],
@@ -702,7 +702,7 @@ export default function AdminSchedulePage() {
                                     ...styles.modalEyebrow,
                                     color: statusColors[modalSchedule.status]?.text || adminTokens.green,
                                 }}>
-                                    Installation{modalDetails.reference ? ` · ${modalDetails.reference}` : ''}
+                                    Installation · {formatScheduleRef(modalSchedule)}
                                 </div>
                                 <h2 style={styles.modalTitle}>{getCustomerName(modalSchedule)}</h2>
                                 <p style={styles.modalSubtitle}>

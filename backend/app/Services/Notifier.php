@@ -122,7 +122,7 @@ class Notifier
     {
         self::toAdmins(new AppNotification(
             kind: 'external_new',
-            title: 'External request #EXT-' . str_pad($request->id, 3, '0', STR_PAD_LEFT),
+            title: 'External request ' . $request->reference,
             body: $request->name . ' · preferred ' . Carbon::parse($request->preferred_installation_date)->format('M j'),
             link: '/admin/dashboard',
             tone: 'pending',
@@ -185,10 +185,10 @@ class Notifier
 
     // ----- Helpers ----------------------------------------------------
 
-    // Same reference the pages show, e.g. #Q-2026-049
+    // Same reference the pages show, e.g. TMS-QT-2026-0049
     public static function reference(QuotationRequest $request): string
     {
-        return '#Q-' . $request->created_at->format('Y') . '-' . str_pad($request->id, 3, '0', STR_PAD_LEFT);
+        return $request->reference;
     }
 
     private static function tomorrowReminder(InstallationSchedule $schedule, string $link): AppNotification

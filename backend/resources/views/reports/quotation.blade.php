@@ -81,8 +81,8 @@
             <tr>
                 <td>
                     <div class="label">Quotation No.</div>
-                    {{-- Same reference the customer and admin pages show, e.g. #Q-2026-049 --}}
-                    <div class="value">#Q-{{ $quotation->quotationRequest->created_at->format('Y') }}-{{ str_pad($quotation->quotationRequest->id, 3, '0', STR_PAD_LEFT) }}</div>
+                    {{-- Same reference the customer and admin pages show, e.g. TMS-QT-2026-0049 --}}
+                    <div class="value">{{ $quotation->quotationRequest->reference }}</div>
                 </td>
                 <td>
                     <div class="label">Status</div>

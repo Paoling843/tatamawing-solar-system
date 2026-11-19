@@ -7,6 +7,7 @@ import { useAuth } from '../context/auth-context';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { adminStatus, statusLabel } from '../styles/adminTheme';
+import { formatQuotationRef } from '../utils/references';
 
 const SORT_OPTIONS = ['Newest first', 'Oldest first', 'Highest value', 'Lowest value'];
 
@@ -103,12 +104,6 @@ export default function CustomerDashboardPage() {
         if (n >= 1000000) return `₱${(n / 1000000).toFixed(2)}M`;
         if (n >= 1000) return `₱${(n / 1000).toFixed(1)}K`;
         return `₱${Math.round(n)}`;
-    };
-
-    const formatReference = (id, createdAt) => {
-        const year = new Date(createdAt).getFullYear();
-        const paddedId = String(id).padStart(3, '0');
-        return `#Q-${year}-${paddedId}`;
     };
 
     const formatDate = (value) => {
@@ -304,7 +299,7 @@ export default function CustomerDashboardPage() {
                                     </thead>
                                     <tbody>
                                         {visibleQuotations.map((qr) => {
-                                            const ref = formatReference(qr.id, qr.created_at);
+                                            const ref = formatQuotationRef(qr);
                                             const tone = adminStatus[qr.status] || adminStatus.cancelled;
                                             const kw = qr.solar_computation?.panel_capacity_kw;
                                             return (
@@ -392,7 +387,7 @@ export default function CustomerDashboardPage() {
             {detailsFor && (
                 <QuotationDetailsModal
                     qr={detailsFor}
-                    reference={formatReference(detailsFor.id, detailsFor.created_at)}
+                    reference={formatQuotationRef(detailsFor)}
                     submitted={formatDate(detailsFor.submission_date || detailsFor.created_at)}
                     onDownload={detailsFor.status === 'approved' && detailsFor.quotation
                         ? () => handleDownloadQuotation(detailsFor.quotation.id)

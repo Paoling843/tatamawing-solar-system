@@ -84,7 +84,7 @@
                         <td>{{ $s->user?->name ?? '—' }}</td>
                         <td>
                             @if ($s->converted_at)
-                                <span class="badge badge-done">Submitted &bull; Request #{{ $s->quotation_request_id }}</span>
+                                <span class="badge badge-done">Submitted &bull; {{ $s->quotationRequest?->reference ?? ('Request #' . $s->quotation_request_id) }}</span>
                             @else
                                 <span class="badge badge-left">Did not continue</span>
                             @endif

@@ -614,7 +614,7 @@ const styles = {
         flexShrink: 0,
     },
     error: { fontSize: '12px', color: '#b4483a' },
-    // "About #Q-2026-050 · Hybrid · ₱424,000" above the box
+    // "About TMS-QT-2026-0050 · Hybrid · ₱424,000" above the box
     topicChip: {
         display: 'flex',
         alignItems: 'center',

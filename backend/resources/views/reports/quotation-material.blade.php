@@ -38,7 +38,7 @@
         <div class="project-block">
             <div class="project-header">
                 <div class="project-title">
-                    #Q-{{ $request->created_at->format('Y') }}-{{ str_pad($request->id, 3, '0', STR_PAD_LEFT) }}
+                    {{ $request->reference }}
                     — {{ $request->customer->user->name ?? 'Unknown customer' }}
                 </div>
                 <div class="project-meta">

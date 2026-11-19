@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasYearlyReference;
 use Illuminate\Database\Eloquent\Model;
 
 class QuotationRequest extends Model
 {
+    use HasYearlyReference;
+
     protected $fillable = [
         'customer_id',
         'solar_system_type',
@@ -29,7 +32,10 @@ class QuotationRequest extends Model
     ];
 
     // Sent with every quotation request, so pages can show the site directly
+    // (the reference, TMS-QT-2026-0017, is added by HasYearlyReference)
     protected $appends = ['installation_address'];
+
+    public const REFERENCE_KIND = 'QT';
 
     protected function casts()
     {

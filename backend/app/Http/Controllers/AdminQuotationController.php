@@ -145,7 +145,7 @@ class AdminQuotationController extends Controller
             'Approved quotation request.',
             QuotationRequest::class,
             $quotationRequest->id,
-            'Quotation Request #' . $quotationRequest->id,
+            'Quotation Request ' . $quotationRequest->reference,
             [
                 'adjusted_cost' => $adjustedCost,
                 'labor_fee' => $laborFee,
@@ -190,7 +190,7 @@ class AdminQuotationController extends Controller
             'Rejected quotation request.',
             QuotationRequest::class,
             $quotationRequest->id,
-            'Quotation Request #' . $quotationRequest->id,
+            'Quotation Request ' . $quotationRequest->reference,
             [
                 'rejection_reason' => trim($request->rejection_reason),
             ]

@@ -4,6 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
+import { formatQuotationRef, formatScheduleRef } from '../utils/references';
 
 // The customer's installations, one card each: a date tile, the date and
 // status, and a Details button that opens the technician, location and total.
@@ -82,18 +83,12 @@ export default function CustomerSchedulePage() {
         return `In ${diffDays} days`;
     };
 
-    // Builds a reference number the same way CustomerDownloadsPage does,
-    // using the linked quotation request's id + created_at. A schedule
-    // booked directly by Admin (no quotation) falls back to its own id.
+    // The linked quotation's reference (TMS-QT-2026-0049). A schedule
+    // booked directly by Admin (no quotation) shows its own (TMS-INS-2026-0003).
     const formatReference = (schedule) => {
-        const id = schedule.quotation?.quotation_request?.id;
-        const createdAt = schedule.quotation?.quotation_request?.created_at;
-        if (id && createdAt) {
-            const year = new Date(createdAt).getFullYear();
-            return `#Q-${year}-${String(id).padStart(3, '0')}`;
-        }
-        const year = new Date(schedule.created_at).getFullYear();
-        return `#INST-${year}-${String(schedule.id).padStart(3, '0')}`;
+        const request = schedule.quotation?.quotation_request;
+        if (request) return formatQuotationRef(request);
+        return formatScheduleRef(schedule);
     };
 
     const getSystemType = (schedule) => {

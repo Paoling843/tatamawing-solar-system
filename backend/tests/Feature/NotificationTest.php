@@ -42,7 +42,7 @@ class NotificationTest extends TestCase
             ->postJson("/api/admin/quotation-requests/{$request->id}/approve", ['adjusted_cost' => 300000, 'labor_fee' => 10000])
             ->assertOk();
 
-        $reference = '#Q-' . $request->created_at->format('Y') . '-' . str_pad($request->id, 3, '0', STR_PAD_LEFT);
+        $reference = $request->fresh()->reference;
 
         $this->actingAs($customerUser, 'sanctum')
             ->getJson('/api/notifications')

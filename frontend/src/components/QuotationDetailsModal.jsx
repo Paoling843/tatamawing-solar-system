@@ -7,7 +7,7 @@ import { colors, typography, statusColors } from '../styles/theme';
 // Customer-facing summary of one quotation request: the price, the savings,
 // the system, how the price adds up and where it will be installed.
 // Everything comes from the quotation-requests API row (qr).
-//   reference   e.g. "#Q-2026-050"
+//   reference   e.g. "TMS-QT-2026-0050"
 //   submitted   formatted submission date
 //   onDownload    set only when the approved PDF can be downloaded
 //   onRequestNew  opens the calculator (offered on rejected quotations)
