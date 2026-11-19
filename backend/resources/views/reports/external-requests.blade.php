@@ -74,7 +74,7 @@
             <tbody>
                 @forelse ($requests as $r)
                     <tr>
-                        <td>{{ str_pad($r->id, 3, '0', STR_PAD_LEFT) }}</td>
+                        <td>{{ $r->reference }}</td>
                         <td>{{ $r->created_at->format('M d, Y') }}</td>
                         <td>{{ $r->name }}<br><span class="muted">{{ \App\Support\Phone::local($r->phone) }}</span></td>
                         <td>{{ $r->address }}</td>

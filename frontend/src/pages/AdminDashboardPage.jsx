@@ -241,7 +241,7 @@ export default function AdminDashboardPage() {
                     scheduleQuotationId: approvedQuotation.quotation?.id,
                     scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
                     scheduleLocation: approvedQuotation.installation_address || approvedQuotation.customer?.install_location || '',
-                    scheduleReference: formatQuotationRef(approvedQuotation.id, approvedQuotation.created_at),
+                    scheduleReference: formatQuotationRef(approvedQuotation),
                 },
             });
         } catch (err) {
@@ -287,7 +287,7 @@ export default function AdminDashboardPage() {
                 scheduleQuotationId: quotation.quotation?.id,
                 scheduleCustomerName: quotation.customer?.user?.name || 'Customer',
                 scheduleLocation: quotation.installation_address || quotation.customer?.install_location || '',
-                scheduleReference: formatQuotationRef(quotation.id, quotation.created_at),
+                scheduleReference: formatQuotationRef(quotation),
             },
         });
     };
@@ -446,7 +446,7 @@ export default function AdminDashboardPage() {
                                                                 style={styles.queueRef}
                                                                 onClick={() => setSelectedQuotation(q)}
                                                             >
-                                                                {formatQuotationRef(q.id, q.created_at)}
+                                                                {formatQuotationRef(q)}
                                                             </button>
                                                         </td>
                                                         <td style={{ ...styles.queueTd, ...styles.queueLocation }}>
@@ -601,7 +601,7 @@ export default function AdminDashboardPage() {
                                     <div key={requestRecord.id} style={styles.externalRow}>
                                         <div style={styles.externalInfo}>
                                             <div style={styles.queueTopLine}>
-                                                <span style={styles.queueRef}>{formatExternalRef(requestRecord.id)}</span>
+                                                <span style={styles.queueRef}>{formatExternalRef(requestRecord)}</span>
                                                 <span style={styles.queueCustomer}>{requestRecord.name}</span>
                                                 <span style={styles.externalSource}>External quotation</span>
                                             </div>
@@ -692,7 +692,7 @@ export default function AdminDashboardPage() {
                                             style={{ ...styles.tableBodyRow, gridTemplateColumns: TABLE_COLUMNS }}
                                             onClick={() => setSelectedQuotation(q)}
                                         >
-                                            <span style={styles.tdMono}>{formatQuotationRef(q.id, q.created_at)}</span>
+                                            <span style={styles.tdMono}>{formatQuotationRef(q)}</span>
 
                                             <span style={{ minWidth: 0 }}>
                                                 <div style={styles.tdCustomerName}>
@@ -756,7 +756,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.modalEyebrow}>External quotation</div>
                                 <h2 style={styles.confirmModalTitle}>Quotation preview</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {quotationPreview.requestRecord.name} · {formatExternalRef(quotationPreview.requestRecord.id)}
+                                    {quotationPreview.requestRecord.name} · {formatExternalRef(quotationPreview.requestRecord)}
                                 </p>
                             </div>
                             <button onClick={closeQuotationPreview} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
@@ -807,7 +807,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.rejectModalEyebrow}>Reject quotation request</div>
                                 <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation)}
                                 </p>
                             </div>
                             <button onClick={closeRejectQuotation} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
@@ -854,7 +854,7 @@ export default function AdminDashboardPage() {
                                 <div style={styles.rejectModalEyebrow}>Reject external installation</div>
                                 <h2 style={styles.rejectModalTitle}>Add a reason for rejection</h2>
                                 <p style={styles.confirmModalSubtitle}>
-                                    {rejectingExternal.name} · {formatExternalRef(rejectingExternal.id)}
+                                    {rejectingExternal.name} · {formatExternalRef(rejectingExternal)}
                                 </p>
                             </div>
                             <button onClick={closeRejectExternal} aria-label="Close" className="m-tap" style={styles.modalCloseBtn}>
@@ -896,7 +896,7 @@ export default function AdminDashboardPage() {
                 <ScheduleModal
                     title="Confirm external installation"
                     contextLabel={confirmingExternal.name}
-                    badge={formatExternalRef(confirmingExternal.id)}
+                    badge={formatExternalRef(confirmingExternal)}
                     schedules={schedules}
                     initial={{ scheduled_date: confirmingExternal.preferred_installation_date?.split('T')[0] }}
                     intro={
@@ -930,7 +930,7 @@ export default function AdminDashboardPage() {
                         <div style={styles.drawerHead}>
                             <div style={styles.drawerHeader}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={styles.drawerRef}>{formatQuotationRef(q.id, q.created_at)}</span>
+                                    <span style={styles.drawerRef}>{formatQuotationRef(q)}</span>
                                     <Badge status={q.status} />
                                 </div>
                                 <button
@@ -1048,7 +1048,7 @@ export default function AdminDashboardPage() {
                 open={!!approveTarget}
                 title="Approve this quotation?"
                 message={approveTarget
-                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget.id, approveTarget.created_at)}. The customer will see it as approved, and you'll go to the Schedule page to set the installation date. This can't be undone.`
+                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget)}. The customer will see it as approved, and you'll go to the Schedule page to set the installation date. This can't be undone.`
                     : ''}
                 confirmLabel={approvingQuotationId ? 'Approving...' : 'Approve'}
                 busy={Boolean(approvingQuotationId)}

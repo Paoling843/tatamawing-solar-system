@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
  * `notifications` table; App\Services\Notifier decides who gets what.
  *
  *   kind     what happened, e.g. 'quotation_approved' — the bell picks its icon from this
- *   title    one short line, e.g. "#Q-2026-049 approved"
+ *   title    one short line, e.g. "TMS-QT-2026-0049 approved"
  *   body     one short detail line, e.g. "Total ₱480,080.00"
  *   link     page to open when it is clicked, e.g. "/customer/my-quotations"
  *   tone     status colour for the icon (a key of statusColors on the frontend)

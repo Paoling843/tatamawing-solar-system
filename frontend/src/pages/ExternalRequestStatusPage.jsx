@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
+import { formatExternalRef } from '../utils/references';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, XIcon } from '../components/Icons';
 import { colors, typography } from '../styles/theme';
 
@@ -75,7 +76,7 @@ export default function ExternalRequestStatusPage() {
 
     const status = STATUS[request?.status] ?? STATUS.pending_review;
     const details = request ? [
-        ['Request number', `#${request.id}`],
+        ['Request number', formatExternalRef(request)],
         ['Name', request.name],
         ['Installation site', request.address],
         ['Quotation from', request.other_company_name],

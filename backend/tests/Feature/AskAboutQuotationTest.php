@@ -34,7 +34,7 @@ class AskAboutQuotationTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         [$user, $request] = $this->customerWithRequest();
-        $reference = '#Q-'.$request->created_at->format('Y').'-'.str_pad($request->id, 3, '0', STR_PAD_LEFT);
+        $reference = 'TMS-QT-'.$request->created_at->format('Y').'-0001';
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/messages', [

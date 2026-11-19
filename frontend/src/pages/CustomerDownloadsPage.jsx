@@ -4,6 +4,7 @@ import CustomerLayout from '../components/CustomerLayout';
 import LoadingState from '../components/LoadingState';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
+import { formatQuotationRef } from '../utils/references';
 
 // PDF copies of the customer's approved quotations, one row each.
 // Look from the "Customer · Downloads" mockup.
@@ -71,12 +72,6 @@ export default function CustomerDownloadsPage() {
         }
     };
 
-    const formatReference = (id, createdAt) => {
-        const year = new Date(createdAt).getFullYear();
-        const paddedId = String(id).padStart(3, '0');
-        return `#Q-${year}-${paddedId}`;
-    };
-
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
@@ -114,7 +109,7 @@ export default function CustomerDownloadsPage() {
                     ) : (
                         <ul style={styles.list}>
                             {approvedQuotations.map((qr, i) => {
-                                const reference = formatReference(qr.id, qr.created_at);
+                                const reference = formatQuotationRef(qr);
                                 const quotationId = qr.quotation.id;
                                 const isDownloading = downloadingId === quotationId;
 

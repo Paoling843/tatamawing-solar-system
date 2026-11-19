@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasYearlyReference;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 
 class ExternalInstallationRequest extends Model
 {
+    use HasYearlyReference;
+
+    // Reference numbers like TMS-EXT-2026-0003, restarting every January
+    public const REFERENCE_KIND = 'EXT';
+
     protected $fillable = [
         'name',
         'email',

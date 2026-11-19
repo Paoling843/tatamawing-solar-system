@@ -34,7 +34,7 @@
 <body>
     <div class="header">
         <h1>Purchase Request</h1>
-        <p>TataMawing Solar Power Installation Service &bull; For quotation #{{ $reference }} &bull; {{ $generatedAt }}</p>
+        <p>TataMawing Solar Power Installation Service &bull; For quotation {{ $reference }} &bull; {{ $generatedAt }}</p>
     </div>
 
     <div class="content">
@@ -122,7 +122,7 @@
         </div>
 
         <div class="footer">
-            TataMawing Solar Power &bull; Purchase request for quotation #{{ $reference }} &bull; {{ $generatedAt }}
+            TataMawing Solar Power &bull; Purchase request for quotation {{ $reference }} &bull; {{ $generatedAt }}
         </div>
     </div>
 </body>

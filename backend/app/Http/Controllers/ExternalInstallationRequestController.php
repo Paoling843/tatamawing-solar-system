@@ -68,6 +68,7 @@ class ExternalInstallationRequestController extends Controller
                 'message' => 'Your installation request was submitted and is pending review.',
                 'request' => [
                     'id' => $requestRecord->id,
+                    'reference' => $requestRecord->reference,
                     'status' => $requestRecord->status,
                     'status_url' => $requestRecord->statusPageUrl(),
                 ],
@@ -92,6 +93,7 @@ class ExternalInstallationRequestController extends Controller
 
         return response()->json([
             'id' => $externalInstallationRequest->id,
+            'reference' => $externalInstallationRequest->reference,
             'name' => $externalInstallationRequest->name,
             'address' => $externalInstallationRequest->address,
             'preferred_installation_date' => $externalInstallationRequest->preferred_installation_date,
@@ -186,7 +188,7 @@ class ExternalInstallationRequestController extends Controller
             'Confirmed external installation request.',
             ExternalInstallationRequest::class,
             $updatedRequest->id,
-            'External Installation Request #' . $updatedRequest->id,
+            'External Installation Request ' . $updatedRequest->reference,
             ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
         );
         try{
@@ -232,7 +234,7 @@ class ExternalInstallationRequestController extends Controller
             'Rejected external installation request.',
             ExternalInstallationRequest::class,
             $updatedRequest->id,
-            'External Installation Request #' . $updatedRequest->id,
+            'External Installation Request ' . $updatedRequest->reference,
             ['rejection_reason' => $updatedRequest->rejection_reason]
         );
 

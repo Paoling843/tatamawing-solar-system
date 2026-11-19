@@ -128,7 +128,7 @@ class ReportController extends Controller
             return response()->json(['message' => 'Only approved quotations have a materials list.'], 422);
         }
 
-        $reference = 'Q-' . $quotationRequest->created_at->format('Y') . '-' . str_pad($quotationRequest->id, 3, '0', STR_PAD_LEFT);
+        $reference = $quotationRequest->reference;
         // TataMawing's own address, or the installation site
         $deliverTo = $request->deliver_to === 'site'
             ? ($quotationRequest->installation_address ?? 'Installation site (address to follow)')

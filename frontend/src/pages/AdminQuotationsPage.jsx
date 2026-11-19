@@ -362,7 +362,7 @@ export default function AdminQuotationsPage() {
                                 <div style={styles.detailHeader}>
                                     <div style={styles.detailRefRow}>
                                         <span style={styles.detailRef}>
-                                            {formatQuotationRef(selected.id, selected.created_at)}
+                                            {formatQuotationRef(selected)}
                                         </span>
                                         <Badge status={selected.status} />
                                     </div>
@@ -481,7 +481,7 @@ export default function AdminQuotationsPage() {
                                                         scheduleQuotationId: selected.quotation?.id,
                                                         scheduleCustomerName: selected.customer?.user?.name || 'Customer',
                                                         scheduleLocation: selected.installation_address || selected.customer?.install_location || '',
-                                                        scheduleReference: formatQuotationRef(selected.id, selected.created_at),
+                                                        scheduleReference: formatQuotationRef(selected),
                                                     },
                                                 })}
                                             >
@@ -510,7 +510,7 @@ export default function AdminQuotationsPage() {
                                 <div style={styles.rejectEyebrow}>Quotation review</div>
                                 <h2 style={styles.rejectModalTitle}>Reject this request?</h2>
                                 <p style={styles.rejectModalSubtitle}>
-                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation.id, rejectingQuotation.created_at)}
+                                    {rejectingQuotation.customer?.user?.name || 'Customer'} · {formatQuotationRef(rejectingQuotation)}
                                 </p>
                             </div>
                             <button type="button" onClick={closeRejectModal} aria-label="Close" style={styles.modalCloseBtn}>
@@ -552,7 +552,7 @@ export default function AdminQuotationsPage() {
                 open={!!approveTarget}
                 title="Approve this quotation?"
                 message={approveTarget
-                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget.id, approveTarget.created_at)}. The customer will see it as approved, and you can then schedule the installation. This can't be undone.`
+                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget)}. The customer will see it as approved, and you can then schedule the installation. This can't be undone.`
                     : ''}
                 confirmLabel={approveLoading ? 'Approving...' : 'Approve'}
                 busy={approveLoading}

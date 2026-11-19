@@ -219,7 +219,7 @@ export default function AdminQuotationDetailPage() {
                 { responseType: 'blob' },
             );
 
-            // File name from the server, e.g. TataMawing-materials-Q-2026-050.pdf
+            // File name from the server, e.g. TataMawing-materials-TMS-QT-2026-0050.pdf
             const disposition = res.headers['content-disposition'] ?? '';
             const fileName = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? 'TataMawing-materials.pdf';
             const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
@@ -352,7 +352,7 @@ export default function AdminQuotationDetailPage() {
     ];
 
 
-    const quoteRef = formatQuotationRef(quotation.id, quotation.created_at);
+    const quoteRef = formatQuotationRef(quotation);
     const customerName = quotation?.customer?.user?.name;
     const customerEmail = quotation?.customer?.user?.email;
     const siteAddress = quotation?.installation_address || quotation?.customer?.install_location;
@@ -1125,7 +1125,7 @@ export default function AdminQuotationDetailPage() {
             {showScheduleModal && (
                 <ScheduleModal
                     contextLabel="For quotation"
-                    badge={formatQuotationRef(quotation.id, quotation.created_at)}
+                    badge={formatQuotationRef(quotation)}
                     schedules={bookedSchedules}
                     intro={
                         <div style={{ fontSize: '14px', color: adminTokens.body }}>

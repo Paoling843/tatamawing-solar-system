@@ -2,10 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasYearlyReference;
 use Illuminate\Database\Eloquent\Model;
 
 class InstallationSchedule extends Model
 {
+    use HasYearlyReference;
+
+    // Reference numbers like TMS-INS-2026-0003, restarting every January
+    public const REFERENCE_KIND = 'INS';
+
     protected $fillable = [
         'quotation_id',
         'customer_id',
