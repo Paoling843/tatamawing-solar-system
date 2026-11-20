@@ -7,7 +7,8 @@ import Badge from '../components/StatusPill';
 import { CheckIcon, XIcon, CalendarIcon, DownloadIcon, MailIcon } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import ProductPicker from '../components/ProductPicker';
-import AmountInput from '../components/AmountInput';
+import ApproveQuotationModal from '../components/ApproveQuotationModal';
+import PurchaseRequestsCard from '../components/PurchaseRequestsCard';
 import { BUSINESS_NAME } from './quote-builder/businessInfo';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
@@ -42,11 +43,6 @@ export default function AdminQuotationDetailPage() {
     const [showRejectForm, setShowRejectForm] = useState(false);
     // Shown inside the approve / reject windows (the page banner is behind them)
     const [decisionError, setDecisionError] = useState('');
-    const [approveForm, setApproveForm] = useState({
-        adjusted_cost: '',
-        labor_fee: '',
-        transportation_fee: '',
-    });
     const [rejectForm, setRejectForm] = useState({
         rejection_reason: '',
     });
@@ -57,7 +53,7 @@ export default function AdminQuotationDetailPage() {
     const [bookedSchedules, setBookedSchedules] = useState([]);
     const [scheduleSuccess, setScheduleSuccess] = useState(false);
     const [scheduleLoading, setScheduleLoading] = useState(false);
-    // Materials PDF for the supplier (sent on Messenger; nothing is saved)
+    // Materials PDF for the supplier (sent on Messenger; saved as a purchase request)
     const [materialsOpen, setMaterialsOpen] = useState(false);
     const [materials, setMaterials] = useState([]);
     const [materialsForm, setMaterialsForm] = useState({ deliver_to: 'business', needed_by: '', notes: '' });
@@ -65,8 +61,11 @@ export default function AdminQuotationDetailPage() {
     const [businessAddress, setBusinessAddress] = useState('');
     const [materialsLoading, setMaterialsLoading] = useState(false);
     const [materialsError, setMaterialsError] = useState('');
-    // "Copied ✓" on the Copy message button for a moment after copying
+    // "Copied & saved ✓" on the Copy & save button for a moment afterwards
     const [messageCopied, setMessageCopied] = useState(false);
+    const [messageSaving, setMessageSaving] = useState(false);
+    // Bumped after each send so the "Purchase requests sent" list reloads
+    const [purchaseRequestsVersion, setPurchaseRequestsVersion] = useState(0);
 
 
     const fetchQuotation = useCallback(async () => {
@@ -76,10 +75,6 @@ export default function AdminQuotationDetailPage() {
         try {
             const res = await api.get(`/admin/quotation-requests/${id}`);
             setQuotation(res.data);
-            setApproveForm((prev) => ({
-                ...prev,
-                adjusted_cost: res.data.solar_computation?.estimated_cost || '',
-            }));
         } catch (err) {
             setError(errorMessage(err, "Couldn't load this quotation. Please try again."));
         } finally {
@@ -93,27 +88,13 @@ export default function AdminQuotationDetailPage() {
         Promise.resolve().then(fetchQuotation);
     }, [fetchQuotation]);
 
-    const handleApprove = async (e) => {
-        e.preventDefault();
-        setActionLoading(true);
+    // After the approve form (ApproveQuotationModal) succeeds
+    // (the modal has already warned if the email didn't go out)
+    const handleApproved = () => {
         setError('');
-        setActionSuccess('');
-
-        try {
-            await api.post(`/admin/quotation-requests/${id}/approve`, {
-                adjusted_cost: parseFloat(approveForm.adjusted_cost),
-                labor_fee: parseFloat(approveForm.labor_fee) || 0,
-                transportation_fee: parseFloat(approveForm.transportation_fee) || 0,
-            });
-
-            setActionSuccess('Quotation approved successfully.');
-            setShowApproveForm(false);
-            fetchQuotation();
-        } catch (err) {
-            setDecisionError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
-        } finally {
-            setActionLoading(false);
-        }
+        setActionSuccess('Quotation approved successfully.');
+        setShowApproveForm(false);
+        fetchQuotation();
     };
 
     const handleReject = async (e) => {
@@ -123,11 +104,13 @@ export default function AdminQuotationDetailPage() {
         setActionSuccess('');
 
         try {
-            await api.post(`/admin/quotation-requests/${id}/reject`, {
+            const res = await api.post(`/admin/quotation-requests/${id}/reject`, {
                 rejection_reason: rejectForm.rejection_reason,
             });
 
-            setActionSuccess('Quotation rejected.');
+            setActionSuccess(res.data.email_sent === false
+                ? `Quotation rejected. ${res.data.email_warning}`
+                : 'Quotation rejected.');
             setShowRejectForm(false);
             fetchQuotation();
         } catch (err) {
@@ -170,9 +153,24 @@ export default function AdminQuotationDetailPage() {
             : m)));
     };
 
-    // The same list as the PDF, as a message to paste into Messenger
+    // The form as the server expects it (used by Copy & save and Download PDF)
+    const materialsPayload = () => ({
+        ...materialsForm,
+        needed_by: materialsForm.needed_by || null,
+        notes: materialsForm.notes.trim() || null,
+        items: supplierRows(materials).map(({ id: _id, ...row }) => ({ ...row, quantity: parseInt(row.quantity, 10) || 0 })),
+    });
+
+    // Copies the list as a message to paste into Messenger, and saves it as a
+    // purchase request for the Procurement report (same record as Download PDF)
     const copyMaterialsMessage = async () => {
-        const lines = supplierRows(materials)
+        const rows = supplierRows(materials);
+        if (rows.length === 0) {
+            setMaterialsError('Add at least one material.');
+            return;
+        }
+
+        const lines = rows
             .map((m, i) => `${i + 1}. [${m.category}] ${m.name.trim()} — ${m.quantity} ${m.unit.trim()}`.trimEnd());
         const deliverTo = materialsForm.deliver_to === 'site'
             ? quotation?.installation_address || 'Installation site'
@@ -192,13 +190,25 @@ export default function AdminQuotationDetailPage() {
             'Thank you!',
         ].filter((line) => line !== false && line !== null && line !== undefined).join('\n');
 
+        // Copy first: browsers can block copying if it happens after waiting for the server
         try {
             await navigator.clipboard.writeText(message);
-            setMaterialsError('');
-            setMessageCopied(true);
-            setTimeout(() => setMessageCopied(false), 2000);
         } catch {
             setMaterialsError("Couldn't copy the message. Your browser blocked it — try again, or download the PDF instead.");
+            return;
+        }
+
+        setMessageSaving(true);
+        setMaterialsError('');
+        try {
+            await api.post(`/admin/quotations/${quotation.quotation.id}/purchase-requests`, materialsPayload());
+            setMessageCopied(true);
+            setPurchaseRequestsVersion((v) => v + 1);
+            setTimeout(() => setMessageCopied(false), 2000);
+        } catch (err) {
+            setMaterialsError(errorMessage(err, "The message was copied, but it couldn't be saved for the Procurement report. Please try again."));
+        } finally {
+            setMessageSaving(false);
         }
     };
 
@@ -210,18 +220,13 @@ export default function AdminQuotationDetailPage() {
         try {
             const res = await api.post(
                 `/admin/quotations/${quotation.quotation.id}/materials-pdf`,
-                {
-                    ...materialsForm,
-                    needed_by: materialsForm.needed_by || null,
-                    notes: materialsForm.notes.trim() || null,
-                    items: supplierRows(materials).map(({ id: _id, ...row }) => ({ ...row, quantity: parseInt(row.quantity, 10) || 0 })),
-                },
+                materialsPayload(),
                 { responseType: 'blob' },
             );
 
             // File name from the server, e.g. TataMawing-materials-TMS-QT-2026-0050.pdf
             const disposition = res.headers['content-disposition'] ?? '';
-            const fileName = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? 'TataMawing-materials.pdf';
+            const fileName = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? 'TataMawing-purchase-request.pdf';
             const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -230,9 +235,10 @@ export default function AdminQuotationDetailPage() {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(blobUrl);
+            setPurchaseRequestsVersion((v) => v + 1);
         } catch (err) {
             // Errors come back as a Blob because of responseType
-            setMaterialsError(errorMessage(await readBlobError(err), "Couldn't create the materials PDF. Please try again."));
+            setMaterialsError(errorMessage(await readBlobError(err), "Couldn't create the purchase request PDF. Please try again."));
         } finally {
             setMaterialsLoading(false);
         }
@@ -450,7 +456,7 @@ export default function AdminQuotationDetailPage() {
                             {isApproved && approvedQuote && (
                                 <button type="button" onClick={startMaterials} style={adminUi.goldBtn}>
                                     <DownloadIcon size={16} color="currentColor" />
-                                    Materials PDF
+                                    Purchase request
                                 </button>
                             )}
                         </div>
@@ -603,6 +609,13 @@ export default function AdminQuotationDetailPage() {
                                                     <th scope="row" colSpan={2} style={D.grandLabel}>Approved total</th>
                                                     <td style={D.grandValue}>{formatCurrency(approvedQuote.total_amount)}</td>
                                                 </tr>
+                                                {approvedQuote.price_note && (
+                                                    <tr>
+                                                        <td colSpan={3} style={{ ...D.td, paddingLeft: '20px', paddingRight: '20px', color: adminTokens.body, whiteSpace: 'pre-wrap' }}>
+                                                            <strong>Reason for the price change:</strong> {approvedQuote.price_note}
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             </>
                                         )}
                                     </tbody>
@@ -629,90 +642,11 @@ export default function AdminQuotationDetailPage() {
                                 </div>
 
                             {showApproveForm && (
-                                <div style={styles.decisionModalOverlay} onClick={() => setShowApproveForm(false)}>
-                                    <div style={styles.decisionModal} onClick={(e) => e.stopPropagation()}>
-                                    <p style={styles.cardDesc}>
-                                        Review and adjust the costs before approving.
-                                        The total amount is computed automatically.
-                                    </p>
-
-                                    <form onSubmit={handleApprove} style={styles.decisionForm}>
-                                        <div style={styles.field}>
-                                            <label htmlFor="approve-base-cost" style={styles.label}>Adjusted Base Cost</label>
-                                            <AmountInput
-                                                id="approve-base-cost"
-                                                value={approveForm.adjusted_cost}
-                                                onChange={(adjusted_cost) => setApproveForm({ ...approveForm, adjusted_cost })}
-                                                className="input-field"
-                                                style={styles.decisionInput}
-                                                placeholder="0.00"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div style={styles.field}>
-                                            <label htmlFor="approve-labor-fee" style={styles.label}>Labor Fee</label>
-                                            <AmountInput
-                                                id="approve-labor-fee"
-                                                value={approveForm.labor_fee}
-                                                onChange={(labor_fee) => setApproveForm({ ...approveForm, labor_fee })}
-                                                className="input-field"
-                                                style={styles.decisionInput}
-                                                placeholder="15,000"
-                                            />
-                                        </div>
-
-                                        <div style={styles.field}>
-                                            <label htmlFor="approve-transport-fee" style={styles.label}>Transportation Fee</label>
-                                            <AmountInput
-                                                id="approve-transport-fee"
-                                                value={approveForm.transportation_fee}
-                                                onChange={(transportation_fee) => setApproveForm({ ...approveForm, transportation_fee })}
-                                                className="input-field"
-                                                style={styles.decisionInput}
-                                                placeholder="5,000"
-                                            />
-                                        </div>
-
-                                        <div style={styles.totalBanner}>
-                                            <span style={styles.totalBannerLabel}>Approved total</span>
-                                            <span style={styles.totalBannerValue}>
-                                                {formatCurrency(
-                                                    (parseFloat(approveForm.adjusted_cost) || 0) +
-                                                    (parseFloat(approveForm.labor_fee) || 0) +
-                                                    (parseFloat(approveForm.transportation_fee) || 0)
-                                                )}
-                                            </span>
-                                        </div>
-
-                                        {decisionError && <div role="alert" style={styles.error}>{decisionError}</div>}
-
-                                        <div style={styles.formActions}>
-                                            <button
-                                                type="button"
-                                                className="btn-secondary"
-                                                onClick={() => setShowApproveForm(false)}
-                                                style={styles.cancelBtn}
-                                            >
-                                                Cancel
-                                            </button>
-
-                                            <button
-                                                type="submit"
-                                                className="btn-primary"
-                                                style={{
-                                                    ...styles.approveBtn,
-                                                    opacity: actionLoading ? 0.7 : 1,
-                                                    cursor: actionLoading ? 'not-allowed' : 'pointer',
-                                                }}
-                                                disabled={actionLoading}
-                                            >
-                                                <span>{actionLoading ? 'Approving...' : 'Confirm Approval'}</span>
-                                            </button>
-                                        </div>
-                                    </form>
-                                    </div>
-                                </div>
+                                <ApproveQuotationModal
+                                    quotation={quotation}
+                                    onClose={() => setShowApproveForm(false)}
+                                    onApproved={handleApproved}
+                                />
                             )}
 
                             {showRejectForm && (
@@ -771,14 +705,14 @@ export default function AdminQuotationDetailPage() {
                             </section>
                         )}
 
-                        {/* ---- Materials PDF for the supplier (the open form) ---- */}
-                        {/* The admin downloads it and sends it on Messenger; nothing is saved or tracked */}
+                        {/* ---- Purchase request for the supplier (the open form) ---- */}
+                        {/* The admin downloads it or copies it and sends it on Messenger; either way it's saved as a purchase request */}
                         {isApproved && approvedQuote && materialsOpen && (
                             <section id="materials" className="m-pad" style={{ ...D.card, padding: '16px 20px' }}>
                                 <form onSubmit={handleDownloadMaterials}>
                                     <div style={styles.matHead}>
                                         <div>
-                                            <h3 style={{ ...styles.cardTitle, margin: 0 }}>Materials for supplier</h3>
+                                            <h3 style={{ ...styles.cardTitle, margin: 0 }}>Purchase request for the supplier</h3>
                                         </div>
                                         <span style={styles.matCount}>
                                             {materials.length} {materials.length === 1 ? 'item' : 'items'}
@@ -956,10 +890,15 @@ export default function AdminQuotationDetailPage() {
                                                 type="button"
                                                 className="btn-secondary"
                                                 onClick={copyMaterialsMessage}
-                                                style={styles.cancelBtn}
-                                                title="Copies the list as a message you can paste into Messenger"
+                                                disabled={messageSaving}
+                                                style={{
+                                                    ...styles.cancelBtn,
+                                                    opacity: messageSaving ? 0.7 : 1,
+                                                    cursor: messageSaving ? 'not-allowed' : 'pointer',
+                                                }}
+                                                title="Copies the list as a message for Messenger and saves it for the Procurement report"
                                             >
-                                                {messageCopied ? 'Copied ✓' : 'Copy message'}
+                                                {messageSaving ? 'Saving…' : messageCopied ? 'Copied & saved ✓' : 'Copy & save'}
                                             </button>
                                             <button
                                                 type="submit"
@@ -1111,12 +1050,16 @@ export default function AdminQuotationDetailPage() {
                             <section id="materials" style={D.materialsCard}>
                                 <h2 style={D.cardTitle}>Materials for the supplier</h2>
                                 <p style={{ margin: '4px 0 12px', color: '#5C3D00' }}>
-                                    A purchase request PDF of this quotation's materials, ready to send on Messenger. It has no prices or customer name.
+                                    A purchase request of this quotation's materials, ready to send on Messenger as a PDF or a message. It has no prices or customer name.
                                 </p>
                                 <button type="button" onClick={startMaterials} style={{ ...adminUi.primaryBtn, height: '38px', fontWeight: 600 }}>
-                                    Prepare materials PDF
+                                    Prepare purchase request
                                 </button>
                             </section>
+                        )}
+
+                        {isApproved && approvedQuote && (
+                            <PurchaseRequestsCard quotationId={approvedQuote.id} refreshKey={purchaseRequestsVersion} />
                         )}
                     </div>
                 </div>
@@ -1370,31 +1313,6 @@ const styles = {
     figure: {
     },
 
-    /* ---------- Total banner ---------- */
-    totalBanner: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '1rem',
-        flexWrap: 'wrap',
-        backgroundColor: adminTokens.greenTint,
-        borderRadius: '6px',
-        padding: '1rem 1.25rem',
-        marginTop: '1.25rem',
-    },
-    totalBannerLabel: {
-        fontSize: '0.8125rem',
-        color: adminTokens.green,
-        fontWeight: '600',
-        letterSpacing: '0.02em',
-    },
-    totalBannerValue: {
-        fontSize: '1.375rem',
-        fontWeight: '600',
-        color: adminTokens.green,
-        letterSpacing: '-0.02em',
-    },
-
     /* ---------- Appliance table ---------- */
     tableHeader: {
         display: 'flex',
@@ -1568,18 +1486,6 @@ const styles = {
         borderRadius: '6px',
         backgroundColor: adminTokens.surface,
         boxShadow: '0 24px 70px rgba(17,24,39,0.22)',
-    },
-    decisionInput: {
-        width: '100%',
-        padding: '0.7rem 0.75rem',
-        border: `1px solid ${adminTokens.border}`,
-        borderRadius: '6px',
-        backgroundColor: adminTokens.surface,
-        color: adminTokens.ink,
-        fontSize: '0.9375rem',
-        fontWeight: '600',
-        boxSizing: 'border-box',
-        boxShadow: '0 1px 2px rgba(17,24,39,0.04)',
     },
     decisionTextarea: {
         width: '100%',

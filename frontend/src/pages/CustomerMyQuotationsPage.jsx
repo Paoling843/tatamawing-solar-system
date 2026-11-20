@@ -70,6 +70,11 @@ function describe(qr) {
     const computation = qr.solar_computation ?? {};
     // Once approved, the approved total replaces the estimate
     const total = toNumberOrNull(qr.quotation?.total_amount ?? computation.estimated_cost);
+    // How far the approved total is from the estimate (null if the same, or no estimate)
+    const estimate = toNumberOrNull(computation.estimated_cost);
+    const priceChange = qr.quotation && estimate !== null && Math.abs(total - estimate) >= 0.01
+        ? total - estimate
+        : null;
     const monthlySavings = toNumberOrNull(computation.monthly_savings);
     const annualSavings = toNumberOrNull(computation.annual_savings);
     const newBill = toNumberOrNull(computation.new_monthly_bill);
@@ -82,6 +87,8 @@ function describe(qr) {
 
     return {
         total,
+        estimate,
+        priceChange,
         monthlySavings,
         annualSavings,
         currentBill,
@@ -103,7 +110,9 @@ function notice(qr, info) {
     if (qr.status === 'approved') {
         return {
             title: 'Approved.',
-            text: "This quotation is final. Your installation date will show under Installation schedule once it's booked.",
+            text: info.priceChange !== null
+                ? "This quotation is final. The price was updated from your estimate; see Price below. Your installation date will show under Installation schedule once it's booked."
+                : "This quotation is final. Your installation date will show under Installation schedule once it's booked.",
             bg: '#E3F1E8', fg: '#1F4D3A',
         };
     }
@@ -413,6 +422,15 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule, 
                         <table style={styles.priceTable}>
                             <caption style={styles.priceCaption}>Price</caption>
                             <tbody>
+                                {/* The approved total isn't the estimate they saw: show both */}
+                                {info.priceChange !== null && (
+                                    <tr>
+                                        <th scope="row" style={styles.priceLabel}>Your original estimate</th>
+                                        <td style={{ ...styles.priceValue, color: C.muted }}>
+                                            <s>{peso(info.estimate)}</s>
+                                        </td>
+                                    </tr>
+                                )}
                                 {[
                                     ['Base system cost', qr.quotation.adjusted_cost],
                                     ['Labor fee', qr.quotation.labor_fee],
@@ -429,6 +447,19 @@ function QuotationCard({ qr, expanded, onToggle, onDownload, onAsk, onSchedule, 
                                         {peso(qr.quotation.total_amount)}
                                     </td>
                                 </tr>
+                                {info.priceChange !== null && (
+                                    <tr>
+                                        <td colSpan={2} style={styles.priceChangeNote}>
+                                            <strong>Price updated:</strong> {peso(Math.abs(info.priceChange))}{' '}
+                                            {info.priceChange > 0 ? 'more' : 'less'} than your estimate
+                                            {qr.quotation.price_note && (
+                                                <span style={{ display: 'block', marginTop: '4px', whiteSpace: 'pre-wrap' }}>
+                                                    {qr.quotation.price_note}
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     )}
@@ -693,6 +724,10 @@ const styles = {
     priceLabel: { textAlign: 'left', fontWeight: 400, color: C.body, padding: '7px 0', borderTop: `1px solid ${C.rowLine}` },
     priceValue: { textAlign: 'right', padding: '7px 0', borderTop: `1px solid ${C.rowLine}`, fontVariantNumeric: 'tabular-nums' },
     priceTotalRow: { padding: '9px 0', borderTop: '1px solid #D6D6D0' },
+    priceChangeNote: {
+        padding: '10px 12px', borderRadius: '6px', background: '#FDF4DC', border: '1px solid #F3E3AD',
+        color: '#5B4A12', fontSize: '13px', lineHeight: 1.45,
+    },
 
     actions: {
         display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '10px',

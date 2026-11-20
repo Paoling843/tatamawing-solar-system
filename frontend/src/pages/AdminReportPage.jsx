@@ -37,6 +37,7 @@ const REPORTS = [
     { key: 'external-requests', title: 'External quotation requests', sub: 'Installation requests based on outside quotations', file: 'external-quotation-requests.pdf' },
     { key: 'quotation-history', title: 'Quotation history', sub: 'All requests and their current status', file: 'quotation-history-report.pdf' },
     { key: 'quotation-material', title: 'Material report', sub: 'Materials needed for each approved project', file: 'quotation-material-report.pdf' },
+    { key: 'procurement', title: 'Procurement report', sub: 'Purchase requests sent to suppliers', file: 'procurement-report.pdf' },
 ];
 
 // ₱3,900,000 → "₱3.9M", ₱595,680 → "₱596K"

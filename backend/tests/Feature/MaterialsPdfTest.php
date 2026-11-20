@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * The materials PDF the admin sends to a supplier on Messenger: built from
- * the form, never saved.
+ * the form, and saved as a purchase request for the Procurement report.
  */
 class MaterialsPdfTest extends TestCase
 {
@@ -73,7 +73,43 @@ class MaterialsPdfTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('application/pdf', $response->headers->get('content-type'));
-        $this->assertStringContainsString("TataMawing-materials-{$ref}.pdf", $response->headers->get('content-disposition'));
+        $this->assertStringContainsString("TataMawing-purchase-request-{$ref}.pdf", $response->headers->get('content-disposition'));
+    }
+
+    public function test_each_download_is_saved_as_a_purchase_request(): void
+    {
+        $quotation = $this->approvedQuotation();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->post("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload())
+            ->assertOk();
+
+        $purchaseRequest = $quotation->purchaseRequests()->with('items')->sole();
+        $this->assertSame('site', $purchaseRequest->deliver_to);
+        $this->assertStringContainsString('Bical', $purchaseRequest->delivery_address);
+        $this->assertSame('Please deliver in the morning.', $purchaseRequest->notes);
+        $this->assertSame($this->admin->id, $purchaseRequest->sent_by_user_id);
+        $this->assertSame(now()->addWeek()->toDateString(), $purchaseRequest->needed_by->toDateString());
+        $this->assertSame(['Hybrid inverter', 'Solar panel', 'PV cable'], $purchaseRequest->items->pluck('material_name')->all());
+        $this->assertSame(['Inverter', 'Solar panel', 'Wiring'], $purchaseRequest->items->pluck('category')->all());
+        $this->assertSame([1, 10, 50], $purchaseRequest->items->pluck('quantity')->all());
+    }
+
+    public function test_a_refused_list_saves_nothing(): void
+    {
+        $quotation = $this->approvedQuotation();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload(['items' => []]))
+            ->assertStatus(422);
+
+        $quotation->quotationRequest->update(['status' => 'pending']);
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson("/api/admin/quotations/{$quotation->id}/materials-pdf", $this->payload())
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('purchase_requests', 0);
+        $this->assertDatabaseCount('material_items', 0);
     }
 
     public function test_the_pdf_has_no_customer_name_and_shows_the_site(): void

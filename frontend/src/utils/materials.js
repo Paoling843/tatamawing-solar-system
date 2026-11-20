@@ -1,6 +1,7 @@
 // Starting rows for the supplier materials PDF, built from an approved
 // quotation's price lines (solar_computation.line_items). The admin can
-// edit, remove or add rows before downloading; nothing is saved.
+// edit, remove or add rows before downloading or copying; the list sent is
+// saved as a purchase request for the Procurement report.
 // Only single products are added: the inverter, panels and batteries.
 // The mounting kit and safety devices are sets in the quote, and their
 // individual parts per package are still to come from the client, so the
