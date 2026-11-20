@@ -42,9 +42,33 @@ class AdminWorkflowEdgeCasesTest extends TestCase
         $this->actingAs($this->admin(), 'sanctum')
             ->postJson("/api/admin/quotation-requests/{$request->id}/approve")
             ->assertStatus(422)
-            ->assertJsonPath('message', 'This request has no computed system cost. Enter an adjusted cost to approve it.');
+            ->assertJsonPath('message', 'Enter the base cost to approve this quotation.')
+            ->assertJsonValidationErrors('adjusted_cost');
 
         $this->assertSame('pending', $request->fresh()->status);
+    }
+
+    public function test_approving_always_needs_a_base_cost_even_with_an_estimate(): void
+    {
+        Mail::fake();
+        $request = $this->legacyQuotationRequest();
+        \App\Models\SolarComputation::create([
+            'quotation_request_id' => $request->id,
+            'total_load_watts' => 3000,
+            'panel_capacity_kw' => 6,
+            'inverter_specification' => '6 kW hybrid',
+            'battery_capacity_ah' => 314,
+            'estimated_cost' => 300000,
+        ]);
+
+        // No silent approval at the estimate: the admin must send the price
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson("/api/admin/quotation-requests/{$request->id}/approve", ['labor_fee' => 10000])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('adjusted_cost');
+
+        $this->assertSame('pending', $request->fresh()->status);
+        $this->assertNull($request->fresh()->quotation);
     }
 
     public function test_approving_without_a_computed_cost_works_with_an_adjusted_cost(): void

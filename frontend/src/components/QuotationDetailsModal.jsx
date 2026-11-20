@@ -92,6 +92,11 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                             {!d.approved && (
                                 <div style={styles.heroNote}>The final price is confirmed after our team reviews your request.</div>
                             )}
+                            {d.priceChange !== null && (
+                                <div style={styles.heroNote}>
+                                    Updated from your estimate of <s>{peso(d.estimate)}</s>. See how the price adds up below.
+                                </div>
+                            )}
                         </div>
                         {d.hasSavings && (
                             <div style={styles.heroStats}>
@@ -194,6 +199,18 @@ export default function QuotationDetailsModal({ qr, reference, submitted, onDown
                                     <PriceRow label="Labor fee" value={peso(qr.quotation.labor_fee)} />
                                     <PriceRow label="Transportation" value={peso(qr.quotation.transportation_fee)} />
                                     <PriceRow label="Total" value={peso(qr.quotation.total_amount)} strong />
+                                    {/* The approved total isn't the estimate they saw: say by how much, and why */}
+                                    {d.priceChange !== null && (
+                                        <div style={styles.priceChangeNote}>
+                                            <strong>Price updated:</strong> {peso(Math.abs(d.priceChange))}{' '}
+                                            {d.priceChange > 0 ? 'more' : 'less'} than your estimate of {peso(d.estimate)}.
+                                            {qr.quotation.price_note && (
+                                                <span style={{ display: 'block', marginTop: '4px', whiteSpace: 'pre-wrap' }}>
+                                                    {qr.quotation.price_note}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </Section>
@@ -253,6 +270,10 @@ function describe(qr) {
     const estimate = toNumber(c.estimated_cost);
     // Once approved, the approved total replaces the estimate (same as My Quotations)
     const total = approved ? toNumber(qr.quotation.total_amount) : estimate;
+    // How far the approved total is from the estimate (null if the same, or no estimate)
+    const priceChange = approved && estimate !== null && total !== null && Math.abs(total - estimate) >= 0.01
+        ? total - estimate
+        : null;
 
     const monthlySavings = toNumber(c.monthly_savings);
     const annualSavings = toNumber(c.annual_savings);
@@ -269,6 +290,7 @@ function describe(qr) {
         approved,
         estimate,
         total,
+        priceChange,
         hasSavings: monthlySavings !== null,
         monthlySavings,
         currentBill,
@@ -471,6 +493,10 @@ const styles = {
     priceRowStrong: {
         marginTop: '0.3rem', paddingTop: '0.55rem', borderTop: `1px solid ${colors.primaryBorder}`,
         fontWeight: 800, color: colors.textDark,
+    },
+    priceChangeNote: {
+        marginTop: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: '8px', background: '#FDF4DC',
+        border: '1px solid #F3E3AD', color: '#5B4A12', fontSize: '0.8125rem', lineHeight: 1.45,
     },
 
     site: { display: 'flex', gap: '0.75rem', alignItems: 'flex-start' },

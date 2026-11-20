@@ -29,10 +29,15 @@ class Notifier
     public static function quotationApproved(Quotation $quotation): void
     {
         $request = $quotation->quotationRequest;
+        // Say so when the approved total isn't the estimate the customer saw
+        $body = $quotation->priceChange() === null
+            ? 'Total ' . self::peso($quotation->total_amount)
+            : 'Price updated: ' . self::peso($quotation->estimatedCost()) . ' → ' . self::peso($quotation->total_amount);
+
         self::toCustomerOf($request, new AppNotification(
             kind: 'quotation_approved',
             title: self::reference($request) . ' approved',
-            body: 'Total ' . self::peso($quotation->total_amount),
+            body: $body,
             link: '/customer/my-quotations',
             tone: 'approved',
             subject: 'quotation_request:' . $request->id,

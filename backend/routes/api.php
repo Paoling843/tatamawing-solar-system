@@ -10,6 +10,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\InboxSettingsController;
 use App\Http\Controllers\QuoteSessionController;
@@ -132,9 +133,14 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         // ----------------------------
         // Materials PDF for suppliers
         // ----------------------------
-        // The admin sends it on Messenger; nothing is saved or tracked.
+        // The admin sends it on Messenger, as the PDF or a copied message.
+        // Both are saved as a purchase request for the Procurement report
+        // (one per quotation per day; sending again that day replaces it).
 
         Route::post('/quotations/{quotation}/materials-pdf', [ReportController::class, 'materialsPdf']);
+        Route::get('/quotations/{quotation}/purchase-requests', [PurchaseRequestController::class, 'index']);
+        Route::post('/quotations/{quotation}/purchase-requests', [PurchaseRequestController::class, 'store']);
+        Route::delete('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'destroy']);
 
 
         // ----------------------------
@@ -164,6 +170,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::get('/reports/quotation/{quotationId}', [ReportController::class, 'quotationReport']);
         Route::get('/reports/quotation-history', [ReportController::class, 'quotationHistoryReport']);
         Route::get('/reports/quotation-material', [ReportController::class, 'quotationMaterialReport']);
+        Route::get('/reports/procurement', [ReportController::class, 'procurementReport']);
 
 
         // ----------------------------

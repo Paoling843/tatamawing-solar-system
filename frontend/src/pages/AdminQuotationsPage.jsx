@@ -7,7 +7,7 @@ import { adminTokens, adminUi, adminStatus } from '../styles/adminTheme';
 import { whiteButton } from '../styles/theme';
 import LoadingState from '../components/LoadingState';
 import Badge from '../components/StatusPill';
-import ConfirmDialog from '../components/ConfirmDialog';
+import ApproveQuotationModal from '../components/ApproveQuotationModal';
 import Pagination from '../components/Pagination';
 import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
@@ -108,7 +108,6 @@ export default function AdminQuotationsPage() {
     const [rejectLoading, setRejectLoading] = useState(false);
     // Quotation waiting for the admin to confirm "Approve"
     const [approveTarget, setApproveTarget] = useState(null);
-    const [approveLoading, setApproveLoading] = useState(false);
 
     const fetchQuotations = useCallback(async () => {
         setLoading(true);
@@ -141,19 +140,10 @@ export default function AdminQuotationsPage() {
         setQuotations((prev) => prev.map((q) => (q.id === updated.id ? { ...q, ...updated } : q)));
     };
 
-    const handleApprove = async (quotation) => {
-        setActionError('');
-        setApproveLoading(true);
-        try {
-            const res = await api.post(`/admin/quotation-requests/${quotation.id}/approve`);
-            updateQuotation(res.data.quotation_request);
-            window.dispatchEvent(new Event('admin:counts-refresh'));
-        } catch (err) {
-            setActionError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
-        } finally {
-            setApproveLoading(false);
-            setApproveTarget(null);
-        }
+    // After the approve form (ApproveQuotationModal) succeeds
+    const handleApproved = (approved) => {
+        updateQuotation(approved);
+        setApproveTarget(null);
     };
 
     const openRejectModal = (quotation) => {
@@ -179,6 +169,8 @@ export default function AdminQuotationsPage() {
             updateQuotation(res.data.quotation_request);
             setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
+            // Rejected, but the customer wasn't emailed
+            if (res.data.email_sent === false) setActionError(`Quotation rejected. ${res.data.email_warning}`);
         } catch (err) {
             setRejectError(errorMessage(err, "Couldn't reject the quotation. Please try again."));
         } finally {
@@ -548,17 +540,14 @@ export default function AdminQuotationsPage() {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                open={!!approveTarget}
-                title="Approve this quotation?"
-                message={approveTarget
-                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget)}. The customer will see it as approved, and you can then schedule the installation. This can't be undone.`
-                    : ''}
-                confirmLabel={approveLoading ? 'Approving...' : 'Approve'}
-                busy={approveLoading}
-                onConfirm={() => handleApprove(approveTarget)}
-                onCancel={() => setApproveTarget(null)}
-            />
+            {approveTarget && (
+                <ApproveQuotationModal
+                    key={approveTarget.id}
+                    quotation={approveTarget}
+                    onClose={() => setApproveTarget(null)}
+                    onApproved={handleApproved}
+                />
+            )}
         </AdminLayout>
     );
 }

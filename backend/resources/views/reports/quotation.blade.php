@@ -232,6 +232,19 @@
             </table>
         </div>
 
+        {{-- The approved total isn't the estimate the customer saw: say so --}}
+        @php $priceChange = $quotation->priceChange(); @endphp
+        @if($priceChange !== null)
+        <div style="margin-top: 8px; padding: 10px 12px; background-color: #fdf6e3; border: 1px solid #ecdcae; border-left: 4px solid #f4c95d; font-size: 11px; color: #5b4a12;">
+            <strong>Price updated.</strong>
+            Your original estimate was PHP{{ number_format($quotation->estimatedCost(), 2) }}.
+            The approved total is PHP{{ number_format(abs($priceChange), 2) }} {{ $priceChange > 0 ? 'more' : 'less' }}.
+            @if($quotation->price_note)
+                <div style="margin-top: 4px;"><strong>Reason:</strong> {{ $quotation->price_note }}</div>
+            @endif
+        </div>
+        @endif
+
         {{-- Estimated Savings (quotations made before this feature have none) --}}
         @php
             $computation = $quotation->quotationRequest->solarComputation;

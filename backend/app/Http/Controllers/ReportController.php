@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMaterialsPdfRequest;
 use App\Models\ExternalInstallationRequest;
+use App\Models\PurchaseRequest;
 use App\Models\Quotation;
 use App\Models\QuotationRequest;
 use App\Models\QuoteSession;
 use App\Services\AnalyticsService;
 use App\Services\MessengerFallback;
+use App\Services\PurchaseRequestRecorder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -116,23 +118,26 @@ class ReportController extends Controller
     /**
      * The materials list for one approved quotation, as a PDF the admin sends
      * to a supplier on Messenger. The list comes from the admin's form
-     * (pre-filled from the quote, then edited); nothing is saved. It has no
-     * prices and no customer name or phone, only the delivery place.
+     * (pre-filled from the quote, then edited). Each download is saved as a
+     * purchase request for the Procurement report (PurchaseRequestRecorder).
+     * The PDF has no prices and no customer name or phone, only the
+     * delivery place.
      */
-    public function materialsPdf(StoreMaterialsPdfRequest $request, Quotation $quotation, MessengerFallback $messenger)
-    {
+    public function materialsPdf(
+        StoreMaterialsPdfRequest $request,
+        Quotation $quotation,
+        MessengerFallback $messenger,
+        PurchaseRequestRecorder $recorder,
+    ) {
         $quotation->load('quotationRequest.solarComputation');
         $quotationRequest = $quotation->quotationRequest;
-
-        if ($quotationRequest->status !== 'approved') {
-            return response()->json(['message' => 'Only approved quotations have a materials list.'], 422);
-        }
+        $recorder->ensureApproved($quotation);
 
         $reference = $quotationRequest->reference;
-        // TataMawing's own address, or the installation site
-        $deliverTo = $request->deliver_to === 'site'
-            ? ($quotationRequest->installation_address ?? 'Installation site (address to follow)')
-            : config('app.business_address');
+        $deliverTo = $recorder->deliveryAddress($quotation, $request->deliver_to);
+
+        // Keep a record of what was sent, for the Procurement report
+        $recorder->record($quotation, $request->validated(), $request->user()?->id);
 
         $pdf = Pdf::loadView('reports.materials-request', [
             'reference' => $reference,
@@ -149,7 +154,72 @@ class ReportController extends Controller
 
         $pdf->setPaper('a4', 'portrait');
 
-        return $pdf->download("TataMawing-materials-{$reference}.pdf");
+        return $pdf->download("TataMawing-purchase-request-{$reference}.pdf");
+    }
+
+    /**
+     * Every materials PDF (purchase request) sent to suppliers in the period:
+     * totals per material at the top, then each request with its items.
+     * Internal, so the customer's name is shown.
+     */
+    public function procurementReport(Request $request)
+    {
+        $days = $this->periodDays($request);
+
+        $purchaseRequests = PurchaseRequest::with([
+            'items',
+            'sentBy',
+            'quotation.quotationRequest.customer.user',
+            'quotation.quotationRequest.solarComputation',
+        ])
+        ->when($this->since($days), fn ($q, $since) => $q->where('created_at', '>=', $since))
+        ->latest()
+        ->latest('id')
+        ->get();
+
+        // Same order as the categories on the materials form
+        $categoryOrder = ['Inverter', 'Solar panel', 'Battery', 'Mounting', 'Protection', 'Wiring', 'Other'];
+
+        $totals = $purchaseRequests
+            ->flatMap->items
+            ->groupBy(fn ($item) => strtolower(($item->category ?? 'Other') . '|' . $item->material_name . '|' . ($item->unit ?? '')))
+            ->map(fn ($group) => [
+                'category' => $group->first()->category ?? 'Other',
+                'name' => $group->first()->material_name,
+                'unit' => $group->first()->unit,
+                'quantity' => $group->sum('quantity'),
+                'requests' => $group->pluck('purchase_request_id')->unique()->count(),
+            ])
+            ->sortBy([
+                fn ($a, $b) => $this->categoryRank($a['category'], $categoryOrder) <=> $this->categoryRank($b['category'], $categoryOrder),
+                fn ($a, $b) => strcasecmp($a['name'], $b['name']),
+            ])
+            ->values();
+
+        $pdf = Pdf::loadView('reports.procurement', [
+            'purchaseRequests' => $purchaseRequests,
+            'totals' => $totals,
+            'summary' => [
+                'requests' => $purchaseRequests->count(),
+                'projects' => $purchaseRequests->pluck('quotation_id')->unique()->count(),
+                'items' => $purchaseRequests->sum(fn ($pr) => $pr->items->sum('quantity')),
+                'to_site' => $purchaseRequests->where('deliver_to', 'site')->count(),
+            ],
+            'generatedAt' => now()->format('F d, Y h:i A'),
+            'periodLabel' => $this->periodLabel($days),
+        ]);
+
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->download('procurement-report.pdf');
+    }
+
+    // Unknown categories go last
+    private function categoryRank(string $category, array $order): int
+    {
+        $rank = array_search($category, $order, true);
+
+        return $rank === false ? count($order) : $rank;
     }
 
     /**

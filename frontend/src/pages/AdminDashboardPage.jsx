@@ -11,7 +11,7 @@ import LoadingState from '../components/LoadingState';
 import Badge from '../components/StatusPill';
 
 import ScheduleModal from '../components/ScheduleModal';
-import ConfirmDialog from '../components/ConfirmDialog';
+import ApproveQuotationModal from '../components/ApproveQuotationModal';
 import Pagination from '../components/Pagination';
 import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
@@ -43,7 +43,6 @@ export default function AdminDashboardPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [sort, setSort] = useState({ key: 'age', dir: 'desc' });
     const [selectedQuotation, setSelectedQuotation] = useState(null);
-    const [approvingQuotationId, setApprovingQuotationId] = useState(null);
     // Quotation waiting for the admin to confirm "Approve"
     const [approveTarget, setApproveTarget] = useState(null);
     // External request being confirmed; date, time, technician and notes are
@@ -227,28 +226,18 @@ export default function AdminDashboardPage() {
         setSelectedQuotation((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     };
 
-    const handleApprove = async (quotation) => {
-        if (approvingQuotationId) return;
-        setError('');
-        setApprovingQuotationId(quotation.id);
-        try {
-            const res = await api.post(`/admin/quotation-requests/${quotation.id}/approve`);
-            const approvedQuotation = res.data.quotation_request;
-            updateQuotationInState(approvedQuotation);
-            window.dispatchEvent(new Event('admin:counts-refresh'));
-            navigate('/admin/schedule', {
-                state: {
-                    scheduleQuotationId: approvedQuotation.quotation?.id,
-                    scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
-                    scheduleLocation: approvedQuotation.installation_address || approvedQuotation.customer?.install_location || '',
-                    scheduleReference: formatQuotationRef(approvedQuotation),
-                },
-            });
-        } catch (err) {
-            setError(errorMessage(err, "Couldn't approve the quotation. Please try again."));
-        } finally {
-            setApprovingQuotationId(null);
-        }
+    // After the approve form (ApproveQuotationModal) succeeds: go schedule it
+    const handleApproved = (approvedQuotation) => {
+        updateQuotationInState(approvedQuotation);
+        setApproveTarget(null);
+        navigate('/admin/schedule', {
+            state: {
+                scheduleQuotationId: approvedQuotation.quotation?.id,
+                scheduleCustomerName: approvedQuotation.customer?.user?.name || 'Customer',
+                scheduleLocation: approvedQuotation.installation_address || approvedQuotation.customer?.install_location || '',
+                scheduleReference: formatQuotationRef(approvedQuotation),
+            },
+        });
     };
 
     const openRejectQuotation = (quotation) => {
@@ -274,6 +263,8 @@ export default function AdminDashboardPage() {
             updateQuotationInState(res.data.quotation_request);
             setRejectingQuotation(null);
             window.dispatchEvent(new Event('admin:counts-refresh'));
+            // Rejected, but the customer wasn't emailed
+            if (res.data.email_sent === false) setError(`Quotation rejected. ${res.data.email_warning}`);
         } catch (err) {
             setRejectError(errorMessage(err, "Couldn't reject the quotation. Please try again."));
         } finally {
@@ -468,15 +459,10 @@ export default function AdminDashboardPage() {
                                                                 {isPending ? (
                                                                     <>
                                                                         <button
-                                                                            style={{
-                                                                                ...styles.queueApproveBtn,
-                                                                                opacity: approvingQuotationId ? 0.65 : 1,
-                                                                                cursor: approvingQuotationId ? 'not-allowed' : 'pointer',
-                                                                            }}
+                                                                            style={{ ...styles.queueApproveBtn, cursor: 'pointer' }}
                                                                             onClick={() => setApproveTarget(q)}
-                                                                            disabled={Boolean(approvingQuotationId)}
                                                                         >
-                                                                            {approvingQuotationId === q.id ? 'Approving...' : 'Approve & schedule'}
+                                                                            Approve & schedule
                                                                         </button>
                                                                         <button
                                                                             style={styles.queueRejectBtn}
@@ -1044,20 +1030,14 @@ export default function AdminDashboardPage() {
                 );
             })()}
 
-            <ConfirmDialog
-                open={!!approveTarget}
-                title="Approve this quotation?"
-                message={approveTarget
-                    ? `${approveTarget.customer?.user?.name || 'Customer'} · ${formatQuotationRef(approveTarget)}. The customer will see it as approved, and you'll go to the Schedule page to set the installation date. This can't be undone.`
-                    : ''}
-                confirmLabel={approvingQuotationId ? 'Approving...' : 'Approve'}
-                busy={Boolean(approvingQuotationId)}
-                onConfirm={async () => {
-                    await handleApprove(approveTarget);
-                    setApproveTarget(null);
-                }}
-                onCancel={() => setApproveTarget(null)}
-            />
+            {approveTarget && (
+                <ApproveQuotationModal
+                    key={approveTarget.id}
+                    quotation={approveTarget}
+                    onClose={() => setApproveTarget(null)}
+                    onApproved={handleApproved}
+                />
+            )}
 
             <style>{`.qt-row:hover { background-color: #fafbf9; }`}</style>
         </AdminLayout>

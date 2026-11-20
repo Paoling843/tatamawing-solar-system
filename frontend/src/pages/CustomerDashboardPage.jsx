@@ -122,6 +122,13 @@ export default function CustomerDashboardPage() {
             .join('-');
     };
 
+    // Approved at a total that isn't the estimate the customer saw
+    const priceWasUpdated = (qr) => {
+        const estimate = parseFloat(qr.solar_computation?.estimated_cost);
+        const total = parseFloat(qr.quotation?.total_amount);
+        return Number.isFinite(estimate) && Number.isFinite(total) && Math.abs(total - estimate) >= 0.01;
+    };
+
     const rowValue = (qr) =>
         parseFloat(qr.quotation?.total_amount || qr.solar_computation?.estimated_cost || 0);
 
@@ -338,6 +345,9 @@ export default function CustomerDashboardPage() {
                                                         color: qr.status === 'cancelled' ? '#7A837E' : INK,
                                                     }}>
                                                         {formatCurrency(qr.quotation?.total_amount || qr.solar_computation?.estimated_cost)}
+                                                        {priceWasUpdated(qr) && (
+                                                            <div style={{ ...styles.subText, color: '#8A6D1D', fontWeight: 600 }}>Price updated</div>
+                                                        )}
                                                     </td>
                                                     <td style={{ ...styles.td, paddingRight: '20px', textAlign: 'right' }}>
                                                         <button
