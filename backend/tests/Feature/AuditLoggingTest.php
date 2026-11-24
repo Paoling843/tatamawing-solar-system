@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\ExternalInstallationRequest;
 use App\Models\User;
+use App\Services\AuditLogger;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -119,5 +121,24 @@ class AuditLoggingTest extends TestCase
             'target_type' => ExternalInstallationRequest::class,
             'target_id' => $request->id,
         ]);
+
+        $log = AuditLog::where('action', 'external_installation_confirmed')->firstOrFail();
+        $this->assertSame(now()->addDay()->toDateString(), $log->metadata['scheduled_date']);
+    }
+
+    public function test_dates_in_audit_metadata_keep_the_local_day(): void
+    {
+        config(['app.timezone' => 'Asia/Manila']);
+        date_default_timezone_set('Asia/Manila');
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+
+        AuditLogger::log('test_action', 'Test.', null, null, null, [
+            'day' => Carbon::parse('2026-11-25'),
+            'nested' => ['when' => Carbon::parse('2026-11-25 07:30:00')],
+        ]);
+
+        $metadata = AuditLog::where('action', 'test_action')->firstOrFail()->metadata;
+        $this->assertSame('2026-11-25', $metadata['day']);
+        $this->assertSame('2026-11-25 07:30:00', $metadata['nested']['when']);
     }
 }

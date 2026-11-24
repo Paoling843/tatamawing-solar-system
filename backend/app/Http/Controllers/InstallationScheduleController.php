@@ -61,7 +61,7 @@ class InstallationScheduleController extends Controller
             InstallationSchedule::class,
             $schedule->id,
             'Installation Schedule ' . $schedule->reference,
-            ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
+            ['scheduled_date' => $schedule->scheduled_date?->toDateString(), 'scheduled_time' => $schedule->scheduled_time]
         );
 
         return response()->json([
@@ -136,7 +136,7 @@ class InstallationScheduleController extends Controller
             InstallationSchedule::class,
             $installationSchedule->id,
             'Installation Schedule ' . $installationSchedule->reference,
-            ['scheduled_date' => $installationSchedule->scheduled_date, 'scheduled_time' => $installationSchedule->scheduled_time]
+            ['scheduled_date' => $installationSchedule->scheduled_date?->toDateString(), 'scheduled_time' => $installationSchedule->scheduled_time]
         );
 
         return response()->json([
