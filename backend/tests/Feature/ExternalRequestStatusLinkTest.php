@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalInstallationRequest;
+use App\Models\InstallationSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -82,6 +83,22 @@ class ExternalRequestStatusLinkTest extends TestCase
         $this->getJson($this->apiLink($record))
             ->assertOk()
             ->assertJsonPath('preferred_installation_date', '2026-11-25');
+    }
+
+    public function test_the_status_page_shows_how_the_installation_is_going(): void
+    {
+        $record = $this->record();
+        $schedule = InstallationSchedule::create([
+            'scheduled_date' => now()->addWeek()->toDateString(),
+            'scheduled_time' => '09:00',
+            'status' => 'in_progress',
+        ]);
+        $record->update(['status' => 'confirmed', 'installation_schedule_id' => $schedule->id]);
+
+        $this->getJson($this->apiLink($record))
+            ->assertOk()
+            ->assertJsonPath('status', 'confirmed')
+            ->assertJsonPath('installation_status', 'in_progress');
     }
 
     public function test_a_changed_link_is_refused(): void

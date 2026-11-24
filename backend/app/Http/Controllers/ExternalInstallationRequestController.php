@@ -104,6 +104,7 @@ class ExternalInstallationRequestController extends Controller
             'submitted_at' => $externalInstallationRequest->created_at,
             'scheduled_date' => $schedule?->scheduled_date?->toDateString(),
             'scheduled_time' => $schedule?->scheduled_time,
+            'installation_status' => $schedule?->status,
         ]);
     }
 

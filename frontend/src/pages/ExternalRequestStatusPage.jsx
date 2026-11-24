@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { formatExternalRef } from '../utils/references';
-import { CalendarIcon, CheckCircleIcon, ClockIcon, XIcon } from '../components/Icons';
+import { CalendarIcon, CheckCircleIcon, ClockIcon, WrenchIcon, XIcon } from '../components/Icons';
 import { colors, typography } from '../styles/theme';
 
 // "Check request status" from the installation-request emails
@@ -35,7 +35,40 @@ const STATUS = {
         tint: colors.dangerTint,
         Icon: XIcon,
     },
+    // Once confirmed, the installation's own status takes over
+    // ('scheduled' keeps the "Confirmed" card above).
+    in_progress: {
+        label: 'In progress',
+        title: 'Your installation is in progress',
+        text: 'Our team is working on your installation. We will email you once it is finished.',
+        color: colors.orange,
+        tint: colors.orangeTint,
+        Icon: WrenchIcon,
+    },
+    delayed: {
+        label: 'Delayed',
+        title: 'Your installation is delayed',
+        text: 'Your installation has been delayed. We will email you the new schedule as soon as it is set.',
+        color: colors.danger,
+        tint: colors.dangerTint,
+        Icon: ClockIcon,
+    },
+    completed: {
+        label: 'Completed',
+        title: 'Your installation is complete',
+        text: 'Your solar system has been installed. Thank you for choosing TataMawing Solar!',
+        color: colors.success,
+        tint: colors.successTint,
+        Icon: CheckCircleIcon,
+    },
 };
+
+// A confirmed request shows how the installation is going; otherwise the request's own status.
+const statusKey = (request) => (
+    request?.status === 'confirmed' && STATUS[request.installation_status]
+        ? request.installation_status
+        : request?.status
+);
 
 // "2026-11-03" → "November 3, 2026" (date only, so no timezone shift)
 const longDate = (value) => {
@@ -74,7 +107,7 @@ export default function ExternalRequestStatusPage() {
         return () => { alive = false; };
     }, [id, expires, signature]);
 
-    const status = STATUS[request?.status] ?? STATUS.pending_review;
+    const status = STATUS[statusKey(request)] ?? STATUS.pending_review;
     const details = request ? [
         ['Request number', formatExternalRef(request)],
         ['Name', request.name],
