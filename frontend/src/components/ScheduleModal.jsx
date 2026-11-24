@@ -262,7 +262,7 @@ export default function ScheduleModal({
                                         onClick={() => set({ scheduled_date: c.key })}
                                         disabled={c.disabled}
                                         aria-pressed={c.selected}
-                                        aria-label={`${c.aria}${c.disabled ? ', unavailable' : ''}${c.booked ? `, ${c.booked} installation${c.booked === 1 ? '' : 's'} booked` : ''}`}
+                                        aria-label={`${c.aria}${c.disabled ? ', unavailable' : ''}${c.booked ? `, ${c.booked} installation${c.booked === 1 ? '' : 's'} scheduled` : ''}`}
                                         style={dayStyle(c)}
                                     >
                                         <span>{c.label}</span>
@@ -286,8 +286,8 @@ export default function ScheduleModal({
                                         <strong style={{ fontWeight: 600, color: '#111827' }}>{dayLong}</strong>
                                         {' · '}
                                         {dayBookings.length
-                                            ? `${dayBookings.length} installation${dayBookings.length === 1 ? '' : 's'} already booked`
-                                            : 'No other installations booked'}
+                                            ? `${dayBookings.length} installation${dayBookings.length === 1 ? '' : 's'} already scheduled`
+                                            : 'No other installations scheduled'}
                                     </>
                                 ) : (
                                     <span style={{ color: '#6b7280' }}>No date selected yet</span>

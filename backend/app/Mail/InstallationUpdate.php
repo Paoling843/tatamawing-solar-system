@@ -22,7 +22,7 @@ class InstallationUpdate extends Mailable
             'label' => 'SCHEDULED',
             'heading' => 'Your installation is scheduled',
             'subject' => 'Your installation is scheduled for :date',
-            'intro' => "Good news! We've booked your solar installation.",
+            'intro' => "Good news! We've scheduled your solar installation.",
             'outro' => 'Please make sure someone is home on the installation day. The technician will contact you before arriving. If the schedule doesn\'t work for you, message us so we can find another time.',
         ],
         'in_progress' => [

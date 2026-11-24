@@ -17,7 +17,7 @@ import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
 import { errorMessage, readBlobError } from '../utils/errorMessage';
 import { formatQuotationRef, formatExternalRef } from '../utils/references';
-import { priceLabel, systemTypeLabel, daysAgoLabel } from '../utils/quotationDisplay';
+import { priceLabel, systemTypeLabel, daysAgoLabel, formatDateTime, timeAgoLabel } from '../utils/quotationDisplay';
 
 import { CalendarIcon, CheckIcon, DownloadIcon, PlusIcon, XIcon } from '../components/Icons';
 
@@ -29,6 +29,9 @@ const NOW_MS = Date.now();
 
 export default function AdminDashboardPage() {
     const navigate = useNavigate();
+    // "5 hours ago" is counted from when this page was opened, not when the
+    // app first loaded (NOW_MS), so it stays right in a long-open tab
+    const [openedAtMs] = useState(() => Date.now());
 
     const [quotations, setQuotations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -446,13 +449,19 @@ export default function AdminDashboardPage() {
                                                         <td style={{ ...styles.queueTd, ...styles.queueValue }}>
                                                             {formatCurrency(getValue(q))}
                                                         </td>
+                                                        {/* When the request was made, and how long ago */}
                                                         <td style={{ ...styles.queueTd, whiteSpace: 'nowrap' }}>
-                                                            <span style={{
-                                                                ...styles.queueAgePill,
-                                                                ...(stale ? styles.queueAgePillDanger : {}),
-                                                            }}>
-                                                                {isPending ? `waiting ${age}d` : `approved ${age}d ago`}
-                                                            </span>
+                                                            <div style={styles.queueRequestedAt}>
+                                                                {q.created_at ? formatDateTime(q.created_at) : '—'}
+                                                            </div>
+                                                            {q.created_at && (
+                                                                <span style={{
+                                                                    ...styles.queueAgePill,
+                                                                    ...(stale ? styles.queueAgePillDanger : {}),
+                                                                }}>
+                                                                    {timeAgoLabel(q.created_at, openedAtMs)}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td style={{ ...styles.queueTd, paddingRight: '24px' }}>
                                                             <div style={styles.queueActions}>
@@ -1182,6 +1191,9 @@ const styles = {
         color: '#A4410E',
     },
     queueAgePillDanger: { backgroundColor: '#fbe4e1', color: '#a3261b' },
+    queueRequestedAt: {
+        fontSize: '13px', color: '#3A4440', fontVariantNumeric: 'tabular-nums', marginBottom: '4px',
+    },
     queueLocation: { color: '#3A4440' },
     queueValue: { textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap', color: adminTokens.ink },
     // Buttons wrap under each other instead of widening the table

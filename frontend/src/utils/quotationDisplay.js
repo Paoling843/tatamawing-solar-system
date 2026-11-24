@@ -24,3 +24,20 @@ export const daysAgoLabel = (days) => {
     if (days === 0) return 'Today';
     return `${days} day${days === 1 ? '' : 's'} ago`;
 };
+
+// "Nov 24, 2026, 9:41 AM" in the viewer's time zone
+export const formatDateTime = (dateStr) => new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+});
+
+// "Just now", "25 min ago", "5 hours ago", "3 days ago": minutes and hours
+// for the first day, then whole days
+export const timeAgoLabel = (dateStr, nowMs = Date.now()) => {
+    const minutes = Math.max(0, Math.floor((nowMs - new Date(dateStr).getTime()) / 60000));
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+};

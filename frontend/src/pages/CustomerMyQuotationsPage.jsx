@@ -111,8 +111,8 @@ function notice(qr, info) {
         return {
             title: 'Approved.',
             text: info.priceChange !== null
-                ? "This quotation is final. The price was updated from your estimate; see Price below. Your installation date will show under Installation schedule once it's booked."
-                : "This quotation is final. Your installation date will show under Installation schedule once it's booked.",
+                ? "This quotation is final. The price was updated from your estimate; see Price below. Your installation date will show under Installation schedule once it's scheduled."
+                : "This quotation is final. Your installation date will show under Installation schedule once it's scheduled.",
             bg: '#E3F1E8', fg: '#1F4D3A',
         };
     }
@@ -317,7 +317,7 @@ export default function CustomerMyQuotationsPage() {
                 open={Boolean(cancelTarget)}
                 title="Cancel this quotation request?"
                 message={cancelTarget?.quotation?.installation_schedule
-                    ? 'Your booked installation will be removed too. You can\'t undo this.'
+                    ? 'Your scheduled installation will be removed too. You can\'t undo this.'
                     : 'We\'ll stop working on it. You can\'t undo this.'}
                 confirmLabel={cancelling ? 'Cancelling…' : 'Cancel request'}
                 cancelLabel="Keep it"

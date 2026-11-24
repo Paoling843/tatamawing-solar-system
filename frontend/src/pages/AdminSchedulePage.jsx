@@ -17,6 +17,8 @@ import {
 } from '../components/Icons';
 import ScheduleModal from '../components/ScheduleModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Pagination from '../components/Pagination';
+import usePagination from '../hooks/usePagination';
 import api from '../api/axios';
 import { errorMessage } from '../utils/errorMessage';
 import { colors, statusColors, smallGreenButton, whiteButton } from '../styles/theme';
@@ -195,7 +197,7 @@ export default function AdminSchedulePage() {
             };
         }
 
-        // Booked straight for a customer, without a quotation
+        // Scheduled straight for a customer, without a quotation
         return { reference: null, rows: [['Contact number', formatPhone(schedule.customer?.contact_number)]] };
     };
 
@@ -205,6 +207,8 @@ export default function AdminSchedulePage() {
     const newSchedules = schedules
         .filter(isNew)
         .sort((a, b) => getDateKey(a).localeCompare(getDateKey(b)));
+    // 5 at a time, so a long list doesn't push "Selected day" off screen
+    const newPager = usePagination(newSchedules, 5);
 
     // From the "New" list: go to that day on the calendar and open it
     const showSchedule = (schedule) => {
@@ -497,7 +501,7 @@ export default function AdminSchedulePage() {
                 <EmptyState
                     icon={<CalendarIcon size={32} color={colors.textFaint} />}
                     title="No installation schedules yet"
-                    description="Schedules are created when approving quotations, or you can book one directly for a customer who already has their own materials."
+                    description="Schedules are created when approving quotations, or you can schedule one directly for a customer who already has their own materials."
                     actionLabel="Schedule Installation"
                     onAction={openCreateModal}
                 />
@@ -613,7 +617,7 @@ export default function AdminSchedulePage() {
                                     </h2>
                                 </div>
                                 <ul style={styles.newList}>
-                                    {newSchedules.map((s) => (
+                                    {newPager.pageItems.map((s) => (
                                         <li key={s.id}>
                                             <button type="button" onClick={() => showSchedule(s)} style={styles.newItem}>
                                                 <span style={styles.newDot} aria-hidden="true" />
@@ -627,6 +631,12 @@ export default function AdminSchedulePage() {
                                         </li>
                                     ))}
                                 </ul>
+                                <Pagination
+                                    {...newPager}
+                                    noun="new"
+                                    onChange={newPager.setPage}
+                                    style={styles.newPager}
+                                />
                             </aside>
                         )}
 
@@ -721,7 +731,7 @@ export default function AdminSchedulePage() {
                                 <span style={styles.modalFieldLabel}>Reference</span>
                                 {modalDetails.reference
                                     ? <span style={styles.refCode}>{modalDetails.reference}</span>
-                                    : <span style={styles.modalFieldValue}>Booked without a quotation</span>}
+                                        : <span style={styles.modalFieldValue}>Scheduled without a quotation</span>}
                             </div>
                             {modalDetails.rows.filter(([, value]) => value).map(([label, value]) => (
                                 <div key={label} style={styles.modalFieldRow}>
@@ -836,7 +846,7 @@ export default function AdminSchedulePage() {
 
             {showCreateModal && (
                 <ScheduleModal
-                    contextLabel={linkedQuotation ? 'For quotation' : 'New booking'}
+                    contextLabel={linkedQuotation ? 'For quotation' : 'New schedule'}
                     badge={linkedQuotation ? (linkedQuotation.reference || `#${linkedQuotation.id}`) : null}
                     schedules={schedules}
                     intro={linkedQuotation ? (
@@ -1135,6 +1145,8 @@ const styles = {
     },
     newPanel: { borderTop: `3px solid ${adminTokens.gold}` },
     newList: { listStyle: 'none', margin: 0, padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: '8px' },
+    // Sits under the list; the summary and buttons wrap in the narrow column
+    newPager: { padding: '0 20px 16px' },
     newItem: {
         display: 'flex',
         alignItems: 'center',
