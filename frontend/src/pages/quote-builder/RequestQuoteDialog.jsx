@@ -5,7 +5,7 @@ import { C, NUM, SANS, s } from './engineStyles';
 const PERKS = [
     'Track this quotation to signature',
     'Keep your appliance load on file',
-    'Book and reschedule your survey',
+    'Schedule and reschedule your survey',
 ];
 
 // Shown when a guest presses "Request quotation". Their inputs are already

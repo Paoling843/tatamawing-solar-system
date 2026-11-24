@@ -88,7 +88,7 @@ const COPY = {
         bullets: [
             'Save your appliance load and recompute anytime',
             'Track each quotation from request to signature',
-            'Book and reschedule the site survey',
+            'Schedule and reschedule the site survey',
             'Keep your last three bills in one place',
         ],
     },
