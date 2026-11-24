@@ -96,7 +96,7 @@ class ExternalInstallationRequestController extends Controller
             'reference' => $externalInstallationRequest->reference,
             'name' => $externalInstallationRequest->name,
             'address' => $externalInstallationRequest->address,
-            'preferred_installation_date' => $externalInstallationRequest->preferred_installation_date,
+            'preferred_installation_date' => $externalInstallationRequest->preferred_installation_date?->toDateString(),
             'other_company_name' => $externalInstallationRequest->other_company_name,
             'status' => $externalInstallationRequest->status,
             'rejection_reason' => $externalInstallationRequest->rejection_reason,
@@ -189,7 +189,7 @@ class ExternalInstallationRequestController extends Controller
             ExternalInstallationRequest::class,
             $updatedRequest->id,
             'External Installation Request ' . $updatedRequest->reference,
-            ['scheduled_date' => $schedule->scheduled_date, 'scheduled_time' => $schedule->scheduled_time]
+            ['scheduled_date' => $schedule->scheduled_date?->toDateString(), 'scheduled_time' => $schedule->scheduled_time]
         );
         try{
             Mail::to($updatedRequest->email)->send(new ExternalInstallationRequestStatusUpdated($updatedRequest));

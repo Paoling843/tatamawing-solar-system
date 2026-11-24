@@ -71,6 +71,19 @@ class ExternalRequestStatusLinkTest extends TestCase
             ->assertJsonPath('scheduled_date', null);
     }
 
+    public function test_the_preferred_date_is_the_same_day_the_customer_picked(): void
+    {
+        config(['app.timezone' => 'Asia/Manila']);
+        date_default_timezone_set('Asia/Manila');
+
+        $record = $this->record();
+        $record->update(['preferred_installation_date' => '2026-11-25']);
+
+        $this->getJson($this->apiLink($record))
+            ->assertOk()
+            ->assertJsonPath('preferred_installation_date', '2026-11-25');
+    }
+
     public function test_a_changed_link_is_refused(): void
     {
         $record = $this->record();
